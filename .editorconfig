@@ -185,7 +185,8 @@ resharper_wrap_linq_expressions = chop_always
 resharper_wrap_list_pattern = chop_if_long
 resharper_wrap_object_and_collection_initializer_style = wrap_if_long
 
-
+[**/Migrations/*.cs]
+generated_code = true
 
 
 
