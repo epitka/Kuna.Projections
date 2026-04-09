@@ -36,7 +36,9 @@ public abstract class TestContainerFixture
         await process.WaitForExitAsync();
 
         if (process.ExitCode == 0
-            || standardError.Contains("No such container", StringComparison.OrdinalIgnoreCase))
+            || standardError.Contains("No such container", StringComparison.OrdinalIgnoreCase)
+            || standardError.Contains("removal of container", StringComparison.OrdinalIgnoreCase)
+               && standardError.Contains("already in progress", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }

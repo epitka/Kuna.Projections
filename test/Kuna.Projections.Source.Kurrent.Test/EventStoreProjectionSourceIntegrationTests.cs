@@ -25,12 +25,7 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Return_Deserialized_Envelope_And_Filter_By_Stream_Prefix()
     {
-        if (!ShouldRunContainerTests())
-        {
-            return;
-        }
-
-        var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
+        var streamPrefix = $"ordersit{Guid.NewGuid():N}-";
         var matchingStream = $"{streamPrefix}{Guid.NewGuid():N}";
         var nonMatchingStream = $"other-it-{Guid.NewGuid():N}";
         var modelId = Guid.NewGuid();
@@ -86,13 +81,8 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Return_DeserializationFailed_And_Fallback_ModelId_From_StreamId()
     {
-        if (!ShouldRunContainerTests())
-        {
-            return;
-        }
-
         var modelId = Guid.NewGuid();
-        var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
+        var streamPrefix = "order-";
         var matchingStream = $"{streamPrefix}{modelId:D}";
 
         using var loggerFactory = LoggerFactory.Create(
@@ -132,11 +122,6 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Drop_Event_When_ModelId_Cannot_Be_Resolved()
     {
-        if (!ShouldRunContainerTests())
-        {
-            return;
-        }
-
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         var matchingStreamWithoutGuid = $"{streamPrefix}no-guid";
         using var loggerFactory = LoggerFactory.Create(
@@ -171,11 +156,6 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Resume_After_Checkpoint_Position_And_Not_Replay_Older_Events()
     {
-        if (!ShouldRunContainerTests())
-        {
-            return;
-        }
-
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         using var loggerFactory = LoggerFactory.Create(
             _ =>
@@ -241,11 +221,6 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Retry_When_EnvelopeFactory_Throws_Transiently_And_Event_Should_Be_Emitted()
     {
-        if (!ShouldRunContainerTests())
-        {
-            return;
-        }
-
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         var matchingStream = $"{streamPrefix}{Guid.NewGuid():N}";
         var modelId = Guid.NewGuid();
@@ -288,11 +263,6 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Fail_After_Retry_Limit_When_EnvelopeFactory_Always_Throws()
     {
-        if (!ShouldRunContainerTests())
-        {
-            return;
-        }
-
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         var matchingStream = $"{streamPrefix}{Guid.NewGuid():N}";
         using var loggerFactory = LoggerFactory.Create(
@@ -338,11 +308,6 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Stop_Cleanly_When_Cancelled_During_Retry_Delay()
     {
-        if (!ShouldRunContainerTests())
-        {
-            return;
-        }
-
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         var matchingStream = $"{streamPrefix}{Guid.NewGuid():N}";
         using var loggerFactory = LoggerFactory.Create(
@@ -400,11 +365,6 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Not_Replay_Already_Emitted_Events_After_Retry()
     {
-        if (!ShouldRunContainerTests())
-        {
-            return;
-        }
-
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         using var loggerFactory = LoggerFactory.Create(
             _ =>
@@ -463,11 +423,6 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Resume_After_Dropped_Event_When_Retry_Happens_On_Later_Event()
     {
-        if (!ShouldRunContainerTests())
-        {
-            return;
-        }
-
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         using var loggerFactory = LoggerFactory.Create(
             _ =>
@@ -519,15 +474,9 @@ public class EventStoreProjectionSourceIntegrationTests
         createCalls.ShouldBe(3);
     }
 
-    [Fact]
+    [Fact(Skip = "Restart stress test; excluded from the default test suite.")]
     public async Task ReadAll_Should_Continue_After_Kurrent_Container_Restart_Without_Replaying_Processed_Events()
     {
-        if (!ShouldRunContainerTests()
-            || !ShouldRunAutoReconnectStressTests())
-        {
-            return;
-        }
-
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         var matchingStream = $"{streamPrefix}{Guid.NewGuid():N}";
         using var loggerFactory = LoggerFactory.Create(
@@ -627,15 +576,9 @@ public class EventStoreProjectionSourceIntegrationTests
         names.Count(x => x == "before-restart").ShouldBe(1);
     }
 
-    [Fact]
+    [Fact(Skip = "Restart stress test; excluded from the default test suite.")]
     public async Task ReadAll_Should_Read_New_Events_After_Kurrent_Container_Restart_With_New_Source()
     {
-        if (!ShouldRunContainerTests()
-            || !ShouldRunRestartStressTests())
-        {
-            return;
-        }
-
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         var streamName = $"{streamPrefix}{Guid.NewGuid():N}";
         using var loggerFactory = LoggerFactory.Create(
@@ -681,15 +624,9 @@ public class EventStoreProjectionSourceIntegrationTests
         ((SourceIntegrationEvent)resumed[0].Event).Name.ShouldBe("after-restart");
     }
 
-    [Fact]
+    [Fact(Skip = "Auto-reconnect stress test; excluded from the default test suite.")]
     public async Task ReadAll_Should_Resume_Within_3s_After_MidStream_Connection_Drop_Without_Duplicates()
     {
-        if (!ShouldRunContainerTests()
-            || !ShouldRunAutoReconnectStressTests())
-        {
-            return;
-        }
-
         const int preDropEvents = 200;
         const int dropTriggerConsumed = 80;
         const int postReconnectEvents = 50;
@@ -948,32 +885,7 @@ public class EventStoreProjectionSourceIntegrationTests
     private static string GetKurrentContainerName()
     {
         var suffix = Environment.GetEnvironmentVariable("KUNA_TEST_CONTAINER_SUFFIX") ?? "default";
-        return $"kuna-kurrent-it-{suffix}";
-    }
-
-    private static bool ShouldRunContainerTests()
-    {
-        return string.Equals(
-            Environment.GetEnvironmentVariable("RUN_KURRENT_CONTAINER_TESTS"),
-            "1",
-            StringComparison.Ordinal);
-    }
-
-    private static bool ShouldRunRestartStressTests()
-    {
-        return string.Equals(
-            Environment.GetEnvironmentVariable("RUN_KURRENT_RESTART_TESTS"),
-            "1",
-            StringComparison.Ordinal);
-    }
-
-    private static bool ShouldRunAutoReconnectStressTests()
-    {
-        return ShouldRunRestartStressTests()
-               && string.Equals(
-                   Environment.GetEnvironmentVariable("RUN_KURRENT_AUTO_RECONNECT_STRESS_TESTS"),
-                   "1",
-                   StringComparison.Ordinal);
+        return $"kuna-kurrent-source-it-{suffix}";
     }
 
     private EventStoreEventSource<SourceIntegrationModel> CreateSource(
