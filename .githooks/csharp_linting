@@ -13,7 +13,7 @@ set -euo pipefail
 : "${PROFILE:=Reformat Code}" # from Kuna.Projections.sln.DotSettings
 
 # Build exclude pattern for cleanupcode --exclude option
-EXCLUDE_PATTERN="**/test/**;**/migrations/**;**/examples/**"
+EXCLUDE_PATTERN="**/migrations/**"
 
 # Speed-friendly env
 export DOTNET_NOLOGO=1 # Suppresses the .NET banner/logo that normally prints at the start of commands
