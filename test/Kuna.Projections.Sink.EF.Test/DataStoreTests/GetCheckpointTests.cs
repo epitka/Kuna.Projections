@@ -40,7 +40,7 @@ public class GetCheckpointTests : DataStoreIntegrationTestBase
     }
 
     [Fact]
-    public async Task MissingCheckpoint_Should_Throw()
+    public async Task MissingCheckpoint_Should_Return_Default_Start_Position()
     {
         if (!this.Fixture.IsEnabled)
         {
@@ -50,9 +50,9 @@ public class GetCheckpointTests : DataStoreIntegrationTestBase
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
 
-        var exception = await Should.ThrowAsync<Exception>(() => store.GetCheckpoint( CancellationToken.None));
+        var checkpoint = await store.GetCheckpoint(CancellationToken.None);
 
-        exception.Message.ShouldContain("Checkpoint not found");
-        exception.Message.ShouldContain("missing-model");
+        checkpoint.ModelName.ShouldBe(ProjectionModelName.For<TestModel>());
+        checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(0));
     }
 }
