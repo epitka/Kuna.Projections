@@ -35,6 +35,8 @@ public sealed class OrdersDbContext : SqlProjectionsDbContext
                 order.Property(i => i.FeeReferences).HasMaxLength(200);
                 order.Property(i => i.CaptureReferences).HasMaxLength(200);
                 order.Property(i => i.VoidReferences).HasMaxLength(200);
+                order.Property(i => i.CreatedDateTime).HasPrecision(6);
+                order.Property(i => i.CompletedDateTime).HasPrecision(6);
 
                 order.Property(i => i.Amount).HasColumnType("decimal(18,2)");
                 order.Property(i => i.TaxAmount).HasColumnType("decimal(18,2)");
@@ -57,6 +59,7 @@ public sealed class OrdersDbContext : SqlProjectionsDbContext
                 refund.Property(x => x.MerchantRefundFeeRebate).HasColumnType("decimal(18,2)");
                 refund.Property(x => x.MerchantRefundTransactionFee).HasColumnType("decimal(18,2)");
                 refund.Property(x => x.MerchantRefundFeeRebatePercent).HasColumnType("decimal(18,2)");
+                refund.Property(x => x.RefundDateTime).HasPrecision(6);
             });
 
         base.OnModelCreating(modelBuilder);
