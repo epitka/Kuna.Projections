@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+# c#_code_formatting: run JetBrains ReSharper CleanupCode on changed C# files.
+# If formatting changes happen, create a NEW commit (not amend).
+# Default: abort current push so the next push includes the new commit.
+# Optional: set PREPUSH_AUTOPUSH=1 to auto re-push once.
+
+set -euo pipefail
+
+# ---------- config ----------
+: "${FORMAT_COMMIT_MESSAGE:=auto applied formatting changes by jb tool}"
+: "${PREPUSH_AUTOPUSH:=0}"   # 0 = abort push (default), 1 = auto re-push once
+# Cleanup profile
+: "${PROFILE:=Reformat Code}" # from PeakPass.All.sln.DotSettings
+
+# Build exclude pattern for cleanupcode --exclude option
+EXCLUDE_PATTERN="**/test/**;**/migrations/**;**/examples/**"
+
+# Speed-friendly env
+export DOTNET_NOLOGO=1 # Suppresses the .NET banner/logo that normally prints at the start of commands
+
+GREEN=$'\033[0;32m'; YELLOW=$'\033[1;33m'; RED=$'\033[0;31m'; NC=$'\033[0m'
+
+echo -e "${GREEN}=== C# Code Formatting: ReSharper CleanupCode for files being pushed ===${NC}"
+
+# Resolve both the git root and the project directory that owns this hook.
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "${HOOK_DIR}/.." && pwd)"
+PROJECT_RELATIVE_PATH="${PROJECT_DIR#${REPO_ROOT}/}"
+cd "$REPO_ROOT"
+
+# Make sure the repo-local jb tool is available from the project-local manifest.
+dotnet tool restore --tool-manifest "${PROJECT_DIR}/.config/dotnet-tools.json" > /dev/null
+
+# Read ref updates from stdin: <local_ref> <local_sha> <remote_ref> <remote_sha>
+updates_tmp="$(mktemp)"
+cat - > "$updates_tmp" || true
+
+# Collect C# files across all ref updates
+files_tmp="$(mktemp)"
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ -z "${local_ref:-}" ]] && continue
+  # deletions have all-zero local_sha
+  if [[ "${local_sha:-}" == 0000000000000000000000000000000000000000 ]]; then
+    continue
+  fi
+
+  # Determine the target branch to compare against
+  target_branch=""
+  if git rev-parse --verify origin/master >/dev/null 2>&1; then
+    target_branch="origin/master"
+  elif git rev-parse --verify origin/main >/dev/null 2>&1; then
+    target_branch="origin/main"
+  fi
+
+  # Get all changed C# files in this branch from where it diverged
+  if [[ -n "$target_branch" ]]; then
+    # Use three-dot syntax to get all commits in local_sha not in target_branch
+    { git diff --name-only --diff-filter=ACM "${target_branch}...${local_sha}" \
+        | grep -E '\.cs$' || true; } >> "$files_tmp"
+  fi
+
+done < "$updates_tmp"
+rm -f "$updates_tmp"
+
+# Dedupe
+files_dedup_tmp="$(mktemp)"
+if [ -s "$files_tmp" ]; then
+  sort -u "$files_tmp" > "$files_dedup_tmp"
+fi
+rm -f "$files_tmp"
+
+if ! [ -s "$files_dedup_tmp" ]; then
+  echo "No C# changes are being pushed. Skipping."
+  rm -f "$files_dedup_tmp"
+  exit 0
+fi
+
+# Build file list
+FILES_TO_CLEAN=()
+CLEANUP_INCLUDE_FILES=()
+while IFS= read -r line; do
+  [[ -z "$line" ]] && continue
+  [[ "$line" != "${PROJECT_RELATIVE_PATH}/"* ]] && continue
+  # only include files that still exist in the working tree
+  if [[ -f "$line" ]]; then
+    FILES_TO_CLEAN+=("$line")
+    CLEANUP_INCLUDE_FILES+=("${line#${PROJECT_RELATIVE_PATH}/}")
+  fi
+done < "$files_dedup_tmp"
+rm -f "$files_dedup_tmp"
+
+if (( ${#FILES_TO_CLEAN[@]} == 0 )); then
+  echo "No C# files to format."
+  exit 0
+fi
+
+echo -e "${GREEN}Running ReSharper CleanupCode on ${#FILES_TO_CLEAN[@]} file(s) using profile: ${PROFILE}${NC}"
+
+# Run cleanup on just these files using the project-local settings and solution.
+SETTINGS_FILE="${PROJECT_DIR}/Kuna.Projections.sln.DotSettings"
+SOLUTION_FILE="${PROJECT_DIR}/Kuna.Projections.sln"
+
+# Build semicolon-separated include list for --include option
+INCLUDE_LIST=$(printf "%s;" "${CLEANUP_INCLUDE_FILES[@]}")
+INCLUDE_LIST="${INCLUDE_LIST%;}"  # Remove trailing semicolon
+
+# Run cleanupcode with --include and solution file
+set +e
+( 
+  cd "$PROJECT_DIR"
+  dotnet tool run jb -- cleanupcode \
+    --profile="$PROFILE" \
+    --disable-settings-layers=GlobalAll,GlobalPerProduct,SolutionPersonal \
+    --settings="$SETTINGS_FILE" \
+    --exclude="$EXCLUDE_PATTERN" \
+    --include="$INCLUDE_LIST" \
+    --verbosity=ERROR \
+    --no-build \
+    "$SOLUTION_FILE"
+)
+exit_code=$?
+set -e
+
+# Exit code 0 = success, 3 = no items to cleanup (also success)
+# Any other exit code is a real error
+if [[ $exit_code -ne 0 && $exit_code -ne 3 ]]; then
+  echo -e "${RED}CleanupCode failed with exit code $exit_code${NC}"
+  exit $exit_code
+fi
+
+changed=0
+
+# Stage only files that actually changed
+for file in "${FILES_TO_CLEAN[@]}"; do
+  if [[ -f "$file" ]] && ! git diff --quiet -- "$file"; then
+    git add -- "$file"
+    changed=1
+    echo -e "${YELLOW}Re-staged formatted file:${NC} $file"
+  fi
+done
+
+# If formatting changed anything, handle according to PREPUSH_AUTOPUSH setting
+if [[ "$changed" -eq 1 ]]; then
+  if [[ "${PREPUSH_AUTOPUSH}" == "1" && "${__PREPUSH_RERUN:-0}" != "1" ]]; then
+    # Auto-push mode: create commit and push automatically
+    if ! git diff --cached --quiet -- "${FILES_TO_CLEAN[@]}"; then
+      git commit --no-verify -m "$FORMAT_COMMIT_MESSAGE"
+      echo -e "${GREEN}Created auto-format commit.${NC}"
+    fi
+    echo -e "${YELLOW}Auto re-pushing with the new commit…${NC}"
+    __PREPUSH_RERUN=1 PREPUSH_AUTOPUSH=0 git push "$@"
+    exit $?
+  else
+    # Manual mode: stage changes but let developer commit
+    # Pre-populate commit message for next commit
+    echo "$FORMAT_COMMIT_MESSAGE" > "$REPO_ROOT/.git/COMMIT_EDITMSG"
+
+    echo -e "${RED}Push aborted:${NC} formatting changes have been staged."
+    echo -e "${YELLOW}Run 'git commit' to review and commit.${NC}"
+    exit 1
+  fi
+fi
+
+echo -e "${GREEN}No formatting changes needed. Proceeding with push.${NC}"
+exit 0

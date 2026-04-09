@@ -1,0 +1,40 @@
+name: Release Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release-packages:
+    name: Release Packages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build and pack libraries
+        run: ./scripts/pack-libraries.sh
+
+      - name: Summarize release packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Generated packages for tag ${{ github.ref_name }}:" >> "$GITHUB_STEP_SUMMARY"
+          ls -1 artifacts/packages/*.nupkg | xargs -n 1 basename >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages-${{ github.ref_name }}
+          path: |
+            artifacts/packages/*.nupkg
+            artifacts/packages/*.snupkg

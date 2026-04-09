@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# pre-push: delegate to c#_code_formatting executable
+
+set -euo pipefail
+
+# Get the directory where this script is located
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Call the c#_code_formatting executable, passing through stdin and all arguments
+"${HOOK_DIR}/csharp_linting" "$@"
