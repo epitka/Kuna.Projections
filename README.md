@@ -1,5 +1,7 @@
 # Kuna.Projections
 
+<img src="artifacts/logo.png" alt="Kuna.Projections logo" width="320" />
+
 `Kuna.Projections` is a high-throughput .NET projection pipeline that turns event streams into read models aka materialized views aka projections. It separates projection behavior from event ingestion, persistence, checkpointing, batching, and failure tracking so application code can stay focused on read-model logic.
 
 The architecture is built around independent seams with explicit bounds. Event ingestion, projection execution, and persistence do not have to run as one synchronous loop. Each part can move independently within configured limits for buffering, batching, cache size, and checkpoint advancement.
@@ -183,4 +185,3 @@ Example:
 ```
 
 Full configuration details live in [docs/configuration-reference.md](docs/configuration-reference.md).
-
