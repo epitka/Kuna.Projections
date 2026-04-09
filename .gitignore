@@ -3,6 +3,7 @@
 # .NET build output
 **/bin/
 **/obj/
+*bin\\*
 
 # Rider / JetBrains
 .idea/
