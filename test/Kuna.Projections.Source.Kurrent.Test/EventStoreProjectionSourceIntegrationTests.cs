@@ -878,6 +878,11 @@ public class EventStoreProjectionSourceIntegrationTests
         {
             await foreach (var envelope in source.ReadAll(startPosition, cts.Token))
             {
+                if (envelope.Event is ProjectionCaughtUpEvent)
+                {
+                    continue;
+                }
+
                 result.Add(envelope);
 
                 if (result.Count >= expectedCount)
