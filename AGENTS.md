@@ -14,7 +14,7 @@ When Codex runs `dotnet` commands locally in this repository, include `-p:UseSha
 Do not add or propagate `-p:UseSharedCompilation=false` into repository files such as CI workflows, scripts, Makefiles, or documentation unless the user explicitly asks for that repository behavior change.
 Run benchmark tests in `Release` mode only (never `Debug`).
 
-- `dotnet restore -p:UseSharedCompilation=false Kuna.Eventsourcing.Projections.sln` - restore packages
+- `dotnet restore -p:UseSharedCompilation=false Kuna.Projections.sln` - restore packages
 - `dotnet build -c Release -p:UseSharedCompilation=false Kuna.Projections.sln` - build all projects
 - `dotnet test -c Release --no-restore -p:UseSharedCompilation=false` - run all tests
 - `dotnet test -c Release --no-restore -p:UseSharedCompilation=false test/Kuna.Projections.Core.Test/Kuna.Projections.Core.Test.csproj` - run core pipeline tests only
