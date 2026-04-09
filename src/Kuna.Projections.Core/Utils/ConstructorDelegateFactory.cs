@@ -24,6 +24,11 @@ public static class ConstructorDelegateFactory
                          .Compile();
     }
 
+    public static Func<TSource>? DefaultConstructor<TSource>()
+    {
+        return CreateConstructorFunc<Func<TSource>>();
+    }
+
     extension(Type source)
     {
         public Func<object[], object>? CreateConstructorFunc(params Type[] ctorParams)
@@ -83,10 +88,5 @@ public static class ConstructorDelegateFactory
         {
             return source.CreateConstructorFunc<Func<object>>();
         }
-    }
-
-    public static Func<TSource>? DefaultConstructor<TSource>()
-    {
-        return CreateConstructorFunc<Func<TSource>>();
     }
 }

@@ -29,8 +29,8 @@ public class SqlProjectionsDbContext
         : base(options)
     {
         this.ProjectionSchema = string.IsNullOrWhiteSpace(projectionSchema)
-            ? throw new ArgumentException("Projection schema must be provided.", nameof(projectionSchema))
-            : projectionSchema;
+                                    ? throw new ArgumentException("Projection schema must be provided.", nameof(projectionSchema))
+                                    : projectionSchema;
     }
 
     public DbSet<ProjectionFailure> ProjectionFailures { get; set; }

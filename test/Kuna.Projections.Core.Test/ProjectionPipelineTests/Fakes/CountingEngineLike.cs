@@ -4,7 +4,9 @@ using Kuna.Projections.Core.Test.Shared.Models;
 
 namespace Kuna.Projections.Core.Test.ProjectionPipelineTests.Fakes;
 
-internal sealed class CountingEngineLike : IModelStateTransformer<EventEnvelope, ItemModel>, IProjectionLifecycle
+internal sealed class CountingEngineLike
+    : IModelStateTransformer<EventEnvelope, ItemModel>,
+      IProjectionLifecycle
 {
     private int transformedCount;
 

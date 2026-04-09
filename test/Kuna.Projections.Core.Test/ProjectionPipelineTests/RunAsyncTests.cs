@@ -102,6 +102,7 @@ public class RunAsyncTests
             new InMemoryModelStateCache<ItemModel>(settings),
             settings,
             loggerFactory.CreateLogger<ProjectionEngine<ItemModel>>());
+
         var sink = new CapturingSink();
         var checkpointStore = new InMemoryCheckpointStore();
         var pipeline = new ProjectionPipeline<EventEnvelope, ItemModel>(
@@ -149,7 +150,11 @@ public class RunAsyncTests
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
 
-        var loggerFactory = LoggerFactory.Create(builder => { });
+        var loggerFactory = LoggerFactory.Create(
+            builder =>
+            {
+            });
+
         var sharedCache = new InMemoryModelStateCache<ItemModel>(settings);
         var engine = new ProjectionEngine<ItemModel>(
             projectionFactory,
@@ -157,6 +162,7 @@ public class RunAsyncTests
             sharedCache,
             settings,
             loggerFactory.CreateLogger<ProjectionEngine<ItemModel>>());
+
         var sink = new CapturingBlockingSink();
         var checkpointStore = new InMemoryCheckpointStore();
         var pipeline = new ProjectionPipeline<EventEnvelope, ItemModel>(
@@ -217,6 +223,7 @@ public class RunAsyncTests
                  createCalls++;
                  return new ValueTask<Projection<ItemModel>?>(new ItemProjection(modelId));
              });
+
         A.CallTo(() => factory.Create(modelId, true, A<CancellationToken>._))
          .ReturnsLazily(
              _ =>
@@ -230,13 +237,18 @@ public class RunAsyncTests
 
         var source = new FastSource(CreateItemProjectionEnvelopes(modelId));
         var sharedCache = new InMemoryModelStateCache<ItemModel>(settings);
-        var loggerFactory = LoggerFactory.Create(builder => { });
+        var loggerFactory = LoggerFactory.Create(
+            builder =>
+            {
+            });
+
         var engine = new ProjectionEngine<ItemModel>(
             factory,
             handler,
             sharedCache,
             settings,
             loggerFactory.CreateLogger<ProjectionEngine<ItemModel>>());
+
         var sink = new CapturingBlockingSink();
         var checkpointStore = new InMemoryCheckpointStore();
         var pipeline = new ProjectionPipeline<EventEnvelope, ItemModel>(

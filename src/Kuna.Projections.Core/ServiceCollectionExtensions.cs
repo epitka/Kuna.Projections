@@ -26,6 +26,7 @@ public static class ServiceCollectionExtensions
                     startupTasks,
                     pipelines);
             });
+
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<ProjectionHostWorker>());
 
         return services;
@@ -76,11 +77,12 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<ICheckpointStore>(),
                 sp.GetRequiredService<IProjectionSettings<TState>>(),
                 sp.GetRequiredService<ILogger<ProjectionPipeline<EventEnvelope, TState>>>()));
+
         services.AddSingleton<IProjectionPipeline>(sp => sp.GetRequiredService<IProjectionPipeline<TState>>());
 
         var resolvedSettingsSectionName = string.IsNullOrWhiteSpace(settingsSectionName)
-            ? ProjectionSettingsSection.Name
-            : settingsSectionName;
+                                              ? ProjectionSettingsSection.Name
+                                              : settingsSectionName;
 
         var projectionSettings = configuration
                                  .GetRequiredSection(resolvedSettingsSectionName)

@@ -5,7 +5,10 @@ namespace Kuna.Projections.Abstractions.Models;
 /// </summary>
 public static class ProjectionModelName
 {
-    public static string For<TModel>() => For(typeof(TModel));
+    public static string For<TModel>()
+    {
+        return For(typeof(TModel));
+    }
 
     public static string For(Type modelType)
     {

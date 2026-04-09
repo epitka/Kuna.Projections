@@ -97,7 +97,10 @@ public class ServiceCollectionExtensionsTests
 
         services.AddEventStoreSource<TestModel>(
             configuration,
-            LoggerFactory.Create(_ => { }),
+            LoggerFactory.Create(
+                _ =>
+                {
+                }),
             "OrdersProjection:EventStoreSource");
 
         using var provider = services.BuildServiceProvider();

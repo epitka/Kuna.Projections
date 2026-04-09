@@ -16,7 +16,12 @@ public class ClearAllTests
         var factory = A.Fake<IProjectionFactory<ItemModel>>();
         var handler = A.Fake<IProjectionFailureHandler<ItemModel>>();
         var settings = CreateSettings(skipStateNotFoundFailure: false);
-        var logger = LoggerFactory.Create(builder => { }).CreateLogger<ProjectionEngine<ItemModel>>();
+        var logger = LoggerFactory.Create(
+                                      builder =>
+                                      {
+                                      })
+                                  .CreateLogger<ProjectionEngine<ItemModel>>();
+
         var modelId = Guid.NewGuid();
 
         A.CallTo(() => factory.Create(modelId, true, A<CancellationToken>._))

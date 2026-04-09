@@ -32,8 +32,8 @@ public static class ServiceCollectionExtensions
         var assembly = Assembly.GetEntryAssembly();
         var exportedTypes = assembly!.GetExportedTypes();
         var resolvedSettingsSectionPath = string.IsNullOrWhiteSpace(settingsSectionPath)
-            ? EventStoreSourceSettings.SectionName
-            : settingsSectionPath;
+                                              ? EventStoreSourceSettings.SectionName
+                                              : settingsSectionPath;
 
         services.AddSingleton<IEventDeserializer>(
             provider =>

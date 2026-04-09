@@ -19,6 +19,7 @@ public class CreateFromModelTests
                            .With(x => x.Id, modelId)
                            .With(x => x.Name, "restored")
                            .Create();
+
         var stateStore = A.Fake<IModelStateStore<ItemModel>>(opt => opt.Strict());
 
         var factory = new ProjectionFactory<ItemModel>(
@@ -40,6 +41,7 @@ public class CreateFromModelTests
         var model = fixture.Build<ItemModel>()
                            .With(x => x.Id, modelId)
                            .Create();
+
         var stateStore = A.Fake<IModelStateStore<ItemModel>>(opt => opt.Strict());
 
         var factory = new ProjectionFactory<ItemModel>(

@@ -14,8 +14,8 @@ public class ProjectionFailureConfiguration : IEntityTypeConfiguration<Projectio
     public ProjectionFailureConfiguration(string schema)
     {
         this.schema = string.IsNullOrWhiteSpace(schema)
-            ? throw new ArgumentException("Projection schema must be provided.", nameof(schema))
-            : schema;
+                          ? throw new ArgumentException("Projection schema must be provided.", nameof(schema))
+                          : schema;
     }
 
     /// <summary>

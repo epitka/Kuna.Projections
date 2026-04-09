@@ -6,7 +6,6 @@ namespace Kuna.Projections.Core.Test.ConstructorDelegateFactoryTests;
 
 public class DefaultConstructorTests
 {
-
     [Fact]
     public void Type_Should_Return_Null_When_No_Parameterless_Ctor()
     {
@@ -14,7 +13,6 @@ public class DefaultConstructorTests
 
         ctor.ShouldBeNull();
     }
-
 
     private sealed class NoDefaultCtorClass
     {

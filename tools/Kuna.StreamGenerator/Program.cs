@@ -188,6 +188,19 @@ namespace Kuna.StreamGenerator
             }
         }
 
+        private static Address CreateAddress(Faker faker)
+        {
+            return new Address
+            {
+                Line1 = faker.Address.StreetAddress(),
+                Line2 = faker.Random.Bool(0.3f) ? faker.Address.SecondaryAddress() : null,
+                City = faker.Address.City(),
+                State = faker.Address.State(),
+                PostCode = faker.Address.ZipCode(),
+                Country = faker.Address.CountryCode(),
+            };
+        }
+
         private int ChoosePhaseForRemaining(int remaining)
         {
             var candidates = new List<int>(4);
@@ -370,19 +383,6 @@ namespace Kuna.StreamGenerator
             var totalSeconds = (int)(now - windowStart).TotalSeconds;
             var offsetSeconds = this.random.Next(0, Math.Max(totalSeconds, 1));
             return windowStart.AddSeconds(offsetSeconds);
-        }
-
-        private static Address CreateAddress(Faker faker)
-        {
-            return new Address
-            {
-                Line1 = faker.Address.StreetAddress(),
-                Line2 = faker.Random.Bool(0.3f) ? faker.Address.SecondaryAddress() : null,
-                City = faker.Address.City(),
-                State = faker.Address.State(),
-                PostCode = faker.Address.ZipCode(),
-                Country = faker.Address.CountryCode(),
-            };
         }
 
         private List<InterleavedEvent> Interleave(IReadOnlyList<OrderPlan> orders)

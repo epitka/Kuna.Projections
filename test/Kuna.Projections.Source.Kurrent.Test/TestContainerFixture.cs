@@ -10,6 +10,7 @@ public abstract class TestContainerFixture
     {
         TestcontainersSettings.ResourceReaperEnabled =
             !string.Equals(Environment.GetEnvironmentVariable("KUNA_TEST_DISABLE_RESOURCE_REAPER"), "1", StringComparison.Ordinal);
+
         this.Configure();
     }
 

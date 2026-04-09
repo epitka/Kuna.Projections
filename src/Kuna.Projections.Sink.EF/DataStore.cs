@@ -151,11 +151,12 @@ public class DataStore<TState, TDataContext>
 
         var checkPoint = await transientContext!.CheckPoint.FindAsync([this.modelName,], cancellationToken);
 
-        return checkPoint ?? new CheckPoint
-        {
-            ModelName = this.modelName,
-            GlobalEventPosition = new GlobalEventPosition(0),
-        };
+        return checkPoint
+               ?? new CheckPoint
+               {
+                   ModelName = this.modelName,
+                   GlobalEventPosition = new GlobalEventPosition(0),
+               };
     }
 
     /// <summary>
