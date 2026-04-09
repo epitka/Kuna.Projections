@@ -2,6 +2,8 @@
 
 This guide covers the shortest credible path to a running projection: select or create a host project, define a read model, define events, write a projection, register the libraries, and run the pipeline.
 
+If you prefer to start from a copyable baseline instead of assembling the pieces manually, use [../templates/Kuna.Projections.Worker.Template](../templates/Kuna.Projections.Worker.Template) and rename the sample types.
+
 The examples use:
 
 - `Kuna.Projections.Core`
