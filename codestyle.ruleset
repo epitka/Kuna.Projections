@@ -1,0 +1,49 @@
+<RuleSet Name="Rules for StyleCop.Analyzers" Description="Code analysis rules for StyleCop.Analyzers.csproj." ToolsVersion="15.0">
+
+    <Rules AnalyzerId="Microsoft.CodeAnalysis.CSharp" RuleNamespace="Microsoft.CodeAnalysis.CSharp">
+        <Rule Id="CS1591" Action="None" />        <!-- CS1591: Missing XML comment for publicly visible type or member -->
+    </Rules>
+
+    <Rules AnalyzerId="StyleCop.Analyzers" RuleNamespace="StyleCop.Analyzers">
+        <Rule Id="SA0001" Action="None"/>         <!-- SA0001: XML comment analysis is disabled due to project configuration settings. -->
+        <Rule Id="SA1200" Action="Error"/>         <!-- SA1200: All using directives must be placed outside of the namespace, based on stylecop.json setting. -->
+        <Rule Id="SA1600" Action="None"/>         <!-- SA1600: Elements should be documented -->
+        <Rule Id="SA1601" Action="None"/>         <!-- SA1601: Partial elements should be documented -->
+        <Rule Id="SA1604" Action="None"/>         <!-- SA1604: Element documentation must have summary -->
+        <Rule Id="SA1633" Action="None"/>         <!-- SA1633: File should have header -->
+        <Rule Id="SA1612" Action="None"/>         <!-- SA1612: Property documentation must have value -->
+        <Rule Id="SA1614" Action="None"/>         <!-- SA1614: Element parameter documentation must have text -->
+        <Rule Id="SA1615" Action="None"/>         <!-- SA1615: Element return value documentation must have text -->
+        <Rule Id="SA1616" Action="None"/>         <!-- SA1616: Element return value documentation must have text -->
+        <Rule Id="SA1618" Action="None"/>         <!-- SA1618: Generic type parameters should be documented -->
+        <Rule Id="SA1622" Action="None"/>         <!-- SA1622: Return value must be documented -->
+        <Rule Id="SA1627" Action="None"/>         <!-- SA1627: Documentation text should end with a period -->
+        <Rule Id="SA1620" Action="None"/>         <!-- SA1620: Property summary documentation must match accessors -->
+        <Rule Id="SA1623" Action="None"/>         <!-- SA1623: Property summary documentation must match accessors -->
+        <Rule Id="SA1624" Action="None"/>         <!-- SA1624: Property summary documentation must omit set accessor that does not exist -->
+        <Rule Id="SA1642" Action="None"/>         <!-- SA1642: Constructor summary documentation must begin with standard text -->
+        <Rule Id="SA1602" Action="None"/>         <!-- SA1602: Enumeration items should be documented -->
+        <Rule Id="SA1025" Action="None"/>         <!-- SA1025: Code must not contain multiple whitespace in a row -->
+        <Rule Id="SA1000" Action="None"/>         <!-- SA1000: Keywords should be spaced correctly -->
+        <Rule Id="SA1629" Action="None"/>         <!-- SA1629: Documentation text should end with a period -->
+        <Rule Id="SA1129" Action="Info" />        <!-- SA1129: Do not use default value type constructor -->
+        <Rule Id="SA1009" Action="None"/>         <!-- SA1009: Closing parenthesis should be spaced correctly -->
+        <Rule Id="SA1206" Action="None"/>         <!-- SA1206: Declaration keywords should follow order -->
+        <Rule Id="SA1010" Action="None"/>         <!-- SA1010: Opening square brackets should be spaced correctly -->
+        <Rule Id="SA1606" Action="None"/>         <!-- SA1606: Element documentation must have summary -->
+        <Rule Id="SA1011" Action="None"/>         <!-- SA1011: Closing square brackets should be spaced correctly -->
+        <Rule Id="SA1401" Action="None"/>         <!-- SA1401: Fields should be private -->
+        <Rule Id="SA1611" Action="None"/>         <!-- SA1611: Element parameters should be documented -->
+        <Rule Id="SA1313" Action="None"/>         <!-- SA1313: Parameter names should begin with lower-case letter -->
+        <Rule Id="SA1004" Action="None"/>        <!-- SA1004: Documentation should have standard text -->
+        <Rule Id="SA1625" Action="None"/>        <!-- SA1625: Element documentation should not be copied and pasted -->
+        <Rule Id="SA1310" Action="None"/>        <!-- SA1310: Field names should not contain underscore -->
+        <Rule Id="SA1109" Action="None"/>        <!-- SA1109: Block statements should not contain embedded comments -->
+        <Rule Id="SA1500" Action="None"/>        <!-- SA1500: Curly brackets for multi-line statements should not share line -->
+        <Rule Id="SA1108" Action="None"/>        <!-- SA1108: Block statements should not contain embedded comments -->
+        <Rule Id="SA1513" Action="None"/>        <!-- SA1513: Closing brace should be followed by blank line -->
+        <Rule Id="SA1404" Action="None"/>        <!-- SA1404: Code analysis suppression must have justification -->
+        <Rule Id="SA1402" Action="Info" />        <!-- SA1402: File may only contain a single type -->
+        <Rule Id="SA1649" Action="Info" />        <!-- SA1649: File name should match first type name -->
+    </Rules>
+</RuleSet>

@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Bogus" Version="35.6.3" />
+    <PackageReference Include="KurrentDB.Client" Version="1.3.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Testcontainers.KurrentDb" Version="4.10.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="../../stylecop.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Kuna.Projections.Abstractions\Kuna.Projections.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\examples\Kuna.Projections.Worker.Kurrent_EF.Example\OrdersProjection\Events\OrderAbandondedEvent.cs">
+      <Link>Events\OrderAbandondedEvent.cs</Link>
+    </Compile>
+    <Compile Include="..\..\examples\Kuna.Projections.Worker.Kurrent_EF.Example\OrdersProjection\Events\OrderConfirmedEvent.cs">
+      <Link>Events\OrderConfirmedEvent.cs</Link>
+    </Compile>
+    <Compile Include="..\..\examples\Kuna.Projections.Worker.Kurrent_EF.Example\OrdersProjection\Events\OrderCreatedEvent.cs">
+      <Link>Events\OrderCreatedEvent.cs</Link>
+    </Compile>
+    <Compile Include="..\..\examples\Kuna.Projections.Worker.Kurrent_EF.Example\OrdersProjection\Events\OrderMerchantFeesCalculatedEvent.cs">
+      <Link>Events\OrderMerchantFeesCalculatedEvent.cs</Link>
+    </Compile>
+    <Compile Include="..\..\examples\Kuna.Projections.Worker.Kurrent_EF.Example\OrdersProjection\Events\RefundAppliedToOrderEvent.cs">
+      <Link>Events\RefundAppliedToOrderEvent.cs</Link>
+    </Compile>
+    <Compile Include="..\..\examples\Kuna.Projections.Worker.Kurrent_EF.Example\OrdersProjection\Model\Address.cs">
+      <Link>Models\Address.cs</Link>
+    </Compile>
+  </ItemGroup>
+
+</Project>

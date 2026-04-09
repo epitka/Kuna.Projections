@@ -1,0 +1,50 @@
+name: Container Tests
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  container-tests:
+    name: Container Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RUN_EF_CONTAINER_TESTS: 1
+      RUN_KURRENT_CONTAINER_TESTS: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore Kuna.Projections.sln
+
+      - name: Build
+        run: dotnet build -c Release --no-restore Kuna.Projections.sln
+
+      - name: Create results directory
+        run: mkdir -p artifacts/test-results
+
+      - name: Run sink EF container tests
+        run: dotnet test -c Release --no-build test/Kuna.Projections.Sink.EF.Test/Kuna.Projections.Sink.EF.Test.csproj --logger "trx;LogFileName=Kuna.Projections.Sink.EF.Test.trx" --results-directory artifacts/test-results
+
+      - name: Run source Kurrent container tests
+        run: dotnet test -c Release --no-build test/Kuna.Projections.Source.Kurrent.Test/Kuna.Projections.Source.Kurrent.Test.csproj --logger "trx;LogFileName=Kuna.Projections.Source.Kurrent.Test.trx" --results-directory artifacts/test-results
+
+      - name: Run integration tests
+        run: dotnet test -c Release --no-build test/Kuna.Projections.Integration.Test/Kuna.Projections.Integration.Test.csproj --logger "trx;LogFileName=Kuna.Projections.Integration.Test.trx" --results-directory artifacts/test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-test-results
+          path: artifacts/test-results/*.trx

@@ -1,0 +1,14 @@
+/plans/
+
+# .NET build output
+**/bin/
+**/obj/
+
+# Rider / JetBrains
+.idea/
+
+# User-specific files
+*.user
+
+# macOS
+.DS_Store

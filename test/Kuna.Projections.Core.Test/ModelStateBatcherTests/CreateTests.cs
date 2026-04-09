@@ -1,0 +1,240 @@
+using Akka.Actor;
+using Akka.Streams;
+using Akka.Streams.Dsl;
+using Kuna.Projections.Abstractions.Messages;
+using Kuna.Projections.Abstractions.Models;
+using Kuna.Projections.Core.Test.Shared.Models;
+using Shouldly;
+using Xunit;
+
+namespace Kuna.Projections.Core.Test.ModelStateBatcherTests;
+
+public class CreateTests
+{
+    [Fact]
+    public async Task Create_Should_Batch_Immediately_For_ImmediateModelFlush()
+    {
+        var changes = new[]
+        {
+            Helpers.CreateChange(Guid.NewGuid(), 1),
+            Helpers.CreateChange(Guid.NewGuid(), 2),
+        };
+
+        var batches = await Helpers.RunBatcher(
+                          new TestProjectionSettings { CatchUpPersistenceStrategy = PersistenceStrategy.ImmediateModelFlush, },
+                          changes);
+
+        batches.Count.ShouldBe(2);
+        batches[0].Changes.Count.ShouldBe(1);
+        batches[1].Changes.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Create_Should_Group_By_Model_Count_And_Keep_Last_Change_Per_Model()
+    {
+        var modelId = Guid.NewGuid();
+        var changes = new[]
+        {
+            Helpers.CreateChange(modelId, 10, "v1"),
+            Helpers.CreateChange(Guid.NewGuid(), 11, "other"),
+            Helpers.CreateChange(modelId, 12, "v2"),
+        };
+
+        var batches = await Helpers.RunBatcher(
+                          new TestProjectionSettings
+                          {
+                              CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
+                              MaxPendingProjectionsCount = 10,
+                          },
+                          changes);
+
+        batches.Count.ShouldBe(1);
+        batches[0].Changes.Count.ShouldBe(2);
+        batches[0].GlobalEventPosition.ShouldBe(new GlobalEventPosition(12));
+        batches[0].Changes.ShouldContain(x => x.Model.Id == modelId && x.Model.Name == "v2");
+        batches[0].Changes.ShouldNotContain(x => x.Model.Id == modelId && x.Model.Name == "v1");
+    }
+
+    [Fact]
+    public async Task Create_Should_Filter_Invalid_NewAndDelete_Changes()
+    {
+        var validId = Guid.NewGuid();
+        var changes = new[]
+        {
+            new ModelState<ItemModel>(
+                new ItemModel
+                {
+                    Id = Guid.NewGuid(),
+                    EventNumber = 1,
+                    GlobalEventPosition = new GlobalEventPosition(1),
+                },
+                IsNew: true,
+                ShouldDelete: true,
+                GlobalEventPosition: new GlobalEventPosition(1),
+                ExpectedEventNumber: null),
+            Helpers.CreateChange(validId, 2, "keep"),
+        };
+
+        var batches = await Helpers.RunBatcher(
+                          new TestProjectionSettings { CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching, MaxPendingProjectionsCount = 10, },
+                          changes);
+
+        batches.Count.ShouldBe(1);
+        batches[0].Changes.Count.ShouldBe(1);
+        batches[0].Changes[0].Model.Id.ShouldBe(validId);
+        batches[0].GlobalEventPosition.ShouldBe(new GlobalEventPosition(2));
+    }
+
+    [Fact]
+    public async Task Create_Should_Flush_By_Time_For_TimeBasedBatching()
+    {
+        var changes = new[]
+        {
+            Helpers.CreateChange(Guid.NewGuid(), 1),
+            Helpers.CreateChange(Guid.NewGuid(), 2),
+            Helpers.CreateChange(Guid.NewGuid(), 3),
+        };
+
+        using var system = ActorSystem.Create("projection-batcher-time-test");
+        var materializer = ActorMaterializer.Create(system);
+
+        var settings = new TestProjectionSettings
+        {
+            CatchUpPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
+            MaxPendingProjectionsCount = 100,
+            LiveProcessingFlushDelay = 5,
+        };
+
+        var result = await Source.From(changes)
+                                 .Throttle(1, TimeSpan.FromMilliseconds(25), 1, ThrottleMode.Shaping)
+                                 .Via(ModelStateBatcher.Create<ItemModel>(settings))
+                                 .RunWith(Sink.Seq<ModelStatesBatch<ItemModel>>(), materializer);
+
+        result.Count.ShouldBe(3);
+        result.All(x => x.Changes.Count == 1).ShouldBeTrue();
+
+        materializer.Shutdown();
+        await system.Terminate();
+    }
+
+    [Fact]
+    public async Task Create_Should_Normalize_NonPositive_ModelCountBatch_Size_To_One()
+    {
+        var changes = new[]
+        {
+            Helpers.CreateChange(Guid.NewGuid(), 1),
+            Helpers.CreateChange(Guid.NewGuid(), 2),
+        };
+
+        var batches = await Helpers.RunBatcher(
+                          new TestProjectionSettings
+                          {
+                              CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
+                              MaxPendingProjectionsCount = 0,
+                          },
+                          changes);
+
+        batches.Count.ShouldBe(2);
+        batches.All(x => x.Changes.Count == 1).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Create_Should_Normalize_NonPositive_TimeBatch_Settings()
+    {
+        var changes = new[]
+        {
+            Helpers.CreateChange(Guid.NewGuid(), 1),
+            Helpers.CreateChange(Guid.NewGuid(), 2),
+        };
+
+        using var system = ActorSystem.Create("projection-batcher-time-normalize-test");
+        var materializer = ActorMaterializer.Create(system);
+
+        var settings = new TestProjectionSettings
+        {
+            CatchUpPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
+            MaxPendingProjectionsCount = 0,
+            LiveProcessingFlushDelay = 0,
+        };
+
+        var result = await Source.From(changes)
+                                 .Throttle(1, TimeSpan.FromMilliseconds(5), 1, ThrottleMode.Shaping)
+                                 .Via(ModelStateBatcher.Create<ItemModel>(settings))
+                                 .RunWith(Sink.Seq<ModelStatesBatch<ItemModel>>(), materializer);
+
+        result.Count.ShouldBe(2);
+        result.All(x => x.Changes.Count == 1).ShouldBeTrue();
+
+        materializer.Shutdown();
+        await system.Terminate();
+    }
+
+    [Fact]
+    public async Task Create_Should_Use_ModelCountBatching_For_Unknown_Strategy()
+    {
+        var changes = new[]
+        {
+            Helpers.CreateChange(Guid.NewGuid(), 1),
+            Helpers.CreateChange(Guid.NewGuid(), 2),
+        };
+
+        var batches = await Helpers.RunBatcher(
+                          new TestProjectionSettings
+                          {
+                              CatchUpPersistenceStrategy = (PersistenceStrategy)int.MaxValue,
+                              MaxPendingProjectionsCount = 10,
+                          },
+                          changes);
+
+        batches.Count.ShouldBe(1);
+        batches[0].Changes.Count.ShouldBe(2);
+        batches[0].GlobalEventPosition.ShouldBe(new GlobalEventPosition(2));
+    }
+
+    [Fact]
+    public async Task Create_Should_Emit_Empty_Batch_When_All_Changes_Are_Filtered_Out()
+    {
+        var changes = new[]
+        {
+            new ModelState<ItemModel>(
+                new ItemModel
+                {
+                    Id = Guid.NewGuid(),
+                    EventNumber = 1,
+                    GlobalEventPosition = new GlobalEventPosition(1),
+                },
+                IsNew: true,
+                ShouldDelete: true,
+                GlobalEventPosition: new GlobalEventPosition(1),
+                ExpectedEventNumber: null),
+        };
+
+        var batches = await Helpers.RunBatcher(
+                          new TestProjectionSettings
+                          {
+                              CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
+                              MaxPendingProjectionsCount = 10,
+                          },
+                          changes);
+
+        batches.Count.ShouldBe(1);
+        batches[0].Changes.ShouldBeEmpty();
+        batches[0].GlobalEventPosition.ShouldBe(default(GlobalEventPosition));
+    }
+
+    [Fact]
+    public async Task Create_Should_Not_Emit_Batches_For_Empty_Source()
+    {
+        var changes = Array.Empty<ModelState<ItemModel>>();
+
+        var batches = await Helpers.RunBatcher(
+                          new TestProjectionSettings
+                          {
+                              CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
+                              MaxPendingProjectionsCount = 10,
+                          },
+                          changes);
+
+        batches.ShouldBeEmpty();
+    }
+}
