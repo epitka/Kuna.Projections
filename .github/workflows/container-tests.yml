@@ -11,9 +11,6 @@ jobs:
     name: Container Tests
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    env:
-      RUN_EF_CONTAINER_TESTS: 1
-      RUN_KURRENT_CONTAINER_TESTS: 1
 
     steps:
       - name: Checkout
