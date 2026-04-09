@@ -212,7 +212,8 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                          throw new ArgumentOutOfRangeException();
                                  }
 
-                                 if (inFlightFlushTask == null && ShouldFlush(signal.Kind))
+                                 if (inFlightFlushTask == null
+                                     && ShouldFlush(signal.Kind))
                                  {
                                      inFlightFlushTask = StartFlush(cancellationToken);
                                  }
@@ -369,6 +370,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
             var idsToClear = flushResult.FlushedModelIds
                                         .Where(modelId => !pendingChangesByModel.ContainsKey(modelId))
                                         .ToArray();
+
             var retainedIds = flushResult.FlushedModelIds
                                          .Where(modelId => pendingChangesByModel.ContainsKey(modelId))
                                          .ToArray();

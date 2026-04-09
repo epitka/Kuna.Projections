@@ -51,5 +51,4 @@ public class CreateConstructorFuncTests
     }
 
     private readonly record struct ValueThing(int Value);
-
 }

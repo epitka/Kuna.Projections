@@ -280,7 +280,8 @@ public sealed class OrdersReplayConsistencyDiagnostics
 
     private static bool AddressSnapshotsEqual(AddressSnapshot? left, AddressSnapshot? right)
     {
-        if (left is null || right is null)
+        if (left is null
+            || right is null)
         {
             return left is null && right is null;
         }
@@ -295,7 +296,8 @@ public sealed class OrdersReplayConsistencyDiagnostics
 
     private static bool CustomerSnapshotsEqual(CustomerSnapshot? left, CustomerSnapshot? right)
     {
-        if (left is null || right is null)
+        if (left is null
+            || right is null)
         {
             return left is null && right is null;
         }

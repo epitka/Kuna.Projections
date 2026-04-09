@@ -219,7 +219,7 @@ public class CreateTests
 
         batches.Count.ShouldBe(1);
         batches[0].Changes.ShouldBeEmpty();
-        batches[0].GlobalEventPosition.ShouldBe(default(GlobalEventPosition));
+        batches[0].GlobalEventPosition.ShouldBe(default);
     }
 
     [Fact]

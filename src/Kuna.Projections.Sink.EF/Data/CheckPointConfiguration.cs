@@ -14,8 +14,8 @@ public class CheckPointConfiguration : IEntityTypeConfiguration<CheckPoint>
     public CheckPointConfiguration(string schema)
     {
         this.schema = string.IsNullOrWhiteSpace(schema)
-            ? throw new ArgumentException("Projection schema must be provided.", nameof(schema))
-            : schema;
+                          ? throw new ArgumentException("Projection schema must be provided.", nameof(schema))
+                          : schema;
     }
 
     /// <summary>

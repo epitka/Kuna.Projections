@@ -33,7 +33,7 @@ public class GetCheckpointTests : DataStoreIntegrationTestBase
             },
             CancellationToken.None);
 
-        var checkpoint = await store.GetCheckpoint( CancellationToken.None);
+        var checkpoint = await store.GetCheckpoint(CancellationToken.None);
 
         checkpoint.ModelName.ShouldBe(ProjectionModelName.For<TestModel>());
         checkpoint.GlobalEventPosition.ShouldBe(position);

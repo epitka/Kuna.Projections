@@ -41,11 +41,6 @@ public abstract class Projection<TState>
 
     public TState My => this.ModelState;
 
-    internal void SetModelState(TState model)
-    {
-        this.ModelState =  model;
-    }
-
     /// <summary>
     /// Handles an event whose source type name could not be mapped to a
     /// registered CLR event type for this projection.
@@ -90,6 +85,11 @@ public abstract class Projection<TState>
         this.PostProcess(msg);
 
         return true;
+    }
+
+    internal void SetModelState(TState model)
+    {
+        this.ModelState = model;
     }
 
     /// <summary>

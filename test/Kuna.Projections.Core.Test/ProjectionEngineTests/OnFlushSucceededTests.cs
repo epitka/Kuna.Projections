@@ -19,7 +19,12 @@ public class OnFlushSucceededTests
         var factory = A.Fake<IProjectionFactory<ItemModel>>();
         var handler = A.Fake<IProjectionFailureHandler<ItemModel>>(opt => opt.Strict());
         var settings = CreateSettings();
-        var logger = LoggerFactory.Create(builder => { }).CreateLogger<ProjectionEngine<ItemModel>>();
+        var logger = LoggerFactory.Create(
+                                      builder =>
+                                      {
+                                      })
+                                  .CreateLogger<ProjectionEngine<ItemModel>>();
+
         var modelId = Guid.NewGuid();
         var createCalls = 0;
 
@@ -54,8 +59,8 @@ public class OnFlushSucceededTests
         lifecycle.OnFlushSucceeded([modelId,], [modelId,]);
 
         var second = await transformer.Transform(
-            CreateEnvelope(modelId, 1, new ItemUpdated { Id = modelId, Name = "second", TypeName = nameof(ItemUpdated), }),
-            CancellationToken.None);
+                         CreateEnvelope(modelId, 1, new ItemUpdated { Id = modelId, Name = "second", TypeName = nameof(ItemUpdated), }),
+                         CancellationToken.None);
 
         second.ShouldNotBeNull();
         createCalls.ShouldBe(2);
@@ -68,7 +73,12 @@ public class OnFlushSucceededTests
         var factory = A.Fake<IProjectionFactory<ItemModel>>();
         var handler = A.Fake<IProjectionFailureHandler<ItemModel>>();
         var settings = CreateSettings(skipStateNotFoundFailure: false);
-        var logger = LoggerFactory.Create(builder => { }).CreateLogger<ProjectionEngine<ItemModel>>();
+        var logger = LoggerFactory.Create(
+                                      builder =>
+                                      {
+                                      })
+                                  .CreateLogger<ProjectionEngine<ItemModel>>();
+
         var modelId = Guid.NewGuid();
 
         A.CallTo(() => factory.Create(modelId, true, A<CancellationToken>._))
