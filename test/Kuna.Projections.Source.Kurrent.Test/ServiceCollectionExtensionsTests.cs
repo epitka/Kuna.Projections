@@ -13,12 +13,14 @@ namespace Kuna.Projections.Pipeline.Kurrent.Test;
 public class ServiceCollectionExtensionsTests
 {
     [Fact]
-    public void AddEventStoreSource_Should_Throw_When_EventStore_ConnectionString_Is_Missing()
+    public void AddKurrentDBSource_Should_Throw_When_EventStore_ConnectionString_Is_Missing()
     {
         var services = new ServiceCollection();
-        var configuration = BuildConfiguration(new Dictionary<string, string?>());
+        var values = CreateValidSettings();
+        values.Remove("ConnectionStrings:KurrentDB");
+        var configuration = BuildConfiguration(values);
 
-        services.AddEventStoreSource<TestModel>(
+        services.AddKurrentDBSource<TestModel>(
             configuration,
             LoggerFactory.Create(
                 _ =>
@@ -28,18 +30,19 @@ public class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
 
         var ex = Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<KurrentDB.Client.KurrentDBClient>());
-        ex.Message.ShouldContain("EventStore");
+        ex.Message.ShouldContain("KurrentDB");
     }
 
     [Fact]
-    public void AddEventStoreSource_Should_Throw_When_StreamName_Is_Missing()
+    public void AddKurrentDBSource_Should_Throw_When_KurrentDb_Section_Is_Missing()
     {
         var services = new ServiceCollection();
         var values = CreateValidSettings();
-        values["EventStoreSource:EventsBoundedCapacity"] = "4096";
+        values.Remove("Projections:KurrentDB:Filter:Kind");
+        values.Remove("Projections:KurrentDB:Filter:Prefixes:0");
         var configuration = BuildConfiguration(values);
 
-        services.AddEventStoreSource<TestModel>(
+        services.AddKurrentDBSource<TestModel>(
             configuration,
             LoggerFactory.Create(
                 _ =>
@@ -48,21 +51,21 @@ public class ServiceCollectionExtensionsTests
 
         using var provider = services.BuildServiceProvider();
 
-        var ex = Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<EventStoreSourceSettings>());
-        ex.Message.ShouldContain("StreamName");
+        var ex = Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<KurrentDbSourceSettings>());
+        ex.Message.ShouldContain("Projections:KurrentDB");
     }
 
     [Fact]
-    public void AddEventStoreSource_Should_Register_Services()
+    public void AddKurrentDBSource_Should_Register_Services()
     {
         var services = new ServiceCollection();
         services.AddLogging();
         var values = CreateValidSettings();
-        values["EventStoreSource:StreamName"] = "orders";
+        values["Projections:KurrentDB:Filter:Prefixes:0"] = "orders-";
 
         var configuration = BuildConfiguration(values);
 
-        services.AddEventStoreSource<TestModel>(
+        services.AddKurrentDBSource<TestModel>(
             configuration,
             LoggerFactory.Create(
                 _ =>
@@ -76,12 +79,13 @@ public class ServiceCollectionExtensionsTests
         provider.GetRequiredService<IEventEnvelopeFactory>().ShouldNotBeNull();
         provider.GetRequiredService<IEventSource<EventEnvelope>>().ShouldNotBeNull();
 
-        var sourceSettings = provider.GetRequiredService<EventStoreSourceSettings>();
-        sourceSettings.StreamName.ShouldBe("orders");
+        var sourceSettings = provider.GetRequiredService<KurrentDbSourceSettings>();
+        sourceSettings.Filter.Kind.ShouldBe(KurrentDbFilterKind.StreamPrefix);
+        sourceSettings.Filter.Prefixes.Single().ShouldBe("orders-");
     }
 
     [Fact]
-    public void AddEventStoreSource_Should_Bind_Settings_From_Custom_Section_When_Provided()
+    public void AddKurrentDBSource_Should_Bind_Settings_From_Custom_Section_When_Provided()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -89,26 +93,26 @@ public class ServiceCollectionExtensionsTests
         var configuration = BuildConfiguration(
             new Dictionary<string, string?>
             {
-                ["ConnectionStrings:EventStore"] = "esdb://localhost:2113?tls=false",
-                ["OrdersProjection:EventStoreSource:StreamName"] = "order-",
-                ["OrdersProjection:EventStoreSource:EventsBoundedCapacity"] = "4096",
-                ["OrdersProjection:EventStoreSource:ModelIdResolutionStrategy"] = "RequireStreamId",
+                ["ConnectionStrings:KurrentDB"] = "esdb://localhost:2113?tls=false",
+                ["OrdersProjection:Source"] = "KurrentDB",
+                ["OrdersProjection:ReadBufferCapacity"] = "4096",
+                ["OrdersProjection:ModelIdResolutionStrategy"] = "RequireStreamId",
+                ["OrdersProjection:KurrentDB:Filter:Kind"] = "StreamPrefix",
+                ["OrdersProjection:KurrentDB:Filter:Prefixes:0"] = "order-",
             });
 
-        services.AddEventStoreSource<TestModel>(
+        services.AddKurrentDBSource<TestModel>(
             configuration,
-            LoggerFactory.Create(
-                _ =>
-                {
-                }),
-            "OrdersProjection:EventStoreSource");
+            LoggerFactory.Create(_ => { }),
+            "OrdersProjection");
 
         using var provider = services.BuildServiceProvider();
 
-        var sourceSettings = provider.GetRequiredService<EventStoreSourceSettings>();
-        sourceSettings.StreamName.ShouldBe("order-");
-        sourceSettings.EventsBoundedCapacity.ShouldBe(4096);
-        sourceSettings.ModelIdResolutionStrategy.ShouldBe(ModelIdResolutionStrategy.RequireStreamId);
+        var sourceSettings = provider.GetRequiredService<KurrentDbSourceSettings>();
+        sourceSettings.Filter.Kind.ShouldBe(KurrentDbFilterKind.StreamPrefix);
+        sourceSettings.Filter.Prefixes.Single().ShouldBe("order-");
+        provider.GetRequiredService<IProjectionSettings<TestModel>>().ReadBufferCapacity.ShouldBe(4096);
+        provider.GetRequiredService<IProjectionSettings<TestModel>>().ModelIdResolutionStrategy.ShouldBe(ModelIdResolutionStrategy.RequireStreamId);
     }
 
     private static IConfiguration BuildConfiguration(IDictionary<string, string?> values)
@@ -122,7 +126,12 @@ public class ServiceCollectionExtensionsTests
     {
         return new Dictionary<string, string?>
         {
-            ["ConnectionStrings:EventStore"] = "esdb://localhost:2113?tls=false",
+            ["ConnectionStrings:KurrentDB"] = "esdb://localhost:2113?tls=false",
+            ["Projections:Source"] = "KurrentDB",
+            ["Projections:ReadBufferCapacity"] = "12000",
+            ["Projections:ModelIdResolutionStrategy"] = "PreferAttribute",
+            ["Projections:KurrentDB:Filter:Kind"] = "StreamPrefix",
+            ["Projections:KurrentDB:Filter:Prefixes:0"] = "orders-",
         };
     }
 

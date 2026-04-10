@@ -5,73 +5,59 @@ This document describes the library-owned configuration surface used by:
 - `Kuna.Projections.Core`
 - `Kuna.Projections.Source.Kurrent`
 
-It also calls out one important distinction:
+It also explains where the library stops and application-specific configuration begins.
 
-- some applications layer their own projection-specific configuration on top of the shared library settings
+For the shortest path to a running worker, see [quickstart.md](quickstart.md). For the broader package and runtime map, see [overview.md](overview.md).
 
-For the shortest getting-started path, see [quickstart.md](quickstart.md).
+## Configuration Shape
 
-## Overview
-
-The main configuration sections are:
+The libraries expect:
 
 - `ConnectionStrings`
-- one projection settings section per registered projection
+- one projection section per registered projection
+- a nested `KurrentDB` section inside each projection section when `Source` is `KurrentDB`
 
-In the runnable example, that section is:
-
-- `OrdersProjection`
-
-That section is bound to `ProjectionSettings` by application code via `AddProjection<TState>(..., settingsSectionName: "OrdersProjection")`.
-
-## Example
-
-```json
-{
-  "ConnectionStrings": {
-    "PostgreSql": "Host=localhost;Port=5432;Database=orders_projection;Username=postgres;Password=postgres",
-    "EventStore": "esdb://admin:changeit@localhost:2113?tls=false"
-  },
-  "OrdersProjection": {
-    "CatchUpPersistenceStrategy": "ModelCountBatching",
-    "LiveProcessingPersistenceStrategy": "TimeBasedBatching",
-    "MaxPendingProjectionsCount": 100,
-    "LiveProcessingFlushDelay": 1000,
-    "SkipStateNotFoundFailure": false,
-    "InFlightModelCacheMinEntries": 10000,
-    "InFlightModelCacheCapacityMultiplier": 3,
-    "EventVersionCheckStrategy": "Consecutive",
-    "EventStoreSource": {
-      "StreamName": "order-",
-      "EventsBoundedCapacity": 12000,
-      "ModelIdResolutionStrategy": "RequireStreamId"
-    }
-  }
-}
-```
-
-This matches the shape used in [appsettings.json](../examples/Kuna.Projections.Worker.Kurrent_EF.Example/appsettings.json).
+The projection section name is application-defined. The tables below list the full settings surface and the default values used by the library types when a setting is present in the section but not explicitly overridden.
 
 ## `ConnectionStrings`
 
-The libraries expect these connection string names:
+The library-owned names are:
 
-- `EventStore`
-  Used by `AddEventStoreSource<TState>(...)` to create the current KurrentDB-backed source implementation.
+- `KurrentDB`
+  Required by `AddKurrentDBSource<TState>(...)`.
 - `PostgreSql`
-  Not required by the library directly, but typically used by the application when constructing the EF `DbContext` that will be passed into `AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)`.
+  Not required by the library itself, but used by the example application when constructing the EF Core `DbContext`.
 
-If `EventStore` is missing or empty, source registration fails.
+If `KurrentDB` is missing or empty, `AddKurrentDBSource<TState>(...)` throws during registration.
 
-## Projection Settings Section
+## Projection Section
 
 Section name: application-defined
 
-Bound to: `ProjectionSettings`
+Bound by: `AddProjection<TState>(configuration, settingsSectionName: "...")`
 
-This section controls pipeline behavior in `Kuna.Projections.Core`.
+Target type: `ProjectionSettings<TState>`
 
-In the runnable example, the section name is `OrdersProjection`.
+The section itself is required because `AddProjection<TState>(...)` calls `configuration.GetRequiredSection(...)`.
+
+If you omit `settingsSectionName`, the default section name is `Projections`. That section is still required.
+
+### Settings Summary
+
+| Key | Type | Default | Required | Notes                                                                   |
+| --- | --- | --- | --- |-------------------------------------------------------------------------|
+| `CatchUpPersistenceStrategy` | `PersistenceStrategy` | `ModelCountBatching` | No | Used before the source reaches live processing.                         |
+| `LiveProcessingPersistenceStrategy` | `PersistenceStrategy` | `ImmediateModelFlush` | No | Used after the source catches up.                                       |
+| `MaxPendingProjectionsCount` | `int` | `100` | No | Count-based flush threshold and a sizing input for cache capacity.      |
+| `SourceBufferCapacity` | `int` | `10000` | No | Stream buffer size between source and transform stages.                 |
+| `Source` | `ProjectionSourceKind` | `KurrentDB` | No | Selects which source implementation the projection uses.                |
+| `ModelIdResolutionStrategy` | `ModelIdResolutionStrategy` | `PreferAttribute` | No | Controls how model ids are derived from events and stream ids.          |
+| `ReadBufferCapacity` | `int` | `12000` | No | In-process read buffer between the Kurrent subscription and consumer.   |
+| `LiveProcessingFlushDelay` | `int` | `1000` | No | Milliseconds between live periodic flush ticks.                         |
+| `SkipStateNotFoundFailure` | `bool` | `false` | No | Suppresses failure persistence for missing state on non-initial events. |
+| `InFlightModelCacheMinEntries` | `int` | `10000` | No | Minimum retained size of the in-memory post-flush cache.                |
+| `InFlightModelCacheCapacityMultiplier` | `int` | `3` | No | Combined with `MaxPendingProjectionsCount` to size that cache.          |
+| `EventVersionCheckStrategy` | `EventVersionCheckStrategy` | `Consecutive` | No | Controls event ordering validation before `Apply(...)`.                 |
 
 ### `CatchUpPersistenceStrategy`
 
@@ -83,14 +69,14 @@ Allowed values:
 - `TimeBasedBatching`
 - `ImmediateModelFlush`
 
-Meaning:
+Used for:
 
-- controls how persistence behaves while the pipeline is catching up from an older checkpoint
+- replay and catch-up processing before the source emits `ProjectionCaughtUpEvent`
 
 Guidance:
 
-- `ModelCountBatching` is the sensible default for replay-heavy startup
-- `ImmediateModelFlush` trades throughput for lower buffering
+- start with `ModelCountBatching` for replay-heavy startup
+- use `ImmediateModelFlush` only when lower buffering matters more than throughput
 
 ### `LiveProcessingPersistenceStrategy`
 
@@ -102,160 +88,64 @@ Allowed values:
 - `TimeBasedBatching`
 - `ImmediateModelFlush`
 
-Meaning:
-
-- controls how persistence behaves after the source has caught up and the pipeline is processing live events
-
 Default: `ImmediateModelFlush`
+
+Used for:
+
+- steady-state live processing after catch-up completes
 
 Guidance:
 
-- `ImmediateModelFlush` is the current default
-- `TimeBasedBatching` trades lower write frequency for additional buffering delay
+- keep `ImmediateModelFlush` for lowest latency
+- use `TimeBasedBatching` when fewer writes matter more than immediate persistence
 
 ### `MaxPendingProjectionsCount`
 
 Type: `int`
 
-Meaning:
+Default: `100`
 
-- upper bound used by the runtime for pending projection work
-- also influences internal buffering and cache sizing
+Used for:
+
+- count-based flush decisions
+- in-flight cache sizing
 
 Guidance:
 
-- set this explicitly
-- a non-zero value is expected in practice
-- the example uses `100`
+- increase it to batch more distinct models per flush
+- expect higher memory use and longer replay windows as you raise it
 
-### `LiveProcessingFlushDelay`
+### `SourceBufferCapacity`
 
 Type: `int`
 
-Unit: milliseconds
+Default: `10000`
 
-Meaning:
+Used for:
 
-- controls how often live processing requests a time-based flush
+- the internal pipeline buffer between reading and transforming events
 
 Runtime behavior:
 
-- the pipeline uses `Math.Max(1, LiveProcessingFlushDelay)`, so values less than `1` effectively become `1`
+- the pipeline applies `Math.Max(1, SourceBufferCapacity)`
 
 Guidance:
 
-- set this explicitly for predictable live behavior
-- the example uses `1000`
+- leave the default unless you have measured source-side backpressure or memory pressure
 
-### `SkipStateNotFoundFailure`
+### `Source`
 
-Type: `bool`
-
-Default: `false`
-
-Meaning:
-
-- when `true`, the runtime skips generating a persisted failure if an event for an existing stream cannot find current state in the store
-- when `false`, the runtime records a failure and marks the model as failed for the flush window
-
-Use it when:
-
-- `true` if you want the pipeline to be tolerant of missing state during some replay scenarios
-- `false` if missing state should be treated as an operational problem
-
-Current recommendation:
-
-- leave this at `false` unless you have a specific replay or migration scenario that requires tolerant missing-state handling
-
-### `InFlightModelCacheMinEntries`
-
-Type: `int`
-
-Meaning:
-
-- minimum in-flight cache capacity retained even when pending batch sizes are small
-
-Guidance:
-
-- adjust if you expect very high concurrency or a large replay window
-- for most adopters, the default is a reasonable starting point
-
-### `InFlightModelCacheCapacityMultiplier`
-
-Type: `int`
-
-Meaning:
-
-- dynamic cache sizing multiplier tied to `MaxPendingProjectionsCount`
-- effective cache size is `max(InFlightModelCacheMinEntries, MaxPendingProjectionsCount * multiplier)`
-
-Use it when:
-
-- you want cache size to scale with your chosen pending-work capacity
-
-### `EventVersionCheckStrategy`
-
-Type: `EventVersionCheckStrategy`
+Type: `ProjectionSourceKind`
 
 Allowed values:
 
-- `Disabled`
-- `Consecutive`
-- `Monotonic`
+- `KurrentDB`
+
+Default: `KurrentDB`
 
 Meaning:
 
-- controls how the projection base class validates event ordering before `Apply(...)` runs
-
-Behavior:
-
-- `Disabled`: ordering checks are skipped
-- `Consecutive`: each next event must be exactly previous event number + 1
-- `Monotonic`: event numbers must keep increasing, but gaps are allowed
-
-Guidance:
-
-- `Consecutive` is the safest default when stream order matters strongly
-- `Monotonic` is useful when duplicate or stale events are more likely than hard gaps
-- `Disabled` should be chosen deliberately
-
-## `EventStoreSource`
-
-Section name: nested under the projection section
-
-Bound to: `EventStoreSourceSettings`
-
-This section controls how the current KurrentDB-backed source implementation reads and shapes events before they enter the core pipeline.
-
-In the runnable example, the full path is `OrdersProjection:EventStoreSource`.
-
-### `StreamName`
-
-Type: `string`
-
-Meaning:
-
-- stream name or prefix the source should read from
-- this value is required
-
-Guidance:
-
-- the example uses `order-`
-
-### `EventsBoundedCapacity`
-
-Type: `int`
-
-Default: `12000`
-
-Meaning:
-
-- bounded capacity used by the current source implementation while buffering events into the `IAsyncEnumerable` pipeline
-
-Guidance:
-
-- keep the default unless you have measured pressure that requires tuning
-- larger values may improve throughput but also increase memory use
+- selects which event source implementation the projection uses
 
 ### `ModelIdResolutionStrategy`
 
@@ -269,119 +159,235 @@ Allowed values:
 
 Default: `PreferAttribute`
 
-Meaning:
-
-- controls how the source resolves the model id for an event
-
 Behavior:
 
-- `PreferAttribute`: use `[ModelId]` when present, otherwise try the stream id
-- `RequireStreamId`: use the stream id as the authoritative source
+- `PreferAttribute`: use `[ModelId]` when present, otherwise fall back to the stream id
+- `RequireStreamId`: require the stream id to carry the model id and treat it as authoritative
 - `RequireMatch`: require both stream id and `[ModelId]` to resolve and agree
 
 Guidance:
 
 - `PreferAttribute` is the most flexible default
 - `RequireStreamId` is a good fit when stream naming is authoritative
-- `RequireMatch` is the strictest and safest option when you want validation across both representations
+- `RequireMatch` is the strictest option and helps catch mismatches early
 
-## Application-Specific Sections
+### `ReadBufferCapacity`
 
-The current recommended shape is one projection settings section per registered projection.
+Type: `int`
 
-From the example:
+Default: `12000`
 
-```json
-{
-  "OrdersProjection": {
-    "CatchUpPersistenceStrategy": "ModelCountBatching",
-    "LiveProcessingPersistenceStrategy": "TimeBasedBatching",
-    "MaxPendingProjectionsCount": 100,
-    "LiveProcessingFlushDelay": 1000,
-    "SkipStateNotFoundFailure": false,
-    "InFlightModelCacheMinEntries": 10000,
-    "InFlightModelCacheCapacityMultiplier": 3,
-    "EventVersionCheckStrategy": "Consecutive",
-    "EventStoreSource": {
-      "StreamName": "order-",
-      "EventsBoundedCapacity": 12000,
-      "ModelIdResolutionStrategy": "RequireStreamId"
-    }
-  }
-}
+Meaning:
+
+- bounded channel capacity used while the Kurrent subscription feeds envelopes into the async stream consumed by the pipeline
+
+Guidance:
+
+- keep the default unless you have measured a reason to change it
+- larger values can improve throughput at the cost of more memory
+
+### `LiveProcessingFlushDelay`
+
+Type: `int`
+
+Unit: milliseconds
+
+Default: `1000`
+
+Used for:
+
+- periodic live flush ticks
+
+Runtime behavior:
+
+- the pipeline applies `Math.Max(1, LiveProcessingFlushDelay)`
+
+Guidance:
+
+- shorter values reduce live batching delay
+- longer values reduce flush frequency but increase persistence latency
+
+### `SkipStateNotFoundFailure`
+
+Type: `bool`
+
+Default: `false`
+
+Meaning:
+
+- when `true`, the runtime skips persisting a projection failure when a non-initial event resolves to a model whose current state cannot be loaded
+
+Guidance:
+
+- leave it `false` unless your replay or migration flow intentionally tolerates missing state
+
+### `InFlightModelCacheMinEntries`
+
+Type: `int`
+
+Default: `10000`
+
+Meaning:
+
+- minimum capacity of the in-memory cache that keeps recently flushed model state available after persistence succeeds
+
+Why this exists:
+
+- it closes the short timing gap between a successful flush and a later reload of the same model
+- that avoids false missing-state or ordering issues immediately after a flush
+
+### `InFlightModelCacheCapacityMultiplier`
+
+Type: `int`
+
+Default: `3`
+
+Meaning:
+
+- dynamic cache sizing multiplier tied to `MaxPendingProjectionsCount`
+
+Effective cache capacity:
+
+```text
+max(InFlightModelCacheMinEntries, MaxPendingProjectionsCount * InFlightModelCacheCapacityMultiplier)
 ```
 
-Why this matters:
+### `EventVersionCheckStrategy`
 
-- all projection runtime settings live together in one place
-- the application can bind that section directly into `ProjectionSettings`
-- relational applications can provide schema directly when constructing `SqlProjectionsDbContext`
+Type: `EventVersionCheckStrategy`
 
-That pattern is useful when:
+Allowed values:
 
-- you have multiple projections and want each one to declare its own runtime settings explicitly
-- you do not want to merge top-level defaults with per-projection override sections
+- `Disabled`
+- `Consecutive`
+- `Monotonic`
 
-### When To Use A Projection-Specific Schema
+Default: `Consecutive`
+
+Behavior:
+
+- `Disabled`: do not validate version progression
+- `Consecutive`: require exact `previous + 1`
+- `Monotonic`: require only that event numbers keep increasing
+
+Guidance:
+
+- `Consecutive` is the safest default when stream order is strict
+- `Monotonic` is useful when gaps are acceptable but reordering is not
+- `Disabled` should be an explicit tradeoff
+
+## `KurrentDB`
+
+Section name: `KurrentDB`
+
+Bound by: `AddKurrentDBSource<TState>(configuration, loggerFactory, settingsSectionName)`
+
+Target type: `KurrentDbSourceSettings`
+
+The section is required when the root projection setting `Source` is `KurrentDB`.
+
+### Settings Summary
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `Filter.Kind` | `KurrentDbFilterKind` | `StreamPrefix` | No | Only `StreamPrefix` is supported in the current implementation. |
+| `Filter.Prefixes` | `string[]` | `[]` | Yes | Must contain exactly one non-empty prefix. |
+
+### `Filter.Kind`
+
+Type: `KurrentDbFilterKind`
+
+Allowed values:
+
+- `StreamPrefix`
+
+Default: `StreamPrefix`
+
+Meaning:
+
+- selects which native KurrentDB filter shape is built
+- the current implementation supports only `StreamPrefix`
+
+### `Filter.Prefixes`
+
+Type: `string[]`
+
+Required: yes
+
+Meaning:
+
+- the single stream prefix passed to `StreamFilter.Prefix(...)`
+
+Validation:
+
+- exactly one prefix is required in the current implementation
+- an empty array, multiple prefixes, or an empty prefix are invalid
+
+Guidance:
+
+- this is a prefix filter, not an exact stream-name match
+- `order-` matches streams whose names start with `order-`
+- system events are excluded by the implementation when constructing the native KurrentDB filter
+
+## Application-Specific Configuration
+
+Not every setting near projections belongs to the shared libraries.
+
+Examples from the runnable worker:
+
+- `ProjectionName`
+  Used by the host app to decide which projection module to register.
+- `ConnectionStrings:PostgreSql`
+  Used by the host app when configuring `OrdersDbContext`.
+- schema passed to `AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)`
+  Chosen in code, not from library-owned configuration.
+
+Those are valid application decisions, but they are not part of the shared runtime settings contract documented above.
+
+## When To Use A Projection-Specific Db Schema
 
 Use a dedicated schema when:
 
 - multiple projection modules share one physical database
 - each projection module has its own `DbContext`
-- you want each projection to manage its own migrations without colliding with other projection modules
+- you want each projection module to own its own migrations and infrastructure tables
 
 Why this matters:
 
-- `SqlProjectionsDbContext` includes infrastructure tables such as `CheckPoints` and `ProjectionFailures`
-- if multiple projection contexts point at the same database and same schema, they can all try to create or manage those tables
-- the same applies to projection model tables if different modules reuse generic names such as `Orders`, `Invoices`, or `Customers`
+- `SqlProjectionsDbContext` includes shared infrastructure tables such as `CheckPoints` and `ProjectionFailures`
+- if multiple projection contexts use the same database and schema, they can collide on both infrastructure tables and read-model tables
 
-Schema isolation avoids those collisions by namespacing each projection store, for example:
+Schema isolation avoids that collision surface, for example:
 
 - `orders_projection.CheckPoints`
 - `orders_projection.ProjectionFailures`
 - `billing_projection.CheckPoints`
 - `billing_projection.ProjectionFailures`
 
-This is most useful when:
-
-- you want one database but independent projection modules
-- you do not want to force one shared migrations owner for infrastructure tables
-- you want the same deployment model to work whether projections are hosted together or separately
-
 You usually do not need a dedicated schema when:
 
 - each projection uses its own database
 - one shared `DbContext` owns all projection tables in the database
 
-Important nuance:
-
-- using separate schemas does not share checkpoint or failure tables across projection modules
-- that is usually acceptable, because it is the same operational tradeoff you would already have if each projection used its own database
-
 ## Recommended Starting Point
 
-For a first production-like setup, start with:
+For a first production-like setup, start with the library defaults and add only the KurrentDB filter:
 
 ```json
 {
   "OrdersProjection": {
-    "CatchUpPersistenceStrategy": "ModelCountBatching",
-    "LiveProcessingPersistenceStrategy": "TimeBasedBatching",
-    "MaxPendingProjectionsCount": 100,
-    "LiveProcessingFlushDelay": 1000,
-    "SkipStateNotFoundFailure": false,
-    "InFlightModelCacheMinEntries": 10000,
-    "InFlightModelCacheCapacityMultiplier": 3,
-    "EventVersionCheckStrategy": "Consecutive",
-    "EventStoreSource": {
-      "ModelIdResolutionStrategy": "RequireStreamId"
+    "Source": "KurrentDB",
+    "KurrentDB": {
+      "Filter": {
+        "Kind": "StreamPrefix",
+        "Prefixes": [ "order-" ]
+      }
     }
   }
 }
 ```
 
-Then tune from observed behavior rather than from guesswork.
+Then tune from observed replay speed, write frequency, memory use, and operational failure patterns rather than from guesswork.
 
 ## Related Docs
 

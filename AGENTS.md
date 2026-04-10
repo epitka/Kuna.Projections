@@ -13,8 +13,20 @@ This repository contains a .NET 10 solution for event-sourcing projections.
 When Codex runs `dotnet` commands locally in this repository, include `-p:UseSharedCompilation=false`.
 Do not add or propagate `-p:UseSharedCompilation=false` into repository files such as CI workflows, scripts, Makefiles, or documentation unless the user explicitly asks for that repository behavior change.
 Run benchmark tests in `Release` mode only (never `Debug`).
+After code changes, always compile the full solution as part of verification unless the user explicitly says not to.
+When running builds or tests, do not start additional overlapping runs. Wait for the current build/test process to finish and yield a result before starting another one.
+Use `TERM=dumb` plus serialized MSBuild/test execution in this environment to get usable output:
+- `TERM=dumb dotnet build -c Release --no-restore -p:UseSharedCompilation=false /m:1 -nodeReuse:false Kuna.Projections.sln`
+- `TERM=dumb dotnet test -c Release --no-restore -p:UseSharedCompilation=false /m:1 -nodeReuse:false Kuna.Projections.sln`
 
-- `dotnet restore -p:UseSharedCompilation=false Kuna.Projections.sln` - restore packages
+Observed outcomes in this environment:
+- Full-solution or single-project `dotnet test` can fail before test execution with VSTest socket permission errors (`SocketException (13): Permission denied` from `SocketServer.Start(...)`).
+- Targeted filtered project test runs may still work and are useful when broader `dotnet test` is blocked.
+
+The last targeted `dotnet test` verification command that completed successfully in this environment was:
+- `dotnet test -c Release --no-restore -p:UseSharedCompilation=false test/Kuna.Projections.Source.Kurrent.Test/Kuna.Projections.Source.Kurrent.Test.csproj --filter ServiceCollectionExtensionsTests`
+
+- `dotnet restore -p:UseSharedCompilation=false Kuna.Eventsourcing.Projections.sln` - restore packages
 - `dotnet build -c Release -p:UseSharedCompilation=false Kuna.Projections.sln` - build all projects
 - `dotnet test -c Release --no-restore -p:UseSharedCompilation=false` - run all tests
 - `dotnet test -c Release --no-restore -p:UseSharedCompilation=false test/Kuna.Projections.Core.Test/Kuna.Projections.Core.Test.csproj` - run core pipeline tests only
@@ -47,6 +59,9 @@ Run benchmark tests in `Release` mode only (never `Debug`).
 
 ## Planning
 Store plans in /plans folder
+
+## Collaboration Conventions
+- When asking the user clarifying questions or presenting multiple decisions/options, number them so the user can reply by reference.
 
 ## Slash Conventions
 - `/todo`: Find TODO comments in the repository, present them one at a time in file order, and ask whether to implement each item before making any changes. Ignore backlog-style docs such as `plans/TODO.md` unless explicitly asked to include them.

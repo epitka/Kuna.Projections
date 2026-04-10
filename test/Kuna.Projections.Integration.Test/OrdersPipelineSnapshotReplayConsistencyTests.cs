@@ -46,27 +46,10 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         this.testOutput = testOutput;
     }
 
-    public static IEnumerable<object[]> GetReplayConsistencyCases()
-    {
-        yield return
-        [
-            new ReplayConsistencyCase(
-                TargetEvents: 5000,
-                MinimumCompleteOrders: 333,
-                ProjectionStartOffsetEvents: 1_000,
-                CatchUpPersistenceStrategy: PersistenceStrategy.ModelCountBatching,
-                LivePersistenceStrategy: PersistenceStrategy.ImmediateModelFlush,
-                EventsBoundedCapacity: 50_000,
-                MaxPendingProjections: 1_000,
-                LiveOrdersToAppend: 250,
-                PostStartAppendDelayMs: 3_000,
-                DebugProgressEnabled: true),
-        ];
-    }
-
     [Theory]
     [MemberData(nameof(GetReplayConsistencyCases))]
-    public async Task Generated_Pipeline_Output_Should_Match_PerStream_Replay_For_Each_Order_Row(ReplayConsistencyCase testCase)
+    public async Task Generated_Pipeline_Output_Should_Match_PerStream_Replay_For_Each_Order_Row(
+        ReplayConsistencyCase testCase)
     {
         var startOffsetEvents = Math.Min(
             testCase.ProjectionStartOffsetEvents,
@@ -233,6 +216,24 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         }
 
         this.LogProgress($"Replay compare completed: {processed}/{dbOrders.Count}.", testCase.DebugProgressEnabled);
+    }
+
+    public static IEnumerable<object[]> GetReplayConsistencyCases()
+    {
+        yield return
+        [
+            new ReplayConsistencyCase(
+                TargetEvents: 10_000,
+                MinimumCompleteOrders: 333,
+                ProjectionStartOffsetEvents: 1_000,
+                CatchUpPersistenceStrategy: PersistenceStrategy.ModelCountBatching,
+                LivePersistenceStrategy: PersistenceStrategy.ImmediateModelFlush,
+                EventsBoundedCapacity: 50_000,
+                MaxPendingProjections: 1_000,
+                LiveOrdersToAppend: 250,
+                PostStartAppendDelayMs: 3_000,
+                DebugProgressEnabled: true),
+        ];
     }
 
     private static Type[] GetOrderEventTypes()
@@ -550,24 +551,14 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         return decimal.Parse(value.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
     }
 
-    private static string FormatToMicroseconds(DateTimeOffset value)
-    {
-        return value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.ffffffK", CultureInfo.InvariantCulture);
-    }
-
-    private static string? FormatToMicroseconds(DateTimeOffset? value)
-    {
-        return value.HasValue ? FormatToMicroseconds(value.Value) : null;
-    }
-
     private static void AssertSnapshotsEqual(OrderSnapshot expected, OrderSnapshot actual)
     {
         expected.Id.ShouldBe(actual.Id);
         expected.EventNumber.ShouldBe(actual.EventNumber);
         expected.OrderNumber.ShouldBe(actual.OrderNumber);
         expected.OrderStatus.ShouldBe(actual.OrderStatus);
-        FormatToMicroseconds(expected.CreatedDateTime).ShouldBe(FormatToMicroseconds(actual.CreatedDateTime));
-        FormatToMicroseconds(expected.CompletedDateTime).ShouldBe(FormatToMicroseconds(actual.CompletedDateTime));
+        expected.CreatedDateTime.ShouldBe(actual.CreatedDateTime);
+        expected.CompletedDateTime.ShouldBe(actual.CompletedDateTime);
         expected.Amount.ShouldBe(actual.Amount);
         expected.TaxAmount.ShouldBe(actual.TaxAmount);
         expected.ShippingAmount.ShouldBe(actual.ShippingAmount);
@@ -601,7 +592,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
             e.MerchantRefundFeeRebate.ShouldBe(a.MerchantRefundFeeRebate);
             e.MerchantRefundTransactionFee.ShouldBe(a.MerchantRefundTransactionFee);
             e.MerchantRefundFeeRebatePercent.ShouldBe(a.MerchantRefundFeeRebatePercent);
-            FormatToMicroseconds(e.RefundDateTime).ShouldBe(FormatToMicroseconds(a.RefundDateTime));
+            e.RefundDateTime.ShouldBe(a.RefundDateTime);
         }
     }
 
@@ -631,21 +622,30 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
 
         services.AddSingleton<IEventModelIdResolver, EventModelIdResolver>();
         services.AddSingleton<IEventEnvelopeFactory, EventEnvelopeFactory>();
-        services.AddSingleton(
-            new EventStoreSourceSettings
+        services.AddSingleton<IProjectionSettings<Order>>(
+            new ProjectionSettings<Order>
             {
-                StreamName = "order-",
-                EventsBoundedCapacity = eventsBoundedCapacity,
+                ReadBufferCapacity = eventsBoundedCapacity,
+                ModelIdResolutionStrategy = ModelIdResolutionStrategy.PreferAttribute,
+            });
+        services.AddSingleton(
+            new KurrentDbSourceSettings
+            {
+                Filter = new KurrentDbFilterSettings
+                {
+                    Kind = KurrentDbFilterKind.StreamPrefix,
+                    Prefixes = ["order-",],
+                },
             });
 
-        services.AddSingleton<IEventSource<EventEnvelope>, EventStoreEventSource<Order>>();
+        services.AddSingleton<IEventSource<EventEnvelope>, KurrentDbEventSource<Order>>();
 
         services.AddSqlProjectionsDataStore<Order, OrdersDbContext>(schema: "dbo");
 
         var config = new ConfigurationBuilder()
-                     .AddInMemoryCollection(
-                         new Dictionary<string, string?>
-                         {
+                         .AddInMemoryCollection(
+                             new Dictionary<string, string?>
+                             {
                              ["Projections:CatchUpPersistenceStrategy"] = catchUpPersistenceStrategy.ToString(),
                              ["Projections:LiveProcessingPersistenceStrategy"] = livePersistenceStrategy.ToString(),
                              ["Projections:MaxPendingProjectionsCount"] = maxPendingProjections.ToString(CultureInfo.InvariantCulture),
@@ -723,10 +723,10 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                                   .Select(x => x.GlobalEventPosition)
                                   .SingleOrDefaultAsync();
 
-        this.LogProgress(
-            $"Timeout diagnostics: expectedOrders={expectedOrderIds.Count}, projectedOrders={projectedIdSet.Count}, "
+            this.LogProgress(
+                $"Timeout diagnostics: expectedOrders={expectedOrderIds.Count}, projectedOrders={projectedIdSet.Count}, "
             + $"missingOrders={expectedOrderIds.Count - projectedIdSet.Count}, failures={failureCount}, checkpoint={checkpoint}.",
-            debugProgressEnabled: true);
+                debugProgressEnabled: true);
 
         if (missing.Count > 0)
         {
