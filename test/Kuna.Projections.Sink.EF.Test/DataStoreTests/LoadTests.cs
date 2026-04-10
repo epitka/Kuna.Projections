@@ -15,11 +15,6 @@ public class LoadTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task MissingModel_Should_Return_Null()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
 
@@ -31,11 +26,6 @@ public class LoadTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task ExistingModel_Should_Be_Returned()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         var modelId = Guid.NewGuid();
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         await SeedModel(provider, modelId, "existing", 3, 30);

@@ -13,8 +13,6 @@ public class KurrentDBContainerFixture
 
     public KurrentDBContainerFixture()
     {
-        this.IsEnabled = true;
-
         this.keepContainers = string.Equals(
             Environment.GetEnvironmentVariable("KUNA_TEST_KEEP_CONTAINERS"),
             "1",
@@ -42,17 +40,10 @@ public class KurrentDBContainerFixture
 
     public IContainer KurrentDBTestContainer { get; }
 
-    public bool IsEnabled { get; }
-
     public string ConnectionString => ((KurrentDbContainer)this.KurrentDBTestContainer).GetConnectionString();
 
     public async ValueTask InitializeAsync()
     {
-        if (!this.IsEnabled)
-        {
-            return;
-        }
-
         if (!this.keepContainers)
         {
             await this.RemoveContainerIfPresentAsync(this.containerName);
@@ -63,11 +54,6 @@ public class KurrentDBContainerFixture
 
     public async ValueTask DisposeAsync()
     {
-        if (!this.IsEnabled)
-        {
-            return;
-        }
-
         if (this.keepContainers)
         {
             return;
