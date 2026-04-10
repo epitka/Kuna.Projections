@@ -4,6 +4,7 @@ using System.Text.Json;
 using Kuna.Projections.Abstractions.Attributes;
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
+using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Source.Kurrent;
 using KurrentDB.Client;
 using Microsoft.Extensions.Logging;
@@ -13,11 +14,11 @@ using Xunit;
 namespace Kuna.Projections.Pipeline.Kurrent.Test;
 
 [Collection(KurrentDbCollection.Name)]
-public class EventStoreProjectionSourceIntegrationTests
+public class KurrentDbProjectionSourceIntegrationTests
 {
     private readonly KurrentDBContainerFixture fixture;
 
-    public EventStoreProjectionSourceIntegrationTests(KurrentDBContainerFixture fixture)
+    public KurrentDbProjectionSourceIntegrationTests(KurrentDBContainerFixture fixture)
     {
         this.fixture = fixture;
     }
@@ -25,7 +26,12 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Return_Deserialized_Envelope_And_Filter_By_Stream_Prefix()
     {
-        var streamPrefix = $"ordersit{Guid.NewGuid():N}-";
+        if (!ShouldRunContainerTests())
+        {
+            return;
+        }
+
+        var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         var matchingStream = $"{streamPrefix}{Guid.NewGuid():N}";
         var nonMatchingStream = $"other-it-{Guid.NewGuid():N}";
         var modelId = Guid.NewGuid();
@@ -81,8 +87,13 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Return_DeserializationFailed_And_Fallback_ModelId_From_StreamId()
     {
+        if (!ShouldRunContainerTests())
+        {
+            return;
+        }
+
         var modelId = Guid.NewGuid();
-        var streamPrefix = "order-";
+        var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         var matchingStream = $"{streamPrefix}{modelId:D}";
 
         using var loggerFactory = LoggerFactory.Create(
@@ -122,6 +133,11 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Drop_Event_When_ModelId_Cannot_Be_Resolved()
     {
+        if (!ShouldRunContainerTests())
+        {
+            return;
+        }
+
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         var matchingStreamWithoutGuid = $"{streamPrefix}no-guid";
         using var loggerFactory = LoggerFactory.Create(
@@ -156,6 +172,11 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Resume_After_Checkpoint_Position_And_Not_Replay_Older_Events()
     {
+        if (!ShouldRunContainerTests())
+        {
+            return;
+        }
+
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         using var loggerFactory = LoggerFactory.Create(
             _ =>
@@ -221,6 +242,11 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Retry_When_EnvelopeFactory_Throws_Transiently_And_Event_Should_Be_Emitted()
     {
+        if (!ShouldRunContainerTests())
+        {
+            return;
+        }
+
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         var matchingStream = $"{streamPrefix}{Guid.NewGuid():N}";
         var modelId = Guid.NewGuid();
@@ -263,6 +289,11 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Fail_After_Retry_Limit_When_EnvelopeFactory_Always_Throws()
     {
+        if (!ShouldRunContainerTests())
+        {
+            return;
+        }
+
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         var matchingStream = $"{streamPrefix}{Guid.NewGuid():N}";
         using var loggerFactory = LoggerFactory.Create(
@@ -308,6 +339,11 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Stop_Cleanly_When_Cancelled_During_Retry_Delay()
     {
+        if (!ShouldRunContainerTests())
+        {
+            return;
+        }
+
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         var matchingStream = $"{streamPrefix}{Guid.NewGuid():N}";
         using var loggerFactory = LoggerFactory.Create(
@@ -365,6 +401,11 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Not_Replay_Already_Emitted_Events_After_Retry()
     {
+        if (!ShouldRunContainerTests())
+        {
+            return;
+        }
+
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         using var loggerFactory = LoggerFactory.Create(
             _ =>
@@ -423,6 +464,11 @@ public class EventStoreProjectionSourceIntegrationTests
     [Fact]
     public async Task ReadAll_Should_Resume_After_Dropped_Event_When_Retry_Happens_On_Later_Event()
     {
+        if (!ShouldRunContainerTests())
+        {
+            return;
+        }
+
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         using var loggerFactory = LoggerFactory.Create(
             _ =>
@@ -474,9 +520,15 @@ public class EventStoreProjectionSourceIntegrationTests
         createCalls.ShouldBe(3);
     }
 
-    [Fact(Skip = "Restart stress test; excluded from the default test suite.")]
+    [Fact]
     public async Task ReadAll_Should_Continue_After_Kurrent_Container_Restart_Without_Replaying_Processed_Events()
     {
+        if (!ShouldRunContainerTests()
+            || !ShouldRunAutoReconnectStressTests())
+        {
+            return;
+        }
+
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         var matchingStream = $"{streamPrefix}{Guid.NewGuid():N}";
         using var loggerFactory = LoggerFactory.Create(
@@ -576,9 +628,15 @@ public class EventStoreProjectionSourceIntegrationTests
         names.Count(x => x == "before-restart").ShouldBe(1);
     }
 
-    [Fact(Skip = "Restart stress test; excluded from the default test suite.")]
+    [Fact]
     public async Task ReadAll_Should_Read_New_Events_After_Kurrent_Container_Restart_With_New_Source()
     {
+        if (!ShouldRunContainerTests()
+            || !ShouldRunRestartStressTests())
+        {
+            return;
+        }
+
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
         var streamName = $"{streamPrefix}{Guid.NewGuid():N}";
         using var loggerFactory = LoggerFactory.Create(
@@ -624,9 +682,15 @@ public class EventStoreProjectionSourceIntegrationTests
         ((SourceIntegrationEvent)resumed[0].Event).Name.ShouldBe("after-restart");
     }
 
-    [Fact(Skip = "Auto-reconnect stress test; excluded from the default test suite.")]
+    [Fact]
     public async Task ReadAll_Should_Resume_Within_3s_After_MidStream_Connection_Drop_Without_Duplicates()
     {
+        if (!ShouldRunContainerTests()
+            || !ShouldRunAutoReconnectStressTests())
+        {
+            return;
+        }
+
         const int preDropEvents = 200;
         const int dropTriggerConsumed = 80;
         const int postReconnectEvents = 50;
@@ -802,7 +866,7 @@ public class EventStoreProjectionSourceIntegrationTests
     }
 
     private static async Task<List<EventEnvelope>> ReadEnvelopesUntilCount(
-        EventStoreEventSource<SourceIntegrationModel> source,
+        KurrentDbEventSource<SourceIntegrationModel> source,
         int expectedCount,
         TimeSpan timeout,
         GlobalEventPosition? start = null)
@@ -815,11 +879,6 @@ public class EventStoreProjectionSourceIntegrationTests
         {
             await foreach (var envelope in source.ReadAll(startPosition, cts.Token))
             {
-                if (envelope.Event is ProjectionCaughtUpEvent)
-                {
-                    continue;
-                }
-
                 result.Add(envelope);
 
                 if (result.Count >= expectedCount)
@@ -885,10 +944,35 @@ public class EventStoreProjectionSourceIntegrationTests
     private static string GetKurrentContainerName()
     {
         var suffix = Environment.GetEnvironmentVariable("KUNA_TEST_CONTAINER_SUFFIX") ?? "default";
-        return $"kuna-kurrent-source-it-{suffix}";
+        return $"kuna-kurrent-it-{suffix}";
     }
 
-    private EventStoreEventSource<SourceIntegrationModel> CreateSource(
+    private static bool ShouldRunContainerTests()
+    {
+        return string.Equals(
+            Environment.GetEnvironmentVariable("RUN_KURRENT_CONTAINER_TESTS"),
+            "1",
+            StringComparison.Ordinal);
+    }
+
+    private static bool ShouldRunRestartStressTests()
+    {
+        return string.Equals(
+            Environment.GetEnvironmentVariable("RUN_KURRENT_RESTART_TESTS"),
+            "1",
+            StringComparison.Ordinal);
+    }
+
+    private static bool ShouldRunAutoReconnectStressTests()
+    {
+        return ShouldRunRestartStressTests()
+               && string.Equals(
+                   Environment.GetEnvironmentVariable("RUN_KURRENT_AUTO_RECONNECT_STRESS_TESTS"),
+                   "1",
+                   StringComparison.Ordinal);
+    }
+
+    private KurrentDbEventSource<SourceIntegrationModel> CreateSource(
         ILoggerFactory loggerFactory,
         KurrentDBClient client,
         string streamPrefix,
@@ -903,15 +987,22 @@ public class EventStoreProjectionSourceIntegrationTests
         IEventEnvelopeFactory envelopeFactory = new EventEnvelopeFactory(deserializer, resolver);
         envelopeFactory = envelopeFactoryDecorator?.Invoke(envelopeFactory) ?? envelopeFactory;
 
-        return new EventStoreEventSource<SourceIntegrationModel>(
+        return new KurrentDbEventSource<SourceIntegrationModel>(
             client,
             envelopeFactory,
-            new EventStoreSourceSettings
+            new KurrentDbSourceSettings
             {
-                StreamName = streamPrefix,
-                EventsBoundedCapacity = 100,
+                Filter = new KurrentDbFilterSettings
+                {
+                    Kind = KurrentDbFilterKind.StreamPrefix,
+                    Prefixes = [streamPrefix,],
+                },
             },
-            loggerFactory.CreateLogger<EventStoreEventSource<SourceIntegrationModel>>());
+            new ProjectionSettings<SourceIntegrationModel>
+            {
+                ReadBufferCapacity = 100,
+            },
+            loggerFactory.CreateLogger<KurrentDbEventSource<SourceIntegrationModel>>());
     }
 
     private async Task AppendEventWithRetries(

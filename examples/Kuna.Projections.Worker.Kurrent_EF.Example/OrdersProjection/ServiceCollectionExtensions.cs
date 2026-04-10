@@ -51,12 +51,11 @@ public static class ServiceCollectionExtensions
                 builder.AddSerilog();
             });
 
-        services.AddEventStoreSource<Order>(configuration, factory, "OrdersProjection:EventStoreSource");
+        services.AddKurrentDBSource<Order>(configuration, factory, "OrdersProjection");
         services.AddSqlProjectionsDataStore<Order, OrdersDbContext>(schema: ProjectionSchema);
         services.AddProjection<Order>(
             configuration,
             settingsSectionName: "OrdersProjection");
-
         services.AddScoped<OrdersReplayConsistencyDiagnostics>();
 
         return services;

@@ -248,7 +248,7 @@ services.AddProjectionHost(typeof(Program).Assembly);
 services.AddDbContext<AccountProjectionDbContext>(
     options => options.UseNpgsql(configuration.GetConnectionString("PostgreSql")));
 
-services.AddEventStoreSource<Account>(configuration, loggerFactory, "AccountProjection:EventStoreSource");
+services.AddKurrentDBSource<Account>(configuration, loggerFactory, "AccountProjection");
 services.AddSqlProjectionsDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
 services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection");
 ```
@@ -257,7 +257,7 @@ Note that DbContext requires db schema to be passed in. For more information see
 
 These calls do the heavy lifting:
 
-- `AddEventStoreSource<TState>(...)` wires the current KurrentDB-backed implementation of `IEventSource<EventEnvelope>`
+- `AddKurrentDBSource<TState>(...)` wires the current KurrentDB-backed implementation of `IEventSource<EventEnvelope>`
 - `AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)` wires SQL-backed state loading, persistence, checkpointing, and failure handling
 - `AddProjection<TState>(...)` wires projection creation, transformation, caching, and the runtime pipeline
 - `AddProjectionHost(...)` runs all registered pipelines and startup tasks
@@ -265,17 +265,21 @@ These calls do the heavy lifting:
 
 ## 10. Add Configuration
 
-At minimum you need connection strings and one projection section that contains both projection runtime settings and nested event source settings.
+At minimum you need connection strings and one projection section that contains both projection runtime settings and a nested `KurrentDB` source section.
 
 ```json
 {
   "ConnectionStrings": {
-    "EventStore": "esdb://localhost:2113?tls=false",
+    "KurrentDB": "esdb://localhost:2113?tls=false",
     "PostgreSql": "Host=localhost;Port=5432;Database=accounts_projection;Username=postgres;Password=postgres"
   },
   "AccountProjection": {
-    "EventStoreSource": {
-      "StreamName": "Account"
+    "Source": "KurrentDB",
+    "KurrentDB": {
+      "Filter": {
+        "Kind": "StreamPrefix",
+        "Prefixes": [ "Account" ]
+      }
     }
   }
 }
@@ -283,10 +287,11 @@ At minimum you need connection strings and one projection section that contains 
 
 Useful settings notes:
 
-- `EventStoreSource.StreamName` is required and is used as the prefix filter for the Kurrent subscription
-- the default `ModelIdResolutionStrategy` is `PreferAttribute`
+- `Source` defaults to `KurrentDB`, but the section is still shown explicitly here because the worker must contain a matching nested `KurrentDB` section
+- `KurrentDB.Filter.Prefixes` currently requires exactly one prefix and is used as the prefix filter for the Kurrent subscription
+- the default `ModelIdResolutionStrategy` on the root projection section is `PreferAttribute`
 - projection settings can be bound from a named section by calling `AddProjection<TState>(configuration, settingsSectionName: "AccountProjection")`
-- source settings can be bound from a nested section by calling `AddEventStoreSource<TState>(configuration, loggerFactory, "AccountProjection:EventStoreSource")`
+- source settings are bound by calling `AddKurrentDBSource<TState>(configuration, loggerFactory, "AccountProjection")`
 
 For the full set of available settings and defaults, see [configuration-reference.md](configuration-reference.md).
 
@@ -300,7 +305,7 @@ The best real reference in this repository is [examples/Kuna.Projections.Worker.
 
 Check ReadMe to run projection and to perform consistency check:
 
-- [ReadMe.txt](../examples/Kuna.Projections.Worker.Kurrent_EF.Example/ReadMe.txt)
+- [README.md](../examples/Kuna.Projections.Worker.Kurrent_EF.Example/README.md)
 
 ## Next
 

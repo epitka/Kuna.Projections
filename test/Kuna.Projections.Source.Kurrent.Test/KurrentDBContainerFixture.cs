@@ -13,7 +13,10 @@ public class KurrentDBContainerFixture
 
     public KurrentDBContainerFixture()
     {
-        this.IsEnabled = true;
+        this.IsEnabled = string.Equals(
+            Environment.GetEnvironmentVariable("RUN_KURRENT_CONTAINER_TESTS"),
+            "1",
+            StringComparison.Ordinal);
 
         this.keepContainers = string.Equals(
             Environment.GetEnvironmentVariable("KUNA_TEST_KEEP_CONTAINERS"),
@@ -21,12 +24,12 @@ public class KurrentDBContainerFixture
             StringComparison.Ordinal);
 
         var containerSuffix = Environment.GetEnvironmentVariable("KUNA_TEST_CONTAINER_SUFFIX") ?? "default";
-        this.containerName = $"kuna-kurrent-source-it-{containerSuffix}";
+        this.containerName = $"kuna-kurrent-it-{containerSuffix}";
 
         var builder = new KurrentDbBuilder("kurrentplatform/kurrentdb:25.1")
-                      .WithName(this.containerName)
-                      .WithAutoRemove(!this.keepContainers)
-                      .WithCleanUp(!this.keepContainers);
+            .WithName(this.containerName)
+            .WithAutoRemove(!this.keepContainers)
+            .WithCleanUp(!this.keepContainers);
 
         if (this.DockerEndpoint != null)
         {

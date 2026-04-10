@@ -10,6 +10,7 @@ public class KurrentDBContainerFixture
 {
     private readonly bool keepContainers;
     private readonly string containerName;
+    private readonly IContainer kurrentDbTestContainer;
 
     public KurrentDBContainerFixture()
     {
@@ -19,28 +20,28 @@ public class KurrentDBContainerFixture
             StringComparison.Ordinal);
 
         var containerSuffix = Environment.GetEnvironmentVariable("KUNA_TEST_CONTAINER_SUFFIX") ?? "default";
-        this.containerName = $"kuna-kurrent-integration-it-{containerSuffix}";
+        this.containerName = $"kuna-kurrent-it-{containerSuffix}";
 
         var builder = new KurrentDbBuilder("kurrentplatform/kurrentdb:25.1")
-                      .WithName(this.containerName)
-                      .WithAutoRemove(!this.keepContainers)
-                      .WithCleanUp(!this.keepContainers);
+            .WithName(this.containerName)
+            .WithAutoRemove(!this.keepContainers)
+            .WithCleanUp(!this.keepContainers);
 
         if (this.DockerEndpoint != null)
         {
             builder = builder.WithDockerEndpoint(this.DockerEndpoint);
         }
 
-        this.KurrentDBTestContainer = builder.Build();
+        this.kurrentDbTestContainer = builder.Build();
     }
 
     public static KurrentDbBuilder KurrentDBContainerBuilder => new KurrentDbBuilder("kurrentplatform/kurrentdb:25.1")
                                                                 .WithPortBinding("2117", "2117")
                                                                 .WithExposedPort(2117);
 
-    public IContainer KurrentDBTestContainer { get; }
+    public IContainer KurrentDBTestContainer => this.kurrentDbTestContainer;
 
-    public string ConnectionString => ((KurrentDbContainer)this.KurrentDBTestContainer).GetConnectionString();
+    public string ConnectionString => ((KurrentDbContainer)this.kurrentDbTestContainer).GetConnectionString();
 
     public async ValueTask InitializeAsync()
     {
@@ -49,7 +50,7 @@ public class KurrentDBContainerFixture
             await this.RemoveContainerIfPresentAsync(this.containerName);
         }
 
-        await this.KurrentDBTestContainer.StartAsync();
+        await this.kurrentDbTestContainer.StartAsync();
     }
 
     public async ValueTask DisposeAsync()
@@ -59,7 +60,7 @@ public class KurrentDBContainerFixture
             return;
         }
 
-        await this.KurrentDBTestContainer.StopAsync();
-        await this.KurrentDBTestContainer.DisposeAsync();
+        await this.kurrentDbTestContainer.StopAsync();
+        await this.kurrentDbTestContainer.DisposeAsync();
     }
 }

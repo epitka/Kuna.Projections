@@ -14,6 +14,12 @@ internal sealed class TestProjectionSettings : IProjectionSettings<ItemModel>
 
     public int SourceBufferCapacity { get; set; }
 
+    public ProjectionSourceKind Source { get; set; } = ProjectionSourceKind.KurrentDB;
+
+    public ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; } = ModelIdResolutionStrategy.PreferAttribute;
+
+    public int ReadBufferCapacity { get; set; } = 12000;
+
     public int LiveProcessingFlushDelay { get; set; }
 
     public bool SkipStateNotFoundFailure { get; set; } = true;

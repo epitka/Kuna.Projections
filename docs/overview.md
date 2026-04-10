@@ -79,7 +79,7 @@ public sealed class AccountProjection : Projection<Account>
 }
 
 // registration
-services.AddEventStoreSource<Account>(configuration, loggerFactory, "AccountProjection:EventStoreSource");
+services.AddKurrentDBSource<Account>(configuration, loggerFactory, "AccountProjection");
 services.AddSqlProjectionsDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
 services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection");
 ```
@@ -248,17 +248,18 @@ Important adopter notes:
 
 Source-facing types:
 
-- `EventStoreEventSource<TState>`: current KurrentDB-backed implementation of `IEventSource<EventEnvelope>`
+- `KurrentDbEventSource<TState>`: current KurrentDB-backed implementation of `IEventSource<EventEnvelope>`
 - `IEventDeserializer` and `EventDeserializer`: map raw Kurrent events to CLR event types
 - `IEventEnvelopeFactory` and `EventEnvelopeFactory`: build `EventEnvelope` instances
 - `EventModelIdResolver`: resolves model ids from stream ids, `[ModelId]` properties, or both
-- `EventStoreHealthCheck`: verifies source connectivity
-- `EventStoreSourceSettings`: source tuning and model-id resolution settings
-- `ModelIdResolutionStrategy`: controls how stream ids and `[ModelId]` attributes are used
+- `KurrentDbHealthCheck`: verifies source connectivity
+- `KurrentDbSourceSettings`: Kurrent-specific source settings
+- `KurrentDbFilterSettings`: application-owned JSON shape for Kurrent subscription filters
+- `ModelIdResolutionStrategy`: root projection setting that controls how stream ids and `[ModelId]` attributes are used
 
 Registration:
 
-- `ServiceCollectionExtensions.AddEventStoreSource<TState>(...)`: wires the source, deserializer, resolver, envelope factory, and health check
+- `ServiceCollectionExtensions.AddKurrentDBSource<TState>(...)`: wires the source, deserializer, resolver, envelope factory, and health check
 
 Important adopter notes:
 
