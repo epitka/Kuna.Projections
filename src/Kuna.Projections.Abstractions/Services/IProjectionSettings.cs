@@ -14,6 +14,12 @@ public interface IProjectionSettings<TState>
 
     int SourceBufferCapacity { get; set; }
 
+    ProjectionSourceKind Source { get; set; }
+
+    ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; }
+
+    int ReadBufferCapacity { get; set; }
+
     /// <summary>
     /// Flush delay in milliseconds.
     /// </summary>
@@ -75,6 +81,22 @@ public class ProjectionSettings<TState> : IProjectionSettings<TState>
     /// Increase this only when the source is starved by backpressure and you have memory headroom.
     /// </summary>
     public int SourceBufferCapacity { get; set; } = 10000;
+
+    /// <summary>
+    /// Selects which event source implementation should be used for the projection.
+    /// </summary>
+    public ProjectionSourceKind Source { get; set; } = ProjectionSourceKind.KurrentDB;
+
+    /// <summary>
+    /// Controls how the target model id is resolved from incoming events.
+    /// </summary>
+    public ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; } = ModelIdResolutionStrategy.PreferAttribute;
+
+    /// <summary>
+    /// Number of envelopes that may be buffered between the source subscription task and the async consumer.
+    /// This is an application-side runtime buffer, not a KurrentDB connection setting.
+    /// </summary>
+    public int ReadBufferCapacity { get; set; } = 12000;
 
     /// <summary>
     /// Delay in milliseconds before a time-based live flush is executed.

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Kuna.Projections.Abstractions.Models;
+using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Source.Kurrent;
 using Kuna.Projections.Source.Kurrent.Extensions;
 using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
@@ -19,14 +20,14 @@ public sealed class OrdersReplayConsistencyDiagnostics
     private readonly OrdersDbContext dbContext;
     private readonly KurrentDBClient eventStoreClient;
     private readonly IEventEnvelopeFactory envelopeFactory;
-    private readonly EventStoreSourceSettings sourceSettings;
+    private readonly KurrentDbSourceSettings sourceSettings;
     private readonly ILogger<OrdersReplayConsistencyDiagnostics> logger;
 
     public OrdersReplayConsistencyDiagnostics(
         OrdersDbContext dbContext,
         KurrentDBClient eventStoreClient,
         IEventEnvelopeFactory envelopeFactory,
-        EventStoreSourceSettings sourceSettings,
+        KurrentDbSourceSettings sourceSettings,
         ILogger<OrdersReplayConsistencyDiagnostics> logger)
     {
         this.dbContext = dbContext;
@@ -345,7 +346,8 @@ public sealed class OrdersReplayConsistencyDiagnostics
 
     private async Task<Order?> ReplayOrderAsync(Guid orderId, CancellationToken cancellationToken)
     {
-        var streamName = $"{this.sourceSettings.StreamName}{orderId:D}";
+        var streamPrefix = this.sourceSettings.Filter.Prefixes.Single();
+        var streamName = $"{streamPrefix}{orderId:D}";
         var projection = new OrdersProjection(orderId);
         var hadEvents = false;
 

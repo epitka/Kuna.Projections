@@ -14,30 +14,31 @@ namespace Kuna.Projections.Source.Kurrent;
 /// filtered event stream, converts source events into projection envelopes, and
 /// yields them to the pipeline with retry and bounded buffering.
 /// </summary>
-public class EventStoreEventSource<TState> : IEventSource<EventEnvelope>
+public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
     where TState : class, IModel, new()
 {
     private readonly KurrentDBClient eventStoreClient;
     private readonly IEventEnvelopeFactory envelopeFactory;
-    private readonly EventStoreSourceSettings sourceSettings;
+    private readonly IProjectionSettings<TState> projectionSettings;
+    private readonly SubscriptionFilterOptions filterOptions;
     private readonly ILogger logger;
-    private readonly string streamName;
 
     /// <summary>
     /// Initializes the Kurrent-backed event source for the specified projection
     /// model state type.
     /// </summary>
-    public EventStoreEventSource(
+    public KurrentDbEventSource(
         KurrentDBClient eventStoreClient,
         IEventEnvelopeFactory envelopeFactory,
-        EventStoreSourceSettings sourceSettings,
-        ILogger<EventStoreEventSource<TState>> logger)
+        KurrentDbSourceSettings sourceSettings,
+        IProjectionSettings<TState> projectionSettings,
+        ILogger<KurrentDbEventSource<TState>> logger)
     {
         this.eventStoreClient = eventStoreClient;
         this.envelopeFactory = envelopeFactory;
-        this.sourceSettings = sourceSettings;
+        this.projectionSettings = projectionSettings;
+        this.filterOptions = KurrentDbSubscriptionFilterFactory.Create(sourceSettings.Filter);
         this.logger = logger;
-        this.streamName = sourceSettings.StreamName;
     }
 
     /// <summary>
@@ -49,7 +50,7 @@ public class EventStoreEventSource<TState> : IEventSource<EventEnvelope>
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var channel = Channel.CreateBounded<EventEnvelope>(
-            new BoundedChannelOptions(this.sourceSettings.EventsBoundedCapacity)
+            new BoundedChannelOptions(this.projectionSettings.ReadBufferCapacity)
             {
                 SingleReader = true,
                 SingleWriter = false,
@@ -121,11 +122,9 @@ public class EventStoreEventSource<TState> : IEventSource<EventEnvelope>
             GlobalEventPosition = start,
         }.ToKurrentDbPosition();
 
-        var filterOptions = new SubscriptionFilterOptions(StreamFilter.Prefix(this.streamName));
-
         await using var subscription = this.eventStoreClient.SubscribeToAll(
             FromAll.After(position),
-            filterOptions: filterOptions,
+            filterOptions: this.filterOptions,
             cancellationToken: cancellationToken);
 
         await foreach (var message in subscription.Messages.WithCancellation(cancellationToken))
@@ -159,7 +158,7 @@ public class EventStoreEventSource<TState> : IEventSource<EventEnvelope>
                             createdOn: DateTime.UtcNow),
                         cancellationToken);
 
-                    this.logger.LogInformation("EventStore subscription caught up for {Stream}", this.streamName);
+                    this.logger.LogInformation("KurrentDB subscription caught up for {ModelName}", ProjectionModelName.For<TState>());
                     break;
             }
         }

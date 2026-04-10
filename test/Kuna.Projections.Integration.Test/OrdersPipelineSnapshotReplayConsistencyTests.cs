@@ -51,7 +51,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         yield return
         [
             new ReplayConsistencyCase(
-                TargetEvents: 5000,
+                TargetEvents: 10_000,
                 MinimumCompleteOrders: 333,
                 ProjectionStartOffsetEvents: 1_000,
                 CatchUpPersistenceStrategy: PersistenceStrategy.ModelCountBatching,
@@ -550,24 +550,14 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         return decimal.Parse(value.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
     }
 
-    private static string FormatToMicroseconds(DateTimeOffset value)
-    {
-        return value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.ffffffK", CultureInfo.InvariantCulture);
-    }
-
-    private static string? FormatToMicroseconds(DateTimeOffset? value)
-    {
-        return value.HasValue ? FormatToMicroseconds(value.Value) : null;
-    }
-
     private static void AssertSnapshotsEqual(OrderSnapshot expected, OrderSnapshot actual)
     {
         expected.Id.ShouldBe(actual.Id);
         expected.EventNumber.ShouldBe(actual.EventNumber);
         expected.OrderNumber.ShouldBe(actual.OrderNumber);
         expected.OrderStatus.ShouldBe(actual.OrderStatus);
-        FormatToMicroseconds(expected.CreatedDateTime).ShouldBe(FormatToMicroseconds(actual.CreatedDateTime));
-        FormatToMicroseconds(expected.CompletedDateTime).ShouldBe(FormatToMicroseconds(actual.CompletedDateTime));
+        expected.CreatedDateTime.ShouldBe(actual.CreatedDateTime);
+        expected.CompletedDateTime.ShouldBe(actual.CompletedDateTime);
         expected.Amount.ShouldBe(actual.Amount);
         expected.TaxAmount.ShouldBe(actual.TaxAmount);
         expected.ShippingAmount.ShouldBe(actual.ShippingAmount);
@@ -601,7 +591,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
             e.MerchantRefundFeeRebate.ShouldBe(a.MerchantRefundFeeRebate);
             e.MerchantRefundTransactionFee.ShouldBe(a.MerchantRefundTransactionFee);
             e.MerchantRefundFeeRebatePercent.ShouldBe(a.MerchantRefundFeeRebatePercent);
-            FormatToMicroseconds(e.RefundDateTime).ShouldBe(FormatToMicroseconds(a.RefundDateTime));
+            e.RefundDateTime.ShouldBe(a.RefundDateTime);
         }
     }
 
@@ -631,14 +621,24 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
 
         services.AddSingleton<IEventModelIdResolver, EventModelIdResolver>();
         services.AddSingleton<IEventEnvelopeFactory, EventEnvelopeFactory>();
-        services.AddSingleton(
-            new EventStoreSourceSettings
+        services.AddSingleton<IProjectionSettings<Order>>(
+            new ProjectionSettings<Order>
             {
-                StreamName = "order-",
-                EventsBoundedCapacity = eventsBoundedCapacity,
+                ReadBufferCapacity = eventsBoundedCapacity,
+                ModelIdResolutionStrategy = ModelIdResolutionStrategy.PreferAttribute,
             });
 
-        services.AddSingleton<IEventSource<EventEnvelope>, EventStoreEventSource<Order>>();
+        services.AddSingleton(
+            new KurrentDbSourceSettings
+            {
+                Filter = new KurrentDbFilterSettings
+                {
+                    Kind = KurrentDbFilterKind.StreamPrefix,
+                    Prefixes = ["order-",],
+                },
+            });
+
+        services.AddSingleton<IEventSource<EventEnvelope>, KurrentDbEventSource<Order>>();
 
         services.AddSqlProjectionsDataStore<Order, OrdersDbContext>(schema: "dbo");
 

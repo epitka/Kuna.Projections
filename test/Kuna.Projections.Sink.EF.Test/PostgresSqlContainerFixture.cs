@@ -12,7 +12,10 @@ public sealed class PostgresSqlContainerFixture
 
     public PostgresSqlContainerFixture()
     {
-        this.IsEnabled = true;
+        this.IsEnabled = string.Equals(
+            Environment.GetEnvironmentVariable("RUN_EF_CONTAINER_TESTS"),
+            "1",
+            StringComparison.Ordinal);
 
         var builder = new PostgreSqlBuilder("postgres:15-alpine")
                       .WithDatabase("testdb")
