@@ -1,0 +1,69 @@
+name: Publish To NuGet
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version without the leading v, for example 0.2.0 or 0.2.0-beta.1'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish-nuget:
+    name: Publish To NuGet
+    runs-on: ubuntu-latest
+    environment:
+      name: nuget-publish
+
+    steps:
+      - name: Resolve target tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          version='${{ inputs.version }}'
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z]+)*$ ]]; then
+            echo "Invalid version: $version"
+            exit 1
+          fi
+
+          echo "RELEASE_TAG=v$version" >> "$GITHUB_ENV"
+
+      - name: Checkout release tag
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build and pack libraries
+        run: ./scripts/pack-libraries.sh
+
+      - name: Publish packages to NuGet
+        shell: bash
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${NUGET_API_KEY}" ]]; then
+            echo "Missing required secret: NUGET_API_KEY"
+            exit 1
+          fi
+
+          dotnet nuget push "artifacts/packages/*.nupkg" \
+            --api-key "${NUGET_API_KEY}" \
+            --source "https://api.nuget.org/v3/index.json" \
+            --skip-duplicate
+
+          dotnet nuget push "artifacts/packages/*.snupkg" \
+            --api-key "${NUGET_API_KEY}" \
+            --source "https://api.nuget.org/v3/index.json" \
+            --skip-duplicate
