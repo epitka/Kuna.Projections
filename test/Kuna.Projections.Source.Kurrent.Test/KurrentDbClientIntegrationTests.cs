@@ -20,11 +20,6 @@ public class KurrentDbClientIntegrationTests
     [Fact]
     public async Task KurrentDbHealthCheck_Should_Be_Healthy_Against_Running_Kurrent()
     {
-        if (!ShouldRunContainerTests())
-        {
-            return;
-        }
-
         var client = CreateClient();
         var healthCheck = new KurrentDbHealthCheck(client);
 
@@ -36,11 +31,6 @@ public class KurrentDbClientIntegrationTests
     [Fact]
     public async Task KurrentClient_Should_Append_And_Read_Stream_Roundtrip()
     {
-        if (!ShouldRunContainerTests())
-        {
-            return;
-        }
-
         var client = CreateClient();
         var streamName = $"roundtrip-{Guid.NewGuid():N}";
         var payload = "{\"name\":\"demo\"}";
@@ -70,14 +60,6 @@ public class KurrentDbClientIntegrationTests
         results.Count.ShouldBe(1);
         results[0].Event.EventType.ShouldBe("demo-created");
         Encoding.UTF8.GetString(results[0].Event.Data.ToArray()).ShouldBe(payload);
-    }
-
-    private static bool ShouldRunContainerTests()
-    {
-        return string.Equals(
-            Environment.GetEnvironmentVariable("RUN_KURRENT_CONTAINER_TESTS"),
-            "1",
-            StringComparison.Ordinal);
     }
 
     private KurrentDBClient CreateClient()
