@@ -23,9 +23,9 @@ public class KurrentDBContainerFixture
         this.containerName = $"kuna-kurrent-it-{containerSuffix}";
 
         var builder = new KurrentDbBuilder("kurrentplatform/kurrentdb:25.1")
-            .WithName(this.containerName)
-            .WithAutoRemove(!this.keepContainers)
-            .WithCleanUp(!this.keepContainers);
+                      .WithName(this.containerName)
+                      .WithAutoRemove(!this.keepContainers)
+                      .WithCleanUp(!this.keepContainers);
 
         if (this.DockerEndpoint != null)
         {
