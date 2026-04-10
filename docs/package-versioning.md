@@ -36,11 +36,25 @@ They are not published to NuGet and remain attached to the workflow run in GitHu
 
 ### Release packages
 
-The workflow [release.yml](../.github/workflows/release.yml) runs when a tag matching `v*` is pushed.
+The workflow [release.yml](../.github/workflows/release.yml) can run in two ways:
+
+- automatically when a tag matching `v*` is pushed
+- manually through GitHub Actions `workflow_dispatch` from `master` by entering a version such as `0.2.0` or `0.2.0-beta.1`
 
 Those packages are the release packages and are the ones intended to be published to NuGet.
 
 ## Typical release flow
+
+### Option 1: Run The Release Workflow Manually
+
+1. Merge the desired changes to `master`.
+2. Open the `Release Packages` workflow in GitHub Actions on the `master` branch.
+3. Run the workflow and enter the target version without the leading `v`.
+4. The workflow creates and pushes the matching tag.
+5. The workflow builds the versioned packages.
+6. Publish those packages to NuGet.
+
+### Option 2: Push A Tag Yourself
 
 1. Merge the desired changes to `master`.
 2. Create a tag for the target version.

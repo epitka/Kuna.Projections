@@ -4,6 +4,15 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version without the leading v, for example 0.2.0 or 0.2.0-beta.1'
+        required: true
+        type: string
+
+permissions:
+  contents: write
 
 jobs:
   release-packages:
@@ -11,6 +20,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Enforce master for manual releases
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_NAME}" != "master" ]]; then
+            echo "Manual releases must be run from master. Current ref: ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v5
         with:
@@ -21,6 +40,47 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Create and push release tag
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version='${{ inputs.version }}'
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z]+)*$ ]]; then
+            echo "Invalid version: $version"
+            exit 1
+          fi
+
+          tag="v$version"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists locally"
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists on origin"
+            exit 1
+          fi
+
+          git tag "$tag" "$GITHUB_SHA"
+          git push origin "$tag"
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+
+      - name: Resolve release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "RELEASE_TAG=v${{ inputs.version }}" >> "$GITHUB_ENV"
+          else
+            echo "RELEASE_TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          fi
+
       - name: Build and pack libraries
         run: ./scripts/pack-libraries.sh
 
@@ -28,13 +88,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Generated packages for tag ${{ github.ref_name }}:" >> "$GITHUB_STEP_SUMMARY"
+          echo "Generated packages for tag ${RELEASE_TAG}:" >> "$GITHUB_STEP_SUMMARY"
           ls -1 artifacts/packages/*.nupkg | xargs -n 1 basename >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: nuget-packages-${{ github.ref_name }}
+          name: nuget-packages-${{ env.RELEASE_TAG }}
           path: |
             artifacts/packages/*.nupkg
             artifacts/packages/*.snupkg
