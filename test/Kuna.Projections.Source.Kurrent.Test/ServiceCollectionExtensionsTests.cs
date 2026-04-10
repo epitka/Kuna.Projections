@@ -103,7 +103,10 @@ public class ServiceCollectionExtensionsTests
 
         services.AddKurrentDBSource<TestModel>(
             configuration,
-            LoggerFactory.Create(_ => { }),
+            LoggerFactory.Create(
+                _ =>
+                {
+                }),
             "OrdersProjection");
 
         using var provider = services.BuildServiceProvider();

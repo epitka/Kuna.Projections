@@ -18,11 +18,11 @@ public sealed class PostgresSqlContainerFixture
             StringComparison.Ordinal);
 
         var builder = new PostgreSqlBuilder("postgres:15-alpine")
-            .WithDatabase("testdb")
-            .WithUsername("kuna")
-            .WithPassword("testpass")
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(5432))
-            .WithExposedPort(5432);
+                      .WithDatabase("testdb")
+                      .WithUsername("kuna")
+                      .WithPassword("testpass")
+                      .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(5432))
+                      .WithExposedPort(5432);
 
         if (this.DockerEndpoint != null)
         {

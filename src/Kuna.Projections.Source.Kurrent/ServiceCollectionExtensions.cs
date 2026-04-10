@@ -33,8 +33,8 @@ public static class ServiceCollectionExtensions
         var assembly = Assembly.GetEntryAssembly();
         var exportedTypes = assembly!.GetExportedTypes();
         var resolvedSettingsSectionName = string.IsNullOrWhiteSpace(settingsSectionName)
-            ? ProjectionSettingsSection.Name
-            : settingsSectionName;
+                                              ? ProjectionSettingsSection.Name
+                                              : settingsSectionName;
 
         services.AddSingleton<IEventDeserializer>(
             provider =>

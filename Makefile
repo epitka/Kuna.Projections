@@ -41,7 +41,7 @@ lint: ## runs code cleanup on modified C# files from current branch commits
 		dotnet jb cleanupcode \
 			--profile="Reformat Code" \
 			--disable-settings-layers=GlobalAll,GlobalPerProduct,SolutionPersonal \
-			--settings="PeakPass.All.sln.DotSettings" \
+			--settings="Kuna.Projections.sln.DotSettings" \
 			--exclude="**/migrations/**" \
 			--include="$$INCLUDE_LIST" \
 			--verbosity=ERROR \

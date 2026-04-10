@@ -9,11 +9,10 @@ internal static class KurrentDbSubscriptionFilterFactory
         ArgumentNullException.ThrowIfNull(settings);
 
         return settings.Kind switch
-        {
-            KurrentDbFilterKind.StreamPrefix => new SubscriptionFilterOptions(
-                StreamFilter.Prefix(GetSinglePrefix(settings))),
-            _ => throw new ArgumentOutOfRangeException(nameof(settings.Kind)),
-        };
+               {
+                   KurrentDbFilterKind.StreamPrefix => new SubscriptionFilterOptions(StreamFilter.Prefix(GetSinglePrefix(settings))),
+                   _                                => throw new ArgumentOutOfRangeException(nameof(settings.Kind)),
+               };
     }
 
     internal static string GetSinglePrefix(KurrentDbFilterSettings settings)

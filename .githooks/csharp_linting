@@ -26,7 +26,11 @@ echo -e "${GREEN}=== C# Code Formatting: ReSharper CleanupCode for files being p
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${HOOK_DIR}/.." && pwd)"
-PROJECT_RELATIVE_PATH="${PROJECT_DIR#${REPO_ROOT}/}"
+if [[ "$PROJECT_DIR" == "$REPO_ROOT" ]]; then
+  PROJECT_RELATIVE_PATH=""
+else
+  PROJECT_RELATIVE_PATH="${PROJECT_DIR#${REPO_ROOT}/}"
+fi
 cd "$REPO_ROOT"
 
 # Make sure the repo-local jb tool is available from the project-local manifest.
@@ -81,11 +85,17 @@ FILES_TO_CLEAN=()
 CLEANUP_INCLUDE_FILES=()
 while IFS= read -r line; do
   [[ -z "$line" ]] && continue
-  [[ "$line" != "${PROJECT_RELATIVE_PATH}/"* ]] && continue
+  if [[ -n "$PROJECT_RELATIVE_PATH" && "$line" != "${PROJECT_RELATIVE_PATH}/"* ]]; then
+    continue
+  fi
   # only include files that still exist in the working tree
   if [[ -f "$line" ]]; then
     FILES_TO_CLEAN+=("$line")
-    CLEANUP_INCLUDE_FILES+=("${line#${PROJECT_RELATIVE_PATH}/}")
+    if [[ -n "$PROJECT_RELATIVE_PATH" ]]; then
+      CLEANUP_INCLUDE_FILES+=("${line#${PROJECT_RELATIVE_PATH}/}")
+    else
+      CLEANUP_INCLUDE_FILES+=("$line")
+    fi
   fi
 done < "$files_dedup_tmp"
 rm -f "$files_dedup_tmp"

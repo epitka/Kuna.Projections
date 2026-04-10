@@ -56,6 +56,7 @@ public static class ServiceCollectionExtensions
         services.AddProjection<Order>(
             configuration,
             settingsSectionName: "OrdersProjection");
+
         services.AddScoped<OrdersReplayConsistencyDiagnostics>();
 
         return services;
