@@ -34,15 +34,14 @@ public static class ServiceCollectionExtensions
             options =>
             {
                 options.UseNpgsql(
-                           postgreSqlConnectionString,
-                           npgsqlOptionsAction: npgsqlOptions =>
-                           {
-                               npgsqlOptions.EnableRetryOnFailure(
-                                   maxRetryCount: 3,
-                                   maxRetryDelay: TimeSpan.FromSeconds(1),
-                                   errorCodesToAdd: null);
-                           })
-                       .EnableSensitiveDataLogging();
+                    postgreSqlConnectionString,
+                    npgsqlOptionsAction: npgsqlOptions =>
+                    {
+                        npgsqlOptions.EnableRetryOnFailure(
+                            maxRetryCount: 3,
+                            maxRetryDelay: TimeSpan.FromSeconds(1),
+                            errorCodesToAdd: null);
+                    });
             });
 
         var factory = LoggerFactory.Create(
