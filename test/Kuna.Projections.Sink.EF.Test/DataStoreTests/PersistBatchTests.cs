@@ -21,11 +21,6 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task NewModel_Should_Be_Inserted_And_Checkpoint_Should_Be_Persisted()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
         var modelId = Guid.NewGuid();
@@ -68,11 +63,6 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task ExistingModel_Should_Be_Updated()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         var modelId = Guid.NewGuid();
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         await SeedModel(provider, modelId, "before", 1, 5);
@@ -116,11 +106,6 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task ExistingHierarchicalModel_WithNewChild_Should_Insert_Child_Row_On_Update()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         var modelId = Guid.NewGuid();
         var childId = Guid.NewGuid();
 
@@ -192,11 +177,6 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     [Fact]
     public void HierarchicalModel_Without_PersistedChildEntity_Should_Fail_Fast()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var failureLogger = provider.GetRequiredService<ILogger<ProjectionFailureHandler<InvalidChildModel, TestProjectionDbContext>>>();
         var failureHandler = new ProjectionFailureHandler<InvalidChildModel, TestProjectionDbContext>(provider, failureLogger);
@@ -213,11 +193,6 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task ExistingModelMarkedForDelete_Should_Be_Removed()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         var modelId = Guid.NewGuid();
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         await SeedModel(provider, modelId, "to-delete", 4, 40);
@@ -255,11 +230,6 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task InvalidNewAndDeleteChange_Should_Be_Skipped_And_Checkpoint_Should_Be_Persisted()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
         var modelId = Guid.NewGuid();
@@ -300,11 +270,6 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task InvalidInsertInSmallBatch_Should_Record_Failure_And_Still_Persist_Valid_Model()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
         var validId = Guid.NewGuid();
@@ -368,11 +333,6 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task MultipleInvalidInsertsInLargeBatch_Should_Be_Isolated_Recursively()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
         var invalidId1 = Guid.NewGuid();
@@ -440,11 +400,6 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task ManyInvalidInsertsInVeryLargeBatch_Should_Be_Isolated_Recursively()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
         var invalidIds = new[]
@@ -524,11 +479,6 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task FailingUpdate_Should_Roll_Back_Batch_And_Record_Failure()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         var validId = Guid.NewGuid();
         var invalidId = Guid.NewGuid();
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
@@ -589,11 +539,6 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task EmptyChanges_Should_Only_Persist_Checkpoint()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
 

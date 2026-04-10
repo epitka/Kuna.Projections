@@ -16,11 +16,6 @@ public class GetCheckpointTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task ExistingCheckpoint_Should_Be_Returned()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
         var position = new GlobalEventPosition((ulong)long.MaxValue);
@@ -42,11 +37,6 @@ public class GetCheckpointTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task MissingCheckpoint_Should_Return_Default_Start_Position()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
 

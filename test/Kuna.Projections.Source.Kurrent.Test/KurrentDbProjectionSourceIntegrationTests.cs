@@ -816,6 +816,11 @@ public class KurrentDbProjectionSourceIntegrationTests
         {
             await foreach (var envelope in source.ReadAll(startPosition, cts.Token))
             {
+                if (envelope.Event is ProjectionCaughtUpEvent)
+                {
+                    continue;
+                }
+
                 result.Add(envelope);
 
                 if (result.Count >= expectedCount)
@@ -881,7 +886,7 @@ public class KurrentDbProjectionSourceIntegrationTests
     private static string GetKurrentContainerName()
     {
         var suffix = Environment.GetEnvironmentVariable("KUNA_TEST_CONTAINER_SUFFIX") ?? "default";
-        return $"kuna-kurrent-it-{suffix}";
+        return $"kuna-kurrent-source-it-{suffix}";
     }
 
     private KurrentDbEventSource<SourceIntegrationModel> CreateSource(

@@ -23,11 +23,6 @@ public class ProjectionFailureHandlerIntegrationTests
     [Fact]
     public async Task Handle_Should_Persist_Failure_And_Mark_Model_As_Faulted()
     {
-        if (!this.fixture.IsEnabled)
-        {
-            return;
-        }
-
         var modelId = Guid.NewGuid();
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.fixture);
         await SeedModel(provider, modelId);
@@ -55,11 +50,6 @@ public class ProjectionFailureHandlerIntegrationTests
     [Fact]
     public async Task Handle_Should_Append_And_Truncate_On_Duplicate_Failure()
     {
-        if (!this.fixture.IsEnabled)
-        {
-            return;
-        }
-
         var modelId = Guid.NewGuid();
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.fixture);
         await SeedModel(provider, modelId);

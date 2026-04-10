@@ -10,11 +10,6 @@ public static class PostgresSqlTestHelper
 
     public static void ResetDatabase(PostgresSqlContainerFixture fixture)
     {
-        if (!fixture.IsEnabled)
-        {
-            return;
-        }
-
         lock (DatabaseResetLock)
         {
             using var dbContext = CreateDbContext(fixture);
