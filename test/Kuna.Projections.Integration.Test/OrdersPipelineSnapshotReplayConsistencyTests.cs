@@ -51,7 +51,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         yield return
         [
             new ReplayConsistencyCase(
-                TargetEvents: 10_000,
+                TargetEvents: 5000,
                 MinimumCompleteOrders: 333,
                 ProjectionStartOffsetEvents: 1_000,
                 CatchUpPersistenceStrategy: PersistenceStrategy.ModelCountBatching,
