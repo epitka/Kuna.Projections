@@ -121,10 +121,10 @@ services.AddProjectionHost(typeof(Program).Assembly);
 services.AddDbContext<AccountProjectionDbContext>(
     options => options.UseNpgsql(configuration.GetConnectionString("PostgreSql")));
 
-services.AddEventStoreSource<Account>(
+services.AddKurrentDBSource<Account>(
     configuration,
     loggerFactory,
-    "AccountProjection:EventStoreSource");
+    "AccountProjection");
 
 services.AddSqlProjectionsDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
 services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection");
@@ -164,7 +164,7 @@ That separation is what makes high-throughput projection processing practical: e
 
 At minimum, applications typically provide:
 
-- `ConnectionStrings:EventStore`
+- `ConnectionStrings:KurrentDB`
 - `ConnectionStrings:PostgreSql`
 - one projection settings section per registered projection
 
@@ -174,11 +174,15 @@ Example:
 {
   "ConnectionStrings": {
     "PostgreSql": "Host=localhost;Port=5432;Database=orders_projection;Username=postgres;Password=postgres",
-    "EventStore": "esdb://admin:changeit@localhost:2113?tls=false"
+    "KurrentDB": "esdb://admin:changeit@localhost:2113?tls=false"
   },
   "OrdersProjection": {
-    "EventStoreSource": {
-      "StreamName": "order",
+    "Source": "KurrentDB",
+    "KurrentDB": {
+      "Filter": {
+        "Kind": "StreamPrefix",
+        "Prefixes": [ "order" ]
+      }
     }
   }
 }

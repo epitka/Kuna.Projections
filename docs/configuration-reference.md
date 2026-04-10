@@ -335,8 +335,6 @@ Not every setting near projections belongs to the shared libraries.
 
 Examples from the runnable worker:
 
-- `ProjectionName`
-  Used by the host app to decide which projection module to register.
 - `ConnectionStrings:PostgreSql`
   Used by the host app when configuring `OrdersDbContext`.
 - schema passed to `AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)`
