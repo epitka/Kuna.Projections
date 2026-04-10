@@ -39,16 +39,7 @@ try
            .UseSerilog((ctx, lc) => lc.ReadFrom.Configuration(ctx.Configuration));
 
     builder.Services.AddProjectionHost(typeof(Program).Assembly);
-
-    switch (builder.Configuration.GetValue<string>("ProjectionName"))
-    {
-        case "orders":
-            builder.Services.AddOrdersProjections(builder.Configuration);
-            break;
-
-        default:
-            throw new Exception("unknown projection name");
-    }
+    builder.Services.AddOrdersProjections(builder.Configuration);
 
     var app = builder.Build();
 
