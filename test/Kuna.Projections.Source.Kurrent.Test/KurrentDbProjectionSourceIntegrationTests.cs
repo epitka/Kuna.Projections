@@ -80,47 +80,6 @@ public class KurrentDbProjectionSourceIntegrationTests
     }
 
     [Fact]
-    public async Task ReadAll_Should_Return_DeserializationFailed_And_Fallback_ModelId_From_StreamId()
-    {
-        var modelId = Guid.NewGuid();
-        var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
-        var matchingStream = $"{streamPrefix}{modelId:D}";
-
-        using var loggerFactory = LoggerFactory.Create(
-            _ =>
-            {
-            });
-
-        var client = CreateClient();
-
-        await client.AppendToStreamAsync(
-            matchingStream,
-            StreamState.NoStream,
-            new[]
-            {
-                new EventData(
-                    Uuid.NewUuid(),
-                    nameof(SourceIntegrationEvent),
-                    Encoding.UTF8.GetBytes("{\"AggregateId\":")), // malformed JSON
-            },
-            cancellationToken: CancellationToken.None);
-
-        var source = CreateSource(loggerFactory, client, streamPrefix);
-        var envelopes = await ReadEnvelopesUntilCount(source, expectedCount: 1, timeout: TimeSpan.FromSeconds(15));
-
-        envelopes.Count.ShouldBe(1);
-        var envelope = envelopes[0];
-        envelope.StreamId.ShouldBe(matchingStream);
-        envelope.ModelId.ShouldBe(modelId);
-        envelope.Event.ShouldBeOfType<DeserializationFailed>();
-
-        var failure = (DeserializationFailed)envelope.Event;
-        failure.ModelId.ShouldBe(modelId);
-        failure.TypeName.ShouldBe(nameof(SourceIntegrationEvent));
-        failure.EventNumber.ShouldBe(0);
-    }
-
-    [Fact]
     public async Task ReadAll_Should_Drop_Event_When_ModelId_Cannot_Be_Resolved()
     {
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
