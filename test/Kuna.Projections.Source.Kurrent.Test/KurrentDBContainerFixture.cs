@@ -13,18 +13,13 @@ public class KurrentDBContainerFixture
 
     public KurrentDBContainerFixture()
     {
-        this.IsEnabled = string.Equals(
-            Environment.GetEnvironmentVariable("RUN_KURRENT_CONTAINER_TESTS"),
-            "1",
-            StringComparison.Ordinal);
-
         this.keepContainers = string.Equals(
             Environment.GetEnvironmentVariable("KUNA_TEST_KEEP_CONTAINERS"),
             "1",
             StringComparison.Ordinal);
 
         var containerSuffix = Environment.GetEnvironmentVariable("KUNA_TEST_CONTAINER_SUFFIX") ?? "default";
-        this.containerName = $"kuna-kurrent-it-{containerSuffix}";
+        this.containerName = $"kuna-kurrent-source-it-{containerSuffix}";
 
         var builder = new KurrentDbBuilder("kurrentplatform/kurrentdb:25.1")
                       .WithName(this.containerName)
@@ -45,17 +40,10 @@ public class KurrentDBContainerFixture
 
     public IContainer KurrentDBTestContainer { get; }
 
-    public bool IsEnabled { get; }
-
     public string ConnectionString => ((KurrentDbContainer)this.KurrentDBTestContainer).GetConnectionString();
 
     public async ValueTask InitializeAsync()
     {
-        if (!this.IsEnabled)
-        {
-            return;
-        }
-
         if (!this.keepContainers)
         {
             await this.RemoveContainerIfPresentAsync(this.containerName);
@@ -66,11 +54,6 @@ public class KurrentDBContainerFixture
 
     public async ValueTask DisposeAsync()
     {
-        if (!this.IsEnabled)
-        {
-            return;
-        }
-
         if (this.keepContainers)
         {
             return;

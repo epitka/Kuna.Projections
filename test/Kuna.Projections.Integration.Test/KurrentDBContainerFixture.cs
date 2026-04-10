@@ -20,7 +20,7 @@ public class KurrentDBContainerFixture
             StringComparison.Ordinal);
 
         var containerSuffix = Environment.GetEnvironmentVariable("KUNA_TEST_CONTAINER_SUFFIX") ?? "default";
-        this.containerName = $"kuna-kurrent-it-{containerSuffix}";
+        this.containerName = $"kuna-kurrent-integration-it-{containerSuffix}";
 
         var builder = new KurrentDbBuilder("kurrentplatform/kurrentdb:25.1")
                       .WithName(this.containerName)

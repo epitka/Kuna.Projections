@@ -12,11 +12,6 @@ public sealed class PostgresSqlContainerFixture
 
     public PostgresSqlContainerFixture()
     {
-        this.IsEnabled = string.Equals(
-            Environment.GetEnvironmentVariable("RUN_EF_CONTAINER_TESTS"),
-            "1",
-            StringComparison.Ordinal);
-
         var builder = new PostgreSqlBuilder("postgres:15-alpine")
                       .WithDatabase("testdb")
                       .WithUsername("kuna")
@@ -32,27 +27,15 @@ public sealed class PostgresSqlContainerFixture
         this.container = builder.Build();
     }
 
-    public bool IsEnabled { get; }
-
     public string ConnectionString => this.container.GetConnectionString();
 
     public async ValueTask InitializeAsync()
     {
-        if (!this.IsEnabled)
-        {
-            return;
-        }
-
         await this.container.StartAsync();
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (!this.IsEnabled)
-        {
-            return;
-        }
-
         await this.container.DisposeAsync();
     }
 }

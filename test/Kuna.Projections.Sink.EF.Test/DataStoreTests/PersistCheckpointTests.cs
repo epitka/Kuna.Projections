@@ -16,11 +16,6 @@ public class PersistCheckpointTests : DataStoreIntegrationTestBase
     [Fact]
     public async Task MissingCheckpoint_Should_Create_And_ExistingCheckpoint_Should_Update()
     {
-        if (!this.Fixture.IsEnabled)
-        {
-            return;
-        }
-
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
 
