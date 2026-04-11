@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Description>Entity Framework Core sink for Kuna.Projections that persists read models, checkpoints, and projection failures.</Description>
   </PropertyGroup>
 
   <ItemGroup>

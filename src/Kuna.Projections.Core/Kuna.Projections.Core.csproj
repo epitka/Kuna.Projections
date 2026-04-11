@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Description>Core runtime for Kuna.Projections that creates projection instances, applies events, batches model state changes, and coordinates pipeline execution.</Description>
   </PropertyGroup>
 
   <ItemGroup>

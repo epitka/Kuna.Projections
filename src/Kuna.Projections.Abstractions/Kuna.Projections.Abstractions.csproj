@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Description>Shared contracts, model types, envelopes, checkpoints, and failure records for the Kuna.Projections event-sourcing projection pipeline.</Description>
   </PropertyGroup>
 
 </Project>

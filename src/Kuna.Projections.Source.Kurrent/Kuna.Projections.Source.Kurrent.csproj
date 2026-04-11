@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Description>KurrentDB event source implementation for Kuna.Projections that reads events, deserializes payloads, resolves model ids, and emits projection envelopes.</Description>
   </PropertyGroup>
 
   <ItemGroup>
