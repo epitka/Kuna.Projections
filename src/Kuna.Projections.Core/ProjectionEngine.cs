@@ -19,7 +19,7 @@ internal sealed class ProjectionEngine<TState>
 {
     private readonly IProjectionFactory<TState> projectionFactory;
     private readonly IProjectionFailureHandler<TState> failureHandler;
-    private readonly IModelStateCache<TState> modelStateCache;
+    private readonly IProjectionCache<TState> projectionCache;
     private readonly IProjectionSettings<TState> settings;
     private readonly ILogger logger;
     private readonly string modelName;
@@ -29,18 +29,33 @@ internal sealed class ProjectionEngine<TState>
     public ProjectionEngine(
         IProjectionFactory<TState> projectionFactory,
         IProjectionFailureHandler<TState> failureHandler,
-        IModelStateCache<TState> modelStateCache,
+        IProjectionCache<TState> projectionCache,
         IProjectionSettings<TState> settings,
         ILogger<ProjectionEngine<TState>> logger)
     {
         this.projectionFactory = projectionFactory;
         this.failureHandler = failureHandler;
-        this.modelStateCache = modelStateCache;
+        this.projectionCache = projectionCache;
         this.settings = settings;
         this.logger = logger;
         this.modelName = ProjectionModelName.For<TState>();
         this.projections = new ConcurrentDictionary<Guid, Projection<TState>>(Environment.ProcessorCount, settings.MaxPendingProjectionsCount);
         this.failedProjections = new ConcurrentDictionary<Guid, byte>(Environment.ProcessorCount, settings.MaxPendingProjectionsCount);
+    }
+
+    public ProjectionEngine(
+        IProjectionFactory<TState> projectionFactory,
+        IProjectionFailureHandler<TState> failureHandler,
+        IModelStateCache<TState> modelStateCache,
+        IProjectionSettings<TState> settings,
+        ILogger<ProjectionEngine<TState>> logger)
+        : this(
+            projectionFactory,
+            failureHandler,
+            new ProjectionCacheCompatibilityAdapter<TState>(modelStateCache),
+            settings,
+            logger)
+    {
     }
 
     /// <summary>
@@ -161,8 +176,9 @@ internal sealed class ProjectionEngine<TState>
             return projection;
         }
 
-        if (this.modelStateCache.TryGet(envelope.ModelId, out var cached)
-            && cached != null)
+        var cached = await this.projectionCache.Get(envelope.ModelId, cancellationToken);
+
+        if (cached != null)
         {
             projection = this.projectionFactory.CreateFromModel(cached.Model, cached.IsNew);
             this.projections[envelope.ModelId] = projection;
