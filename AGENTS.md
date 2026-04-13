@@ -49,8 +49,9 @@ The last targeted `dotnet test` verification command that completed successfully
 - For container/integration scenarios, use project-specific env flags when required (for example Kurrent/EF container tests).
 - Prefer `Bogus` for generating test data.
 - When asserting model/state equality, prefer whole-object comparison with `DeepEqual` over one-property-at-a-time assertions.
-- Anonymize non-essential properties before comparing, then compare the full resulting objects directly.
-- Avoid unnecessary assertion helper layers or bespoke comparison wrappers when a direct `ShouldDeepEqual(...)` on the anonymized objects is clear enough.
+- Anonymize non-essential properties during test setup/construction, not by transforming the objects later just for assertions.
+- After setup normalization, compare the full objects directly with `ShouldDeepEqual(...)`.
+- Avoid post-construction anonymization helpers, bespoke comparison wrappers, or extra projection layers when direct object comparison is sufficient.
 
 ## Commit & Pull Request Guidelines
 - Use short, imperative commit subjects (seen in history: `benchmarks`, `integration tests passing`, `version check strategy`).
