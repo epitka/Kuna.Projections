@@ -175,8 +175,51 @@ public sealed class InMemoryModelStateCache<TState>
         PersistencePullRequest request,
         CancellationToken cancellationToken)
     {
-        throw new NotSupportedException(
-            "Pull-based persistence is not supported by the in-memory projection cache until the explicit cache stage is wired into the pipeline.");
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var maxBatchSize = Math.Max(1, request.MaxBatchSize);
+        var selected = new List<ProjectedStateEnvelope<TState>>(maxBatchSize);
+        GlobalEventPosition? maxPosition = null;
+
+        foreach (var (modelId, entry) in this.inFlightCache)
+        {
+            if (selected.Count >= maxBatchSize)
+            {
+                break;
+            }
+
+            if (entry.State.PersistenceStatus != ProjectionPersistenceStatus.Dirty)
+            {
+                continue;
+            }
+
+            var inFlight = entry.State with
+            {
+                PersistenceStatus = ProjectionPersistenceStatus.InFlight,
+            };
+
+            if (!this.inFlightCache.TryUpdate(modelId, new CacheEntry(inFlight), entry))
+            {
+                continue;
+            }
+
+            selected.Add(CloneProjectedState(inFlight));
+            maxPosition = maxPosition == null || inFlight.GlobalEventPosition.Value > maxPosition.Value.Value
+                ? inFlight.GlobalEventPosition
+                : maxPosition;
+        }
+
+        if (selected.Count == 0 || maxPosition == null)
+        {
+            return ValueTask.FromResult<PersistencePullBatch<TState>?>(null);
+        }
+
+        return ValueTask.FromResult<PersistencePullBatch<TState>?>(
+            new PersistencePullBatch<TState>
+            {
+                Items = selected,
+                MaxPosition = maxPosition.Value,
+            });
     }
 
     public ValueTask CompletePull(
@@ -184,8 +227,38 @@ public sealed class InMemoryModelStateCache<TState>
         IReadOnlyList<PersistenceItemOutcome> outcomes,
         CancellationToken cancellationToken)
     {
-        throw new NotSupportedException(
-            "Pull completion is not supported by the in-memory projection cache until the explicit cache stage is wired into the pipeline.");
+        cancellationToken.ThrowIfCancellationRequested();
+
+        foreach (var outcome in outcomes)
+        {
+            if (!this.inFlightCache.TryGetValue(outcome.ModelId, out var entry)
+                || entry.State.StageToken != outcome.StageToken)
+            {
+                continue;
+            }
+
+            var updatedState = outcome.Status switch
+            {
+                PersistenceItemOutcomeStatus.Persisted => entry.State with
+                {
+                    IsNew = false,
+                    PersistenceStatus = ProjectionPersistenceStatus.Persisted,
+                },
+                PersistenceItemOutcomeStatus.Failed => entry.State with
+                {
+                    PersistenceStatus = ProjectionPersistenceStatus.Failed,
+                },
+                PersistenceItemOutcomeStatus.SkippedAsStale => entry.State with
+                {
+                    PersistenceStatus = ProjectionPersistenceStatus.Dirty,
+                },
+                _ => throw new ArgumentOutOfRangeException(),
+            };
+
+            this.inFlightCache.TryUpdate(outcome.ModelId, new CacheEntry(updatedState), entry);
+        }
+
+        return ValueTask.CompletedTask;
     }
 
     public (long Hits, long Misses) ReadAndResetLookupStats()
