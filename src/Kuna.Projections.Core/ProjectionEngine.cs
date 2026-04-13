@@ -43,21 +43,6 @@ internal sealed class ProjectionEngine<TState>
         this.failedProjections = new ConcurrentDictionary<Guid, byte>(Environment.ProcessorCount, settings.MaxPendingProjectionsCount);
     }
 
-    public ProjectionEngine(
-        IProjectionFactory<TState> projectionFactory,
-        IProjectionFailureHandler<TState> failureHandler,
-        IModelStateCache<TState> modelStateCache,
-        IProjectionSettings<TState> settings,
-        ILogger<ProjectionEngine<TState>> logger)
-        : this(
-            projectionFactory,
-            failureHandler,
-            new ProjectionCacheCompatibilityAdapter<TState>(modelStateCache),
-            settings,
-            logger)
-    {
-    }
-
     /// <summary>
     /// Transforms one event envelope into the next model state for its target
     /// model by reusing or recreating the live projection instance, applying the

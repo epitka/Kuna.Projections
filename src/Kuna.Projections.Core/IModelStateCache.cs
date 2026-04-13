@@ -54,7 +54,9 @@ public interface IModelStateCache<TState>
 /// visibility lag after persistence. The cache is bounded by settings and evicts
 /// older entries when capacity is exceeded.
 /// </summary>
-public sealed class InMemoryModelStateCache<TState> : IModelStateCache<TState>
+public sealed class InMemoryModelStateCache<TState>
+    : IModelStateCache<TState>,
+      IProjectionCache<TState>
     where TState : class, IModel, new()
 {
     private readonly ConcurrentDictionary<Guid, CacheEntry> inFlightCache;
@@ -87,21 +89,22 @@ public sealed class InMemoryModelStateCache<TState> : IModelStateCache<TState>
         }
 
         Interlocked.Increment(ref this.inFlightLookupHits);
-        state = CloneProjectionState(cached.ModelState);
+        state = ToModelState(cached.State);
         return true;
     }
 
     public void Set(ModelState<TState> modelState)
     {
-        var cachedState =
-            modelState with
-            {
-                IsNew = false,
-            };
+        var state = new ProjectedStateEnvelope<TState>(
+            Model: CloneModel(modelState.Model),
+            IsNew: false,
+            ShouldDelete: modelState.ShouldDelete,
+            GlobalEventPosition: modelState.GlobalEventPosition,
+            ExpectedEventNumber: modelState.ExpectedEventNumber,
+            StageToken: Interlocked.Increment(ref this.nextToken),
+            PersistenceStatus: ProjectionPersistenceStatus.Persisted);
 
-        var token = Interlocked.Increment(ref this.nextToken);
-        var entry = new CacheEntry(cachedState, token);
-        var isNewKey = this.inFlightCache.TryAdd(cachedState.Model.Id, entry);
+        var isNewKey = this.inFlightCache.TryAdd(state.Model.Id, new CacheEntry(state));
 
         if (isNewKey)
         {
@@ -109,10 +112,10 @@ public sealed class InMemoryModelStateCache<TState> : IModelStateCache<TState>
         }
         else
         {
-            this.inFlightCache[cachedState.Model.Id] = entry;
+            this.inFlightCache[state.Model.Id] = new CacheEntry(state);
         }
 
-        this.evictionQueue.Enqueue(new EvictionEntry(cachedState.Model.Id, token));
+        this.evictionQueue.Enqueue(new EvictionEntry(state.Model.Id, state.StageToken));
 
         if (Volatile.Read(ref this.approxInFlightCacheCount) <= this.inFlightCacheCapacity
             || !this.evictionQueue.TryDequeue(out var candidate)) return;
@@ -124,11 +127,65 @@ public sealed class InMemoryModelStateCache<TState> : IModelStateCache<TState>
         // 4) If we removed by key only, we'd delete modelState@11 (newest) by mistake.
         //    Therefore, we remove only when current token == candidate token.
         if (this.inFlightCache.TryGetValue(candidate.ModelId, out var current)
-            && current.Token == candidate.Token
+            && current.State.StageToken == candidate.Token
             && this.inFlightCache.TryRemove(candidate.ModelId, out _))
         {
             Interlocked.Decrement(ref this.approxInFlightCacheCount);
         }
+    }
+
+    public ValueTask<ProjectedStateEnvelope<TState>?> Get(Guid modelId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!this.inFlightCache.TryGetValue(modelId, out var cached))
+        {
+            Interlocked.Increment(ref this.inFlightLookupMisses);
+            return ValueTask.FromResult<ProjectedStateEnvelope<TState>?>(null);
+        }
+
+        Interlocked.Increment(ref this.inFlightLookupHits);
+        return ValueTask.FromResult<ProjectedStateEnvelope<TState>?>(CloneProjectedState(cached.State));
+    }
+
+    public ValueTask Stage(ProjectedStateEnvelope<TState> state, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var stagedState = state with
+        {
+            Model = CloneModel(state.Model),
+        };
+
+        var isNewKey = this.inFlightCache.TryAdd(stagedState.Model.Id, new CacheEntry(stagedState));
+
+        if (isNewKey)
+        {
+            Interlocked.Increment(ref this.approxInFlightCacheCount);
+        }
+        else
+        {
+            this.inFlightCache[stagedState.Model.Id] = new CacheEntry(stagedState);
+        }
+
+        return ValueTask.CompletedTask;
+    }
+
+    public ValueTask<PersistencePullBatch<TState>?> PullNextBatch(
+        PersistencePullRequest request,
+        CancellationToken cancellationToken)
+    {
+        throw new NotSupportedException(
+            "Pull-based persistence is not supported by the in-memory projection cache until the explicit cache stage is wired into the pipeline.");
+    }
+
+    public ValueTask CompletePull(
+        PersistencePullBatch<TState> batch,
+        IReadOnlyList<PersistenceItemOutcome> outcomes,
+        CancellationToken cancellationToken)
+    {
+        throw new NotSupportedException(
+            "Pull completion is not supported by the in-memory projection cache until the explicit cache stage is wired into the pipeline.");
     }
 
     public (long Hits, long Misses) ReadAndResetLookupStats()
@@ -138,12 +195,14 @@ public sealed class InMemoryModelStateCache<TState> : IModelStateCache<TState>
         return (hits, misses);
     }
 
-    private static ModelState<TState> CloneProjectionState(ModelState<TState> modelState)
+    private static ModelState<TState> ToModelState(ProjectedStateEnvelope<TState> state)
     {
-        return modelState with
-        {
-            Model = CloneModel(modelState.Model),
-        };
+        return new ModelState<TState>(
+            CloneModel(state.Model),
+            state.IsNew,
+            state.ShouldDelete,
+            state.GlobalEventPosition,
+            state.ExpectedEventNumber);
     }
 
     private static TState CloneModel(TState model)
@@ -154,7 +213,15 @@ public sealed class InMemoryModelStateCache<TState> : IModelStateCache<TState>
         return clone ?? throw new InvalidOperationException($"Failed to clone model {typeof(TState).Name}");
     }
 
+    private static ProjectedStateEnvelope<TState> CloneProjectedState(ProjectedStateEnvelope<TState> state)
+    {
+        return state with
+        {
+            Model = CloneModel(state.Model),
+        };
+    }
+
     private readonly record struct EvictionEntry(Guid ModelId, long Token);
 
-    private readonly record struct CacheEntry(ModelState<TState> ModelState, long Token);
+    private readonly record struct CacheEntry(ProjectedStateEnvelope<TState> State);
 }
