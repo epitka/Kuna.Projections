@@ -47,6 +47,10 @@ The last targeted `dotnet test` verification command that completed successfully
 - Test names follow `State_ExpectedBehavior` style only when there is only one method on the type, otherwise create a folder named by the type being tested suffixed with "Tests". For each method on type being tested create separate file named by the method under test. If possible, follow Given-When_Then/Should style for tests.
 - Put tests in matching project folders under `test/`.
 - For container/integration scenarios, use project-specific env flags when required (for example Kurrent/EF container tests).
+- Prefer `Bogus` for generating test data.
+- When asserting model/state equality, prefer whole-object comparison with `DeepEqual` over one-property-at-a-time assertions.
+- Anonymize non-essential properties before comparing, then compare the full resulting objects directly.
+- Avoid unnecessary assertion helper layers or bespoke comparison wrappers when a direct `ShouldDeepEqual(...)` on the anonymized objects is clear enough.
 
 ## Commit & Pull Request Guidelines
 - Use short, imperative commit subjects (seen in history: `benchmarks`, `integration tests passing`, `version check strategy`).
