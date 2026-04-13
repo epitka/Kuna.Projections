@@ -362,26 +362,6 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                        flushToken);
 
                     await this.projectionCache.CompletePull(pullBatch, outcomes, flushToken);
-
-                    var allPersisted = outcomes.Count == pullBatch.Items.Count
-                                       && outcomes.All(x => x.Status == PersistenceItemOutcomeStatus.Persisted);
-
-                    if (!allPersisted)
-                    {
-                        var statsFallback = ReadCacheStats();
-                        flushStopwatch.Stop();
-
-                        return new FlushResult(
-                            FlushedModelIds: [],
-                            FlushedPosition: lastFlushedPosition,
-                            InsertedModels: batchInserted,
-                            UpdatedModels: batchUpdated,
-                            DeletedModels: batchDeleted,
-                            InFlightCacheHits: statsFallback.Hits,
-                            InFlightCacheMisses: statsFallback.Misses,
-                            ElapsedMilliseconds: flushStopwatch.Elapsed.TotalMilliseconds,
-                            BatchModels: changes.Count);
-                    }
                 }
             }
 

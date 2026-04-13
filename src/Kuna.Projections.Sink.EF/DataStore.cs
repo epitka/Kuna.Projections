@@ -141,7 +141,12 @@ public class DataStore<TState, TDataContext>
         PersistenceWriteBatch<TState> batch,
         CancellationToken cancellationToken)
     {
+        var toExclude = batch.Items
+                             .Where(x => x is { IsNew: true, ShouldDelete: true, })
+                             .ToArray();
+
         var modelStates = batch.Items
+                               .Except(toExclude)
                                .Select(
                                    item => new ModelState<TState>(
                                        item.Model,
@@ -151,7 +156,7 @@ public class DataStore<TState, TDataContext>
                                        item.ExpectedEventNumber))
                                .ToArray();
 
-        await this.PersistBatchInternal(modelStates, cancellationToken);
+        var outcomeStatuses = await this.PersistBatchInternal(modelStates, cancellationToken);
         this.LogCumulativeModelWriteMetricsIfDue();
 
         foreach (var modelState in modelStates.Where(x => !x.ShouldDelete))
@@ -167,12 +172,19 @@ public class DataStore<TState, TDataContext>
 
         return batch.Items
                     .Select(
-                        item => new PersistenceItemOutcome(
-                            item.Model.Id,
-                            item.StageToken,
-                            item.GlobalEventPosition,
-                            PersistenceItemOutcomeStatus.Persisted,
-                            null))
+                        item =>
+                        {
+                            var status = outcomeStatuses.TryGetStatus(item.Model.Id, out var value)
+                                ? value
+                                : PersistenceItemOutcomeStatus.Persisted;
+
+                            return new PersistenceItemOutcome(
+                                item.Model.Id,
+                                item.StageToken,
+                                item.GlobalEventPosition,
+                                status,
+                                null);
+                        })
                     .ToArray();
     }
 
@@ -248,33 +260,40 @@ public class DataStore<TState, TDataContext>
                };
     }
 
-    private async Task PersistBatchInternal(ModelState<TState>[] modelStates, CancellationToken cancellationToken)
+    private async Task<PersistenceOutcomeCollector> PersistBatchInternal(ModelState<TState>[] modelStates, CancellationToken cancellationToken)
     {
-        var toInsert = new List<TState>(modelStates.Length);
+        var outcomes = new PersistenceOutcomeCollector(modelStates.Length);
+        var toInsert = new List<ModelState<TState>>(modelStates.Length);
         var toUpdate = new List<ModelState<TState>>();
 
         foreach (var modelState in modelStates)
         {
             if (modelState.IsNew)
             {
-                toInsert.Add(modelState.Model);
+                toInsert.Add(modelState);
                 continue;
             }
 
             toUpdate.Add(modelState);
         }
 
-        await this.DoBulkInserts(toInsert, cancellationToken);
-        await this.SaveUpdates(toUpdate, cancellationToken);
+        await this.DoBulkInserts(toInsert, outcomes, cancellationToken);
+        await this.SaveUpdates(toUpdate, outcomes, cancellationToken);
+
+        return outcomes;
     }
 
-    private async Task DoBulkInserts(List<TState> models, CancellationToken cancellationToken)
+    private async Task DoBulkInserts(
+        List<ModelState<TState>> modelStates,
+        PersistenceOutcomeCollector outcomes,
+        CancellationToken cancellationToken)
     {
-        if (models.Count == 0)
+        if (modelStates.Count == 0)
         {
             return;
         }
 
+        var models = modelStates.Select(x => x.Model).ToList();
         var shouldFallBackToSingleInserts = false;
         this.insertStopWatch.Restart();
 
@@ -304,6 +323,11 @@ public class DataStore<TState, TDataContext>
                             this.insertStopWatch.ElapsedMilliseconds.ToString("N0"),
                             this.modelName);
 
+                        foreach (var model in models)
+                        {
+                            outcomes.Record(model.Id, PersistenceItemOutcomeStatus.Persisted);
+                        }
+
                         this.insertStopWatch.Reset();
                     }
                     catch (Exception ex)
@@ -318,11 +342,14 @@ public class DataStore<TState, TDataContext>
 
         if (shouldFallBackToSingleInserts)
         {
-            await this.InsertOneAtTheTime(models, cancellationToken);
+            await this.InsertOneAtTheTime(modelStates, outcomes, cancellationToken);
         }
     }
 
-    private async Task InsertOneAtTheTime(IEnumerable<TState> models, CancellationToken cancellationToken)
+    private async Task InsertOneAtTheTime(
+        IEnumerable<ModelState<TState>> modelStates,
+        PersistenceOutcomeCollector outcomes,
+        CancellationToken cancellationToken)
     {
         using var transientScope = this.serviceProvider.CreateScope();
 
@@ -330,13 +357,16 @@ public class DataStore<TState, TDataContext>
                                            .ServiceProvider
                                            .GetRequiredService<TDataContext>();
 
-        foreach (var model in models)
+        foreach (var modelState in modelStates)
         {
+            var model = modelState.Model;
+
             try
             {
                 transientContext!.Attach(model);
                 transientContext!.Entry(model).State = EntityState.Added;
                 await this.SaveModelChangesAsync(transientContext, cancellationToken);
+                outcomes.Record(model.Id, PersistenceItemOutcomeStatus.Persisted);
             }
             catch (Exception ex) when (IsDuplicateKeyViolation(ex))
             {
@@ -347,6 +377,7 @@ public class DataStore<TState, TDataContext>
                     "Skipping duplicate insert for {Model} {ModelId}",
                     this.modelName,
                     model.Id);
+                outcomes.Record(model.Id, PersistenceItemOutcomeStatus.SkippedAsStale);
             }
             catch (Exception ex)
             {
@@ -364,11 +395,15 @@ public class DataStore<TState, TDataContext>
                 await this.failureHandler.Handle(failure, cancellationToken);
 
                 transientContext!.Entry(model).State = EntityState.Detached;
+                outcomes.Record(model.Id, PersistenceItemOutcomeStatus.Failed);
             }
         }
     }
 
-    private async Task SaveUpdates(List<ModelState<TState>> projections, CancellationToken cancellationToken)
+    private async Task SaveUpdates(
+        List<ModelState<TState>> projections,
+        PersistenceOutcomeCollector outcomes,
+        CancellationToken cancellationToken)
     {
         if (projections.Count == 0)
         {
@@ -398,6 +433,11 @@ public class DataStore<TState, TDataContext>
                         pending.Count,
                         this.updateStopWatch.ElapsedMilliseconds.ToString("N0"),
                         this.modelName);
+
+                    foreach (var projection in pending)
+                    {
+                        outcomes.Record(projection.Model.Id, PersistenceItemOutcomeStatus.Persisted);
+                    }
                 }
                 catch (DbUpdateConcurrencyException cex)
                 {
@@ -418,6 +458,7 @@ public class DataStore<TState, TDataContext>
                         skipped++;
                         pending.RemoveAll(x => x.Model.Id == model.Id);
                         failedEntry.State = EntityState.Detached;
+                        outcomes.Record(model.Id, PersistenceItemOutcomeStatus.SkippedAsStale);
                     }
 
                     this.logger.LogDebug(
@@ -429,7 +470,7 @@ public class DataStore<TState, TDataContext>
                     if (pending.Count > 0)
                     {
                         this.ApplyPendingEntries(pending);
-                        await this.SaveUpdates(pending, cancellationToken);
+                        await this.SaveUpdates(pending, outcomes, cancellationToken);
                     }
                 }
                 catch (DbUpdateException dbex)
@@ -467,6 +508,7 @@ public class DataStore<TState, TDataContext>
                                 failureCreatedOn: DateTime.Now.ToUniversalTime());
 
                             this.pendingUpdateFailures.Add(failure);
+                            outcomes.Record(model.Id, PersistenceItemOutcomeStatus.Failed);
                         }
                     }
                 }
@@ -500,6 +542,7 @@ public class DataStore<TState, TDataContext>
                             failureCreatedOn: DateTime.Now.ToUniversalTime());
 
                         this.pendingUpdateFailures.Add(failure);
+                        outcomes.Record(model.Id, PersistenceItemOutcomeStatus.Failed);
                     }
 
                     pending.Clear();
@@ -521,7 +564,7 @@ public class DataStore<TState, TDataContext>
                     if (pending.Count > 0)
                     {
                         this.ApplyPendingEntries(pending);
-                        await this.SaveUpdates(pending, cancellationToken);
+                        await this.SaveUpdates(pending, outcomes, cancellationToken);
                     }
                 }
             });
@@ -580,6 +623,26 @@ public class DataStore<TState, TDataContext>
             this.cumulativeModelWriteSaveChangesMs);
 
         this.modelWriteMetricsLogStopwatch.Restart();
+    }
+
+    private sealed class PersistenceOutcomeCollector
+    {
+        private readonly Dictionary<Guid, PersistenceItemOutcomeStatus> statuses;
+
+        public PersistenceOutcomeCollector(int capacity)
+        {
+            this.statuses = new Dictionary<Guid, PersistenceItemOutcomeStatus>(capacity);
+        }
+
+        public void Record(Guid modelId, PersistenceItemOutcomeStatus status)
+        {
+            this.statuses[modelId] = status;
+        }
+
+        public bool TryGetStatus(Guid modelId, out PersistenceItemOutcomeStatus status)
+        {
+            return this.statuses.TryGetValue(modelId, out status);
+        }
     }
 
     private bool ValidateAndDetectChildEntities()
