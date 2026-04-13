@@ -80,8 +80,8 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<IEventSource<EventEnvelope>>(),
                 sp.GetRequiredService<IModelStateTransformer<EventEnvelope, TState>>(),
                 sp.GetRequiredService<IProjectionLifecycle>(),
-                sp.GetRequiredService<IModelStateCache<TState>>(),
-                sp.GetRequiredService<IModelStateSink<TState>>(),
+                sp.GetRequiredService<IProjectionCache<TState>>(),
+                sp.GetRequiredService<IProjectionStoreWriter<TState>>(),
                 sp.GetRequiredService<ICheckpointStore>(),
                 sp.GetRequiredService<IProjectionSettings<TState>>(),
                 sp.GetRequiredService<ILogger<ProjectionPipeline<EventEnvelope, TState>>>()));

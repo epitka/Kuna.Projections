@@ -28,8 +28,8 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
     private readonly IEventSource<TEnvelope> source;
     private readonly IModelStateTransformer<TEnvelope, TState> transformer;
     private readonly IProjectionLifecycle lifecycle;
-    private readonly IModelStateCache<TState> modelStateCache;
-    private readonly IModelStateSink<TState> sink;
+    private readonly IProjectionCache<TState> projectionCache;
+    private readonly IProjectionStoreWriter<TState> storeWriter;
     private readonly ICheckpointStore checkpointStore;
     private readonly IProjectionSettings<TState> settings;
     private readonly ILogger logger;
@@ -38,8 +38,8 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         IEventSource<TEnvelope> source,
         IModelStateTransformer<TEnvelope, TState> transformer,
         IProjectionLifecycle lifecycle,
-        IModelStateCache<TState> modelStateCache,
-        IModelStateSink<TState> sink,
+        IProjectionCache<TState> projectionCache,
+        IProjectionStoreWriter<TState> storeWriter,
         ICheckpointStore checkpointStore,
         IProjectionSettings<TState> settings,
         ILogger<ProjectionPipeline<TEnvelope, TState>> logger)
@@ -47,8 +47,8 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         this.source = source;
         this.transformer = transformer;
         this.lifecycle = lifecycle;
-        this.modelStateCache = modelStateCache;
-        this.sink = sink;
+        this.projectionCache = projectionCache;
+        this.storeWriter = storeWriter;
         this.checkpointStore = checkpointStore;
         this.settings = settings;
         this.logger = logger;
@@ -100,6 +100,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         var fullyDrainedLogged = false;
         var periodicFlushRequested = 0;
         var shutdownRequested = 0;
+        var nextStageToken = 0L;
         Task<FlushResult>? inFlightFlushTask = null;
         Task? flushSignalTask = null;
         Task? progressLogTask = null;
@@ -309,6 +310,8 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
 
             if (changes.Count > 0)
             {
+                var stagedItems = new List<ProjectedStateEnvelope<TState>>(changes.Count);
+
                 foreach (var change in changes)
                 {
                     if (change.ShouldDelete)
@@ -325,19 +328,60 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                     {
                         batchUpdated++;
                     }
+
+                    stagedItems.Add(
+                        new ProjectedStateEnvelope<TState>(
+                            Model: change.Model,
+                            IsNew: change.IsNew,
+                            ShouldDelete: change.ShouldDelete,
+                            GlobalEventPosition: change.GlobalEventPosition,
+                            ExpectedEventNumber: change.ExpectedEventNumber,
+                            StageToken: Interlocked.Increment(ref nextStageToken),
+                            PersistenceStatus: ProjectionPersistenceStatus.Dirty));
                 }
 
-                var batch = new ModelStatesBatch<TState>
+                foreach (var stagedItem in stagedItems)
                 {
-                    Changes = changes,
-                    GlobalEventPosition = flushPosition,
-                };
+                    await this.projectionCache.Stage(stagedItem, flushToken);
+                }
 
-                await this.sink.PersistBatch(batch, flushToken);
+                var pullBatch = await this.projectionCache.PullNextBatch(
+                                    new PersistencePullRequest
+                                    {
+                                        MaxBatchSize = stagedItems.Count,
+                                    },
+                                    flushToken);
 
-                foreach (var change in changes)
+                if (pullBatch != null)
                 {
-                    this.modelStateCache.Set(change);
+                    var outcomes = await this.storeWriter.WriteBatch(
+                                       new PersistenceWriteBatch<TState>
+                                       {
+                                           Items = pullBatch.Items,
+                                       },
+                                       flushToken);
+
+                    await this.projectionCache.CompletePull(pullBatch, outcomes, flushToken);
+
+                    var allPersisted = outcomes.Count == pullBatch.Items.Count
+                                       && outcomes.All(x => x.Status == PersistenceItemOutcomeStatus.Persisted);
+
+                    if (!allPersisted)
+                    {
+                        var statsFallback = ReadCacheStats();
+                        flushStopwatch.Stop();
+
+                        return new FlushResult(
+                            FlushedModelIds: [],
+                            FlushedPosition: lastFlushedPosition,
+                            InsertedModels: batchInserted,
+                            UpdatedModels: batchUpdated,
+                            DeletedModels: batchDeleted,
+                            InFlightCacheHits: statsFallback.Hits,
+                            InFlightCacheMisses: statsFallback.Misses,
+                            ElapsedMilliseconds: flushStopwatch.Elapsed.TotalMilliseconds,
+                            BatchModels: changes.Count);
+                    }
                 }
             }
 
@@ -349,7 +393,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                 },
                 flushToken);
 
-            var stats = this.modelStateCache.ReadAndResetLookupStats();
+            var stats = ReadCacheStats();
             flushStopwatch.Stop();
 
             return new FlushResult(
@@ -584,6 +628,13 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
             {
                 Model = clone,
             };
+        }
+
+        (long Hits, long Misses) ReadCacheStats()
+        {
+            return this.projectionCache is IModelStateCache<TState> stateCache
+                ? stateCache.ReadAndResetLookupStats()
+                : (0, 0);
         }
     }
 

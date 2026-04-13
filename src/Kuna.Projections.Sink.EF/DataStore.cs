@@ -18,6 +18,7 @@ namespace Kuna.Projections.Sink.EF;
 /// </summary>
 public class DataStore<TState, TDataContext>
     : IModelStateSink<TState>,
+      IProjectionStoreWriter<TState>,
       IModelStateStore<TState>,
       ICheckpointStore
     where TState : class, IModel, new()
@@ -134,6 +135,45 @@ public class DataStore<TState, TDataContext>
 
         this.DisposeScope();
         this.InitDbContext();
+    }
+
+    public async Task<IReadOnlyList<PersistenceItemOutcome>> WriteBatch(
+        PersistenceWriteBatch<TState> batch,
+        CancellationToken cancellationToken)
+    {
+        var modelStates = batch.Items
+                               .Select(
+                                   item => new ModelState<TState>(
+                                       item.Model,
+                                       item.IsNew,
+                                       item.ShouldDelete,
+                                       item.GlobalEventPosition,
+                                       item.ExpectedEventNumber))
+                               .ToArray();
+
+        await this.PersistBatchInternal(modelStates, cancellationToken);
+        this.LogCumulativeModelWriteMetricsIfDue();
+
+        foreach (var modelState in modelStates.Where(x => !x.ShouldDelete))
+        {
+            if (this.hasChildEntities)
+            {
+                this.MarkPersistedGraph(modelState.Model);
+            }
+        }
+
+        this.DisposeScope();
+        this.InitDbContext();
+
+        return batch.Items
+                    .Select(
+                        item => new PersistenceItemOutcome(
+                            item.Model.Id,
+                            item.StageToken,
+                            item.GlobalEventPosition,
+                            PersistenceItemOutcomeStatus.Persisted,
+                            null))
+                    .ToArray();
     }
 
     /// <summary>

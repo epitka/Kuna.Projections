@@ -25,6 +25,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<DataStore<TState, TDataContext>>();
         services.AddSingleton<IModelStateSink<TState>>(sp => sp.GetRequiredService<DataStore<TState, TDataContext>>());
+        services.AddSingleton<IProjectionStoreWriter<TState>>(sp => sp.GetRequiredService<DataStore<TState, TDataContext>>());
         services.AddSingleton<IModelStateStore<TState>>(sp => sp.GetRequiredService<DataStore<TState, TDataContext>>());
         services.AddSingleton<ICheckpointStore>(sp => sp.GetRequiredService<DataStore<TState, TDataContext>>());
 

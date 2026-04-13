@@ -4,13 +4,25 @@ using Kuna.Projections.Core.Test.Shared.Models;
 
 namespace Kuna.Projections.Core.Test.ProjectionPipelineTests.Fakes;
 
-internal sealed class CapturingSink : IModelStateSink<ItemModel>
+internal sealed class CapturingSink : IProjectionStoreWriter<ItemModel>
 {
-    public List<ModelStatesBatch<ItemModel>> Batches { get; } = new();
+    public List<PersistenceWriteBatch<ItemModel>> Batches { get; } = new();
 
-    public Task PersistBatch(ModelStatesBatch<ItemModel> batch, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<PersistenceItemOutcome>> WriteBatch(
+        PersistenceWriteBatch<ItemModel> batch,
+        CancellationToken cancellationToken)
     {
         this.Batches.Add(batch);
-        return Task.CompletedTask;
+
+        return Task.FromResult<IReadOnlyList<PersistenceItemOutcome>>(
+            batch.Items
+                 .Select(
+                     item => new PersistenceItemOutcome(
+                         item.Model.Id,
+                         item.StageToken,
+                         item.GlobalEventPosition,
+                         PersistenceItemOutcomeStatus.Persisted,
+                         null))
+                 .ToArray());
     }
 }

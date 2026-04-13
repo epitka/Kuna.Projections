@@ -119,8 +119,8 @@ public class RunAsyncTests
         await pipeline.RunAsync(linkedCts.Token);
 
         sink.Batches.Count.ShouldBe(1);
-        sink.Batches[0].Changes.Count.ShouldBe(1);
-        var persisted = sink.Batches[0].Changes[0].Model;
+        sink.Batches[0].Items.Count.ShouldBe(1);
+        var persisted = sink.Batches[0].Items[0].Model;
         persisted.Id.ShouldBe(modelId);
         persisted.EventNumber.ShouldBe(2);
         persisted.Name.ShouldBe("third");
@@ -182,18 +182,18 @@ public class RunAsyncTests
         await Task.Delay(150, testCancellationToken);
 
         sink.Batches.Count.ShouldBe(1);
-        sink.Batches[0].Changes.Count.ShouldBe(1);
-        sink.Batches[0].Changes[0].Model.EventNumber.ShouldBe(0);
-        sink.Batches[0].Changes[0].Model.Name.ShouldBe("first");
+        sink.Batches[0].Items.Count.ShouldBe(1);
+        sink.Batches[0].Items[0].Model.EventNumber.ShouldBe(0);
+        sink.Batches[0].Items[0].Model.Name.ShouldBe("first");
 
         sink.ReleaseFirstPersist();
         await runTask.WaitAsync(TimeSpan.FromSeconds(10), testCancellationToken);
 
         sink.Batches.Count.ShouldBe(2);
-        sink.Batches[1].Changes.Count.ShouldBe(1);
-        sink.Batches[1].Changes[0].Model.EventNumber.ShouldBe(2);
-        sink.Batches[1].Changes[0].Model.Name.ShouldBe("third");
-        sink.Batches[1].Changes[0].ExpectedEventNumber.ShouldBe(0);
+        sink.Batches[1].Items.Count.ShouldBe(1);
+        sink.Batches[1].Items[0].Model.EventNumber.ShouldBe(2);
+        sink.Batches[1].Items[0].Model.Name.ShouldBe("third");
+        sink.Batches[1].Items[0].ExpectedEventNumber.ShouldBe(0);
     }
 
     [Fact]
@@ -274,7 +274,7 @@ public class RunAsyncTests
 
         createCalls.ShouldBe(1);
         sink.Batches.Count.ShouldBe(2);
-        sink.Batches[1].Changes[0].ExpectedEventNumber.ShouldBe(0);
+        sink.Batches[1].Items[0].ExpectedEventNumber.ShouldBe(0);
     }
 
     private static IReadOnlyList<EventEnvelope> CreateEnvelopes(int count)

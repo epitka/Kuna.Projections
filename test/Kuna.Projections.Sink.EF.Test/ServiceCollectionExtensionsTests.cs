@@ -35,6 +35,10 @@ public class ServiceCollectionExtensionsTests
 
         services.ShouldContain(
             sd =>
+                sd.ServiceType == typeof(IProjectionStoreWriter<TestModel>) && sd.ImplementationFactory != null && sd.Lifetime == ServiceLifetime.Singleton);
+
+        services.ShouldContain(
+            sd =>
                 sd.ServiceType == typeof(IModelStateStore<TestModel>) && sd.ImplementationFactory != null && sd.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
