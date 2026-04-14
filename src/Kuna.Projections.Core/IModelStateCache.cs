@@ -104,34 +104,7 @@ public sealed class InMemoryModelStateCache<TState>
             StageToken: Interlocked.Increment(ref this.nextToken),
             PersistenceStatus: ProjectionPersistenceStatus.Persisted);
 
-        var isNewKey = this.inFlightCache.TryAdd(state.Model.Id, new CacheEntry(state));
-
-        if (isNewKey)
-        {
-            Interlocked.Increment(ref this.approxInFlightCacheCount);
-        }
-        else
-        {
-            this.inFlightCache[state.Model.Id] = new CacheEntry(state);
-        }
-
-        this.evictionQueue.Enqueue(new EvictionEntry(state.Model.Id, state.StageToken));
-
-        if (Volatile.Read(ref this.approxInFlightCacheCount) <= this.inFlightCacheCapacity
-            || !this.evictionQueue.TryDequeue(out var candidate)) return;
-
-        // Example:
-        // 1) Set(A) -> token=10, queue has (A,10), map[A]=(modelState@10,10)
-        // 2) Set(A) again -> token=11, queue has (A,10),(A,11), map[A]=(modelState@11,11)
-        // 3) Eviction dequeues candidate (A,10)
-        // 4) If we removed by key only, we'd delete modelState@11 (newest) by mistake.
-        //    Therefore, we remove only when current token == candidate token.
-        if (this.inFlightCache.TryGetValue(candidate.ModelId, out var current)
-            && current.State.StageToken == candidate.Token
-            && this.inFlightCache.TryRemove(candidate.ModelId, out _))
-        {
-            Interlocked.Decrement(ref this.approxInFlightCacheCount);
-        }
+        this.StoreEntry(state);
     }
 
     public ValueTask<ProjectedStateEnvelope<TState>?> Get(Guid modelId, CancellationToken cancellationToken)
@@ -157,16 +130,7 @@ public sealed class InMemoryModelStateCache<TState>
             Model = CloneModel(state.Model),
         };
 
-        var isNewKey = this.inFlightCache.TryAdd(stagedState.Model.Id, new CacheEntry(stagedState));
-
-        if (isNewKey)
-        {
-            Interlocked.Increment(ref this.approxInFlightCacheCount);
-        }
-        else
-        {
-            this.inFlightCache[stagedState.Model.Id] = new CacheEntry(stagedState);
-        }
+        this.StoreEntry(stagedState);
 
         return ValueTask.CompletedTask;
     }
@@ -255,7 +219,16 @@ public sealed class InMemoryModelStateCache<TState>
                 _ => throw new ArgumentOutOfRangeException(),
             };
 
-            this.inFlightCache.TryUpdate(outcome.ModelId, new CacheEntry(updatedState), entry);
+            if (!this.inFlightCache.TryUpdate(outcome.ModelId, new CacheEntry(updatedState), entry))
+            {
+                continue;
+            }
+
+            if (IsEvictable(updatedState.PersistenceStatus))
+            {
+                this.evictionQueue.Enqueue(new EvictionEntry(outcome.ModelId, updatedState.StageToken));
+                this.TryEvictEligibleEntries();
+            }
         }
 
         return ValueTask.CompletedTask;
@@ -292,6 +265,52 @@ public sealed class InMemoryModelStateCache<TState>
         {
             Model = CloneModel(state.Model),
         };
+    }
+
+    private static bool IsEvictable(ProjectionPersistenceStatus status)
+    {
+        return status == ProjectionPersistenceStatus.Persisted;
+    }
+
+    private void StoreEntry(ProjectedStateEnvelope<TState> state)
+    {
+        var isNewKey = this.inFlightCache.TryAdd(state.Model.Id, new CacheEntry(state));
+
+        if (isNewKey)
+        {
+            Interlocked.Increment(ref this.approxInFlightCacheCount);
+        }
+        else
+        {
+            this.inFlightCache[state.Model.Id] = new CacheEntry(state);
+        }
+
+        if (IsEvictable(state.PersistenceStatus))
+        {
+            this.evictionQueue.Enqueue(new EvictionEntry(state.Model.Id, state.StageToken));
+            this.TryEvictEligibleEntries();
+        }
+    }
+
+    private void TryEvictEligibleEntries()
+    {
+        while (Volatile.Read(ref this.approxInFlightCacheCount) > this.inFlightCacheCapacity
+               && this.evictionQueue.TryDequeue(out var candidate))
+        {
+            // Example:
+            // 1) Set(A) -> token=10, queue has (A,10), map[A]=(modelState@10,10)
+            // 2) Set(A) again -> token=11, queue has (A,10),(A,11), map[A]=(modelState@11,11)
+            // 3) Eviction dequeues candidate (A,10)
+            // 4) If we removed by key only, we'd delete modelState@11 (newest) by mistake.
+            //    Therefore, we remove only when current token == candidate token.
+            if (this.inFlightCache.TryGetValue(candidate.ModelId, out var current)
+                && current.State.StageToken == candidate.Token
+                && IsEvictable(current.State.PersistenceStatus)
+                && this.inFlightCache.TryRemove(candidate.ModelId, out _))
+            {
+                Interlocked.Decrement(ref this.approxInFlightCacheCount);
+            }
+        }
     }
 
     private readonly record struct EvictionEntry(Guid ModelId, long Token);

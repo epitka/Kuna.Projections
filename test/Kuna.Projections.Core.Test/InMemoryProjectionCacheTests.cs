@@ -137,17 +137,125 @@ public class InMemoryProjectionCacheTests
         cached.ShouldDeepEqual(second);
     }
 
-    private static ProjectionSettings<ItemModel> CreateSettings()
+    [Fact]
+    public async Task Persisted_Entries_Should_Become_Evictable_When_Capacity_Is_Exceeded()
+    {
+        var settings = CreateSettings(minEntries: 1, capacityMultiplier: 1, maxPending: 1);
+        var cache = new InMemoryModelStateCache<ItemModel>(settings);
+        var first = CreateStagedEnvelope();
+        var second = CreateStagedEnvelope();
+
+        // The first item becomes persisted and therefore evictable.
+        await cache.Stage(first, CancellationToken.None);
+        var firstBatch = await cache.PullNextBatch(new PersistencePullRequest { MaxBatchSize = 1, }, CancellationToken.None);
+        firstBatch.ShouldNotBeNull();
+        await cache.CompletePull(
+            firstBatch,
+            [
+                new PersistenceItemOutcome(
+                    first.Model.Id,
+                    first.StageToken,
+                    first.GlobalEventPosition,
+                    PersistenceItemOutcomeStatus.Persisted,
+                    null),
+            ],
+            CancellationToken.None);
+
+        // Persisting a second item above capacity should evict the older
+        // persisted entry, while keeping the newer persisted entry available.
+        await cache.Stage(second, CancellationToken.None);
+        var secondBatch = await cache.PullNextBatch(new PersistencePullRequest { MaxBatchSize = 1, }, CancellationToken.None);
+        secondBatch.ShouldNotBeNull();
+        await cache.CompletePull(
+            secondBatch,
+            [
+                new PersistenceItemOutcome(
+                    second.Model.Id,
+                    second.StageToken,
+                    second.GlobalEventPosition,
+                    PersistenceItemOutcomeStatus.Persisted,
+                    null),
+            ],
+            CancellationToken.None);
+
+        var firstCached = await cache.Get(first.Model.Id, CancellationToken.None);
+        var secondCached = await cache.Get(second.Model.Id, CancellationToken.None);
+
+        firstCached.ShouldBeNull();
+        secondCached.ShouldNotBeNull();
+        secondCached.ShouldDeepEqual(second with
+        {
+            IsNew = false,
+            PersistenceStatus = ProjectionPersistenceStatus.Persisted,
+        });
+    }
+
+    [Fact]
+    public async Task Failed_Entries_Should_Remain_In_Cache_Even_When_Capacity_Is_Exceeded()
+    {
+        var settings = CreateSettings(minEntries: 1, capacityMultiplier: 1, maxPending: 1);
+        var cache = new InMemoryModelStateCache<ItemModel>(settings);
+        var failed = CreateStagedEnvelope();
+        var persisted = CreateStagedEnvelope();
+
+        // Failed entries stay protected in cache and are not repulled.
+        await cache.Stage(failed, CancellationToken.None);
+        var failedBatch = await cache.PullNextBatch(new PersistencePullRequest { MaxBatchSize = 1, }, CancellationToken.None);
+        failedBatch.ShouldNotBeNull();
+        await cache.CompletePull(
+            failedBatch,
+            [
+                new PersistenceItemOutcome(
+                    failed.Model.Id,
+                    failed.StageToken,
+                    failed.GlobalEventPosition,
+                    PersistenceItemOutcomeStatus.Failed,
+                    null),
+            ],
+            CancellationToken.None);
+
+        // When capacity pressure arrives later, the persisted entry is the one
+        // that can be dropped while the failed entry remains retained.
+        await cache.Stage(persisted, CancellationToken.None);
+        var persistedBatch = await cache.PullNextBatch(new PersistencePullRequest { MaxBatchSize = 1, }, CancellationToken.None);
+        persistedBatch.ShouldNotBeNull();
+        await cache.CompletePull(
+            persistedBatch,
+            [
+                new PersistenceItemOutcome(
+                    persisted.Model.Id,
+                    persisted.StageToken,
+                    persisted.GlobalEventPosition,
+                    PersistenceItemOutcomeStatus.Persisted,
+                    null),
+            ],
+            CancellationToken.None);
+
+        var failedCached = await cache.Get(failed.Model.Id, CancellationToken.None);
+        var persistedCached = await cache.Get(persisted.Model.Id, CancellationToken.None);
+
+        failedCached.ShouldNotBeNull();
+        failedCached.ShouldDeepEqual(failed with
+        {
+            PersistenceStatus = ProjectionPersistenceStatus.Failed,
+        });
+        persistedCached.ShouldBeNull();
+    }
+
+    private static ProjectionSettings<ItemModel> CreateSettings(
+        int minEntries = 10000,
+        int capacityMultiplier = 3,
+        int maxPending = 100)
     {
         return new ProjectionSettings<ItemModel>
         {
             CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
             LiveProcessingPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            MaxPendingProjectionsCount = 100,
+            MaxPendingProjectionsCount = maxPending,
             LiveProcessingFlushDelay = 1000,
             SkipStateNotFoundFailure = true,
-            InFlightModelCacheMinEntries = 10000,
-            InFlightModelCacheCapacityMultiplier = 3,
+            InFlightModelCacheMinEntries = minEntries,
+            InFlightModelCacheCapacityMultiplier = capacityMultiplier,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
     }
