@@ -42,7 +42,7 @@ public class WriteBatchTests : DataStoreIntegrationTestBase
                                        ShouldDelete: false,
                                        GlobalEventPosition: new GlobalEventPosition(10),
                                        ExpectedEventNumber: null,
-                                       StageToken: 1,
+                                       StagedVersionToken: 1,
                                        PersistenceStatus: ProjectionPersistenceStatus.InFlight),
                                    new ProjectedStateEnvelope<TestModel>(
                                        new TestModel
@@ -57,7 +57,7 @@ public class WriteBatchTests : DataStoreIntegrationTestBase
                                        ShouldDelete: false,
                                        GlobalEventPosition: new GlobalEventPosition(11),
                                        ExpectedEventNumber: null,
-                                       StageToken: 2,
+                                       StagedVersionToken: 2,
                                        PersistenceStatus: ProjectionPersistenceStatus.InFlight),
                                ],
                            },
@@ -100,7 +100,7 @@ public class WriteBatchTests : DataStoreIntegrationTestBase
                                        ShouldDelete: false,
                                        GlobalEventPosition: new GlobalEventPosition(5),
                                        ExpectedEventNumber: null,
-                                       StageToken: 1,
+                                       StagedVersionToken: 1,
                                        PersistenceStatus: ProjectionPersistenceStatus.InFlight),
                                ],
                            },

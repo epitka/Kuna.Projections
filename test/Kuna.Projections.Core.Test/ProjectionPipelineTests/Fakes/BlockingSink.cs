@@ -30,7 +30,7 @@ internal sealed class BlockingSink : IProjectionStoreWriter<ItemModel>
                     .Select(
                         item => new PersistenceItemOutcome(
                             item.Model.Id,
-                            item.StageToken,
+                            item.StagedVersionToken,
                             item.GlobalEventPosition,
                             PersistenceItemOutcomeStatus.Persisted,
                             null))

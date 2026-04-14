@@ -180,7 +180,7 @@ public class DataStore<TState, TDataContext>
 
                             return new PersistenceItemOutcome(
                                 item.Model.Id,
-                                item.StageToken,
+                                item.StagedVersionToken,
                                 item.GlobalEventPosition,
                                 status,
                                 null);

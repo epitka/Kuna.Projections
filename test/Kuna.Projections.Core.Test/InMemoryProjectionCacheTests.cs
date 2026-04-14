@@ -20,7 +20,7 @@ public class InMemoryProjectionCacheTests
         var faker = new Faker();
         var envelopePosition = new GlobalEventPosition(faker.Random.ULong(1, 10_000));
         var modelPosition = new GlobalEventPosition(faker.Random.ULong(1, 10_000));
-        var stageToken = faker.Random.Long(1, 1000);
+        var stagedVersionToken = faker.Random.Long(1, 1000);
         var stagedModel = new ItemModel
         {
             Id = modelId,
@@ -36,7 +36,7 @@ public class InMemoryProjectionCacheTests
             ShouldDelete: faker.Random.Bool(),
             GlobalEventPosition: envelopePosition,
             ExpectedEventNumber: faker.Random.Bool() ? null : faker.Random.Long(0, 999),
-            StageToken: stageToken,
+            StagedVersionToken: stagedVersionToken,
             PersistenceStatus: ProjectionPersistenceStatus.Dirty);
 
         await cache.Stage(staged, CancellationToken.None);
@@ -75,7 +75,7 @@ public class InMemoryProjectionCacheTests
             [
                 new PersistenceItemOutcome(
                     staged.Model.Id,
-                    staged.StageToken,
+                    staged.StagedVersionToken,
                     staged.GlobalEventPosition,
                     PersistenceItemOutcomeStatus.Persisted,
                     null),
@@ -110,7 +110,7 @@ public class InMemoryProjectionCacheTests
                 HasStreamProcessingFaulted = first.Model.HasStreamProcessingFaulted,
             },
             GlobalEventPosition = new GlobalEventPosition(first.GlobalEventPosition.Value + 1),
-            StageToken = first.StageToken + 1,
+            StagedVersionToken = first.StagedVersionToken + 1,
         };
 
         await cache.Stage(first, CancellationToken.None);
@@ -124,7 +124,7 @@ public class InMemoryProjectionCacheTests
             [
                 new PersistenceItemOutcome(
                     first.Model.Id,
-                    first.StageToken,
+                    first.StagedVersionToken,
                     first.GlobalEventPosition,
                     PersistenceItemOutcomeStatus.Persisted,
                     null),
@@ -154,7 +154,7 @@ public class InMemoryProjectionCacheTests
             [
                 new PersistenceItemOutcome(
                     first.Model.Id,
-                    first.StageToken,
+                    first.StagedVersionToken,
                     first.GlobalEventPosition,
                     PersistenceItemOutcomeStatus.Persisted,
                     null),
@@ -171,7 +171,7 @@ public class InMemoryProjectionCacheTests
             [
                 new PersistenceItemOutcome(
                     second.Model.Id,
-                    second.StageToken,
+                    second.StagedVersionToken,
                     second.GlobalEventPosition,
                     PersistenceItemOutcomeStatus.Persisted,
                     null),
@@ -207,7 +207,7 @@ public class InMemoryProjectionCacheTests
             [
                 new PersistenceItemOutcome(
                     failed.Model.Id,
-                    failed.StageToken,
+                    failed.StagedVersionToken,
                     failed.GlobalEventPosition,
                     PersistenceItemOutcomeStatus.Failed,
                     null),
@@ -224,7 +224,7 @@ public class InMemoryProjectionCacheTests
             [
                 new PersistenceItemOutcome(
                     persisted.Model.Id,
-                    persisted.StageToken,
+                    persisted.StagedVersionToken,
                     persisted.GlobalEventPosition,
                     PersistenceItemOutcomeStatus.Persisted,
                     null),
@@ -280,7 +280,7 @@ public class InMemoryProjectionCacheTests
             ShouldDelete: false,
             GlobalEventPosition: envelopePosition,
             ExpectedEventNumber: faker.Random.Bool() ? null : faker.Random.Long(0, 999),
-            StageToken: faker.Random.Long(1, 1000),
+            StagedVersionToken: faker.Random.Long(1, 1000),
             PersistenceStatus: ProjectionPersistenceStatus.Dirty);
     }
 

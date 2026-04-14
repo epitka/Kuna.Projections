@@ -7,7 +7,7 @@ namespace Kuna.Projections.Abstractions.Messages;
 /// </summary>
 public sealed record PersistenceItemOutcome(
     Guid ModelId,
-    long StageToken,
+    long StagedVersionToken,
     GlobalEventPosition GlobalEventPosition,
     PersistenceItemOutcomeStatus Status,
     Exception? Exception);

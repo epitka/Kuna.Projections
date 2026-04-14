@@ -12,5 +12,5 @@ public sealed record ProjectedStateEnvelope<TState>(
     bool ShouldDelete,
     GlobalEventPosition GlobalEventPosition,
     long? ExpectedEventNumber,
-    long StageToken,
+    long StagedVersionToken,
     ProjectionPersistenceStatus PersistenceStatus);

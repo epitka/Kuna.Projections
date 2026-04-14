@@ -322,7 +322,7 @@ public class TransformTests
             ShouldDelete: false,
             GlobalEventPosition: new GlobalEventPosition(10),
             ExpectedEventNumber: null,
-            StageToken: 1,
+            StagedVersionToken: 1,
             PersistenceStatus: ProjectionPersistenceStatus.Dirty);
 
         // Stage 1: created state is in cache and has been pulled for persistence,
@@ -348,7 +348,7 @@ public class TransformTests
             firstResult.ShouldDelete,
             firstResult.GlobalEventPosition,
             firstResult.ExpectedEventNumber,
-            StageToken: 2,
+            StagedVersionToken: 2,
             PersistenceStatus: ProjectionPersistenceStatus.Dirty);
 
         // Stage 2: a newer state is staged before stage 1 completion arrives.
@@ -388,7 +388,7 @@ public class TransformTests
             secondResult.ShouldDelete,
             secondResult.GlobalEventPosition,
             secondResult.ExpectedEventNumber,
-            StageToken: 3,
+            StagedVersionToken: 3,
             PersistenceStatus: ProjectionPersistenceStatus.Dirty);
 
         // Stage 3: only once the current staged state completes should later

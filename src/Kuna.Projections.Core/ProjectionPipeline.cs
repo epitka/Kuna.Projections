@@ -100,7 +100,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         var fullyDrainedLogged = false;
         var periodicFlushRequested = 0;
         var shutdownRequested = 0;
-        var nextStageToken = 0L;
+        var nextStagedVersionToken = 0L;
         Task<FlushResult>? inFlightFlushTask = null;
         Task? flushSignalTask = null;
         Task? progressLogTask = null;
@@ -336,7 +336,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                             ShouldDelete: change.ShouldDelete,
                             GlobalEventPosition: change.GlobalEventPosition,
                             ExpectedEventNumber: change.ExpectedEventNumber,
-                            StageToken: Interlocked.Increment(ref nextStageToken),
+                            StagedVersionToken: Interlocked.Increment(ref nextStagedVersionToken),
                             PersistenceStatus: ProjectionPersistenceStatus.Dirty));
                 }
 

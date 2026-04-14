@@ -101,7 +101,7 @@ public sealed class InMemoryModelStateCache<TState>
             ShouldDelete: modelState.ShouldDelete,
             GlobalEventPosition: modelState.GlobalEventPosition,
             ExpectedEventNumber: modelState.ExpectedEventNumber,
-            StageToken: Interlocked.Increment(ref this.nextToken),
+            StagedVersionToken: Interlocked.Increment(ref this.nextToken),
             PersistenceStatus: ProjectionPersistenceStatus.Persisted);
 
         this.StoreEntry(state);
@@ -196,7 +196,7 @@ public sealed class InMemoryModelStateCache<TState>
         foreach (var outcome in outcomes)
         {
             if (!this.inFlightCache.TryGetValue(outcome.ModelId, out var entry)
-                || entry.State.StageToken != outcome.StageToken)
+                || entry.State.StagedVersionToken != outcome.StagedVersionToken)
             {
                 continue;
             }
@@ -226,7 +226,7 @@ public sealed class InMemoryModelStateCache<TState>
 
             if (IsEvictable(updatedState.PersistenceStatus))
             {
-                this.evictionQueue.Enqueue(new EvictionEntry(outcome.ModelId, updatedState.StageToken));
+                this.evictionQueue.Enqueue(new EvictionEntry(outcome.ModelId, updatedState.StagedVersionToken));
                 this.TryEvictEligibleEntries();
             }
         }
@@ -287,7 +287,7 @@ public sealed class InMemoryModelStateCache<TState>
 
         if (IsEvictable(state.PersistenceStatus))
         {
-            this.evictionQueue.Enqueue(new EvictionEntry(state.Model.Id, state.StageToken));
+            this.evictionQueue.Enqueue(new EvictionEntry(state.Model.Id, state.StagedVersionToken));
             this.TryEvictEligibleEntries();
         }
     }
@@ -304,7 +304,7 @@ public sealed class InMemoryModelStateCache<TState>
             // 4) If we removed by key only, we'd delete modelState@11 (newest) by mistake.
             //    Therefore, we remove only when current token == candidate token.
             if (this.inFlightCache.TryGetValue(candidate.ModelId, out var current)
-                && current.State.StageToken == candidate.Token
+                && current.State.StagedVersionToken == candidate.Token
                 && IsEvictable(current.State.PersistenceStatus)
                 && this.inFlightCache.TryRemove(candidate.ModelId, out _))
             {
