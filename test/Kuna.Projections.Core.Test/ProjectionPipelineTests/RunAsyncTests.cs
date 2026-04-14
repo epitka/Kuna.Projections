@@ -277,6 +277,81 @@ public class RunAsyncTests
         sink.Batches[1].Items[0].ExpectedEventNumber.ShouldBe(0);
     }
 
+    [Fact]
+    public async Task Partial_Batch_Failure_Should_Advance_Checkpoint_And_Not_Repull_Failed_Items()
+    {
+        var testCancellationToken = TestContext.Current.CancellationToken;
+        var failedModelId = Guid.NewGuid();
+        var persistedModelId = Guid.NewGuid();
+        var laterModelId = Guid.NewGuid();
+        var source = new FastSource(
+            [
+                CreateEnvelope(failedModelId, 0, 10, new ItemCreated { Id = failedModelId, Name = "failed", TypeName = nameof(ItemCreated), }),
+                CreateEnvelope(persistedModelId, 0, 11, new ItemCreated { Id = persistedModelId, Name = "persisted", TypeName = nameof(ItemCreated), }),
+                CreateEnvelope(laterModelId, 0, 12, new ItemCreated { Id = laterModelId, Name = "later", TypeName = nameof(ItemCreated), }),
+            ]);
+        var stateStore = new NullStateStore();
+        var projectionFactory = new ProjectionFactory<ItemModel>(
+            id => new ItemProjection(id),
+            stateStore);
+        var settings = new ProjectionSettings<ItemModel>
+        {
+            CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
+            LiveProcessingPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
+            MaxPendingProjectionsCount = 2,
+            LiveProcessingFlushDelay = 1000,
+            SkipStateNotFoundFailure = true,
+            InFlightModelCacheMinEntries = 10000,
+            InFlightModelCacheCapacityMultiplier = 3,
+            EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
+        };
+        var loggerFactory = LoggerFactory.Create(
+            builder =>
+            {
+            });
+        var sharedCache = new InMemoryModelStateCache<ItemModel>(settings);
+        var engine = new ProjectionEngine<ItemModel>(
+            projectionFactory,
+            new NoOpFailureHandler(),
+            sharedCache,
+            settings,
+            loggerFactory.CreateLogger<ProjectionEngine<ItemModel>>());
+        var sink = new MixedOutcomeSink(failedModelId);
+        var checkpointStore = new InMemoryCheckpointStore();
+        var pipeline = new ProjectionPipeline<EventEnvelope, ItemModel>(
+            source,
+            engine,
+            engine,
+            sharedCache,
+            sink,
+            checkpointStore,
+            settings,
+            loggerFactory.CreateLogger<ProjectionPipeline<EventEnvelope, ItemModel>>());
+
+        await pipeline.RunAsync(testCancellationToken);
+
+        // The first flush contains both models, but only one fails.
+        sink.Batches.Count.ShouldBe(2);
+        sink.Batches[0].Items.Select(x => x.Model.Id).ShouldBe([failedModelId, persistedModelId], ignoreOrder: true);
+
+        // The failed model stays completed-in-cache and must not be pulled again
+        // on the later flush triggered by the third event.
+        sink.Batches[1].Items.Select(x => x.Model.Id).ShouldBe([laterModelId,]);
+
+        // Processing continues and checkpoint advances to the latest observed
+        // position even though one item in the earlier batch failed.
+        var checkpoint = await checkpointStore.GetCheckpoint(testCancellationToken);
+        checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(12));
+
+        var failedCached = await sharedCache.Get(failedModelId, testCancellationToken);
+        failedCached.ShouldNotBeNull();
+        failedCached.PersistenceStatus.ShouldBe(ProjectionPersistenceStatus.Failed);
+
+        var laterCached = await sharedCache.Get(laterModelId, testCancellationToken);
+        laterCached.ShouldNotBeNull();
+        laterCached.PersistenceStatus.ShouldBe(ProjectionPersistenceStatus.Persisted);
+    }
+
     private static IReadOnlyList<EventEnvelope> CreateEnvelopes(int count)
     {
         var list = new List<EventEnvelope>(count);
@@ -333,5 +408,19 @@ public class RunAsyncTests
             new EventEnvelope(1, new GlobalEventPosition(2), $"item-{modelId}", updated1, modelId, updated1.CreatedOn),
             new EventEnvelope(2, new GlobalEventPosition(3), $"item-{modelId}", updated2, modelId, updated2.CreatedOn),
         };
+    }
+
+    private static EventEnvelope CreateEnvelope(Guid modelId, long eventNumber, ulong streamPosition, Event @event)
+    {
+        @event.TypeName = string.IsNullOrWhiteSpace(@event.TypeName) ? @event.GetType().Name : @event.TypeName;
+        @event.CreatedOn = @event.CreatedOn == default ? DateTime.UtcNow : @event.CreatedOn;
+
+        return new EventEnvelope(
+            eventNumber,
+            new GlobalEventPosition(streamPosition),
+            $"item-{modelId}",
+            @event,
+            modelId,
+            @event.CreatedOn);
     }
 }
