@@ -279,6 +279,163 @@ public class TransformTests
     }
 
     [Fact]
+    public async Task Should_Preserve_IsNew_On_Cache_Reload_Until_Current_Staged_State_Is_Persisted()
+    {
+        var factory = A.Fake<IProjectionFactory<ItemModel>>(opt => opt.Strict());
+        var handler = A.Fake<IProjectionFailureHandler<ItemModel>>(opt => opt.Strict());
+        var settings = CreateSettings();
+        var logger = LoggerFactory.Create(
+                                      builder =>
+                                      {
+                                      })
+                                  .CreateLogger<ProjectionEngine<ItemModel>>();
+
+        var modelId = Guid.NewGuid();
+        var cache = new InMemoryModelStateCache<ItemModel>(settings);
+        var createFromModelIsNew = new List<bool>();
+
+        A.CallTo(() => factory.CreateFromModel(A<ItemModel>._, A<bool>._))
+         .ReturnsLazily(
+             (ItemModel model, bool isNew) =>
+             {
+                 createFromModelIsNew.Add(isNew);
+                 var projection = new ItemProjection(model.Id)
+                 {
+                     IsNew = isNew,
+                 };
+
+                 projection.SetModelState(model);
+                 return projection;
+             });
+
+        var transformer = new ProjectionEngine<ItemModel>(factory, handler, cache, settings, logger);
+
+        var createdState = new ProjectedStateEnvelope<ItemModel>(
+            new ItemModel
+            {
+                Id = modelId,
+                Name = "created",
+                EventNumber = 0,
+                GlobalEventPosition = new GlobalEventPosition(10),
+            },
+            IsNew: true,
+            ShouldDelete: false,
+            GlobalEventPosition: new GlobalEventPosition(10),
+            ExpectedEventNumber: null,
+            StageToken: 1,
+            PersistenceStatus: ProjectionPersistenceStatus.Dirty);
+
+        // Stage 1: created state is in cache and has been pulled for persistence,
+        // but persistence has not completed yet.
+        await cache.Stage(createdState, CancellationToken.None);
+
+        var firstPull = await cache.PullNextBatch(new PersistencePullRequest { MaxBatchSize = 1, }, CancellationToken.None);
+        firstPull.ShouldNotBeNull();
+
+        // Reload from cache before stage 1 completes. The projection must still
+        // be treated as new while processing the next event.
+        var firstResult = await transformer.Transform(
+                              CreateEnvelope(modelId, 1, new ItemUpdated { Id = modelId, Name = "second", TypeName = nameof(ItemUpdated), }),
+                              CancellationToken.None);
+
+        firstResult.ShouldNotBeNull();
+        firstResult.IsNew.ShouldBeTrue();
+        firstResult.ExpectedEventNumber.ShouldBe(0);
+
+        var secondState = new ProjectedStateEnvelope<ItemModel>(
+            firstResult.Model,
+            firstResult.IsNew,
+            firstResult.ShouldDelete,
+            firstResult.GlobalEventPosition,
+            firstResult.ExpectedEventNumber,
+            StageToken: 2,
+            PersistenceStatus: ProjectionPersistenceStatus.Dirty);
+
+        // Stage 2: a newer state is staged before stage 1 completion arrives.
+        await cache.Stage(secondState, CancellationToken.None);
+
+        // Completing stage 1 must not flip the newer staged state out of IsNew.
+        await cache.CompletePull(
+            firstPull,
+            [
+                new PersistenceItemOutcome(
+                    modelId,
+                    1,
+                    createdState.GlobalEventPosition,
+                    PersistenceItemOutcomeStatus.Persisted,
+                    null),
+            ],
+            CancellationToken.None);
+
+        var secondPull = await cache.PullNextBatch(new PersistencePullRequest { MaxBatchSize = 1, }, CancellationToken.None);
+        secondPull.ShouldNotBeNull();
+
+        transformer.OnFlushSucceeded([modelId,], [modelId,]);
+
+        // Reload again after stale completion. The newer cached state must still
+        // behave as not-yet-persisted.
+        var secondResult = await transformer.Transform(
+                               CreateEnvelope(modelId, 2, new ItemUpdated { Id = modelId, Name = "third", TypeName = nameof(ItemUpdated), }),
+                               CancellationToken.None);
+
+        secondResult.ShouldNotBeNull();
+        secondResult.IsNew.ShouldBeTrue();
+        secondResult.ExpectedEventNumber.ShouldBe(1);
+
+        var thirdState = new ProjectedStateEnvelope<ItemModel>(
+            secondResult.Model,
+            secondResult.IsNew,
+            secondResult.ShouldDelete,
+            secondResult.GlobalEventPosition,
+            secondResult.ExpectedEventNumber,
+            StageToken: 3,
+            PersistenceStatus: ProjectionPersistenceStatus.Dirty);
+
+        // Stage 3: only once the current staged state completes should later
+        // cache reloads stop treating the model as new.
+        await cache.Stage(thirdState, CancellationToken.None);
+
+        await cache.CompletePull(
+            secondPull,
+            [
+                new PersistenceItemOutcome(
+                    modelId,
+                    2,
+                    secondState.GlobalEventPosition,
+                    PersistenceItemOutcomeStatus.Persisted,
+                    null),
+            ],
+            CancellationToken.None);
+
+        var thirdPull = await cache.PullNextBatch(new PersistencePullRequest { MaxBatchSize = 1, }, CancellationToken.None);
+        thirdPull.ShouldNotBeNull();
+
+        await cache.CompletePull(
+            thirdPull,
+            [
+                new PersistenceItemOutcome(
+                    modelId,
+                    3,
+                    thirdState.GlobalEventPosition,
+                    PersistenceItemOutcomeStatus.Persisted,
+                    null),
+            ],
+            CancellationToken.None);
+
+        transformer.OnFlushSucceeded([modelId,], [modelId,]);
+
+        var thirdResult = await transformer.Transform(
+                              CreateEnvelope(modelId, 3, new ItemUpdated { Id = modelId, Name = "fourth", TypeName = nameof(ItemUpdated), }),
+                              CancellationToken.None);
+
+        thirdResult.ShouldNotBeNull();
+        thirdResult.IsNew.ShouldBeFalse();
+        thirdResult.ExpectedEventNumber.ShouldBe(2);
+        createFromModelIsNew.ShouldBe([true, true, false]);
+        A.CallTo(() => factory.Create(A<Guid>._, A<bool>._, A<CancellationToken>._)).MustNotHaveHappened();
+    }
+
+    [Fact]
     public async Task ClearAll_Should_Reset_Failed_Projection_Tracking()
     {
         var factory = A.Fake<IProjectionFactory<ItemModel>>();
