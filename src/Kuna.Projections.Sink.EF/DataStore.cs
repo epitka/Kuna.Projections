@@ -175,8 +175,8 @@ public class DataStore<TState, TDataContext>
                         item =>
                         {
                             var status = outcomeStatuses.TryGetStatus(item.Model.Id, out var value)
-                                ? value
-                                : PersistenceItemOutcomeStatus.Persisted;
+                                             ? value
+                                             : PersistenceItemOutcomeStatus.Persisted;
 
                             return new PersistenceItemOutcome(
                                 item.Model.Id,
@@ -377,6 +377,7 @@ public class DataStore<TState, TDataContext>
                     "Skipping duplicate insert for {Model} {ModelId}",
                     this.modelName,
                     model.Id);
+
                 outcomes.Record(model.Id, PersistenceItemOutcomeStatus.SkippedAsStale);
             }
             catch (Exception ex)
@@ -625,26 +626,6 @@ public class DataStore<TState, TDataContext>
         this.modelWriteMetricsLogStopwatch.Restart();
     }
 
-    private sealed class PersistenceOutcomeCollector
-    {
-        private readonly Dictionary<Guid, PersistenceItemOutcomeStatus> statuses;
-
-        public PersistenceOutcomeCollector(int capacity)
-        {
-            this.statuses = new Dictionary<Guid, PersistenceItemOutcomeStatus>(capacity);
-        }
-
-        public void Record(Guid modelId, PersistenceItemOutcomeStatus status)
-        {
-            this.statuses[modelId] = status;
-        }
-
-        public bool TryGetStatus(Guid modelId, out PersistenceItemOutcomeStatus status)
-        {
-            return this.statuses.TryGetValue(modelId, out status);
-        }
-    }
-
     private bool ValidateAndDetectChildEntities()
     {
         var entityType = this.DbContext.Model.FindEntityType(typeof(TState))
@@ -856,5 +837,25 @@ public class DataStore<TState, TDataContext>
     {
         this.scope?.Dispose();
         this.scope = null;
+    }
+
+    private sealed class PersistenceOutcomeCollector
+    {
+        private readonly Dictionary<Guid, PersistenceItemOutcomeStatus> statuses;
+
+        public PersistenceOutcomeCollector(int capacity)
+        {
+            this.statuses = new Dictionary<Guid, PersistenceItemOutcomeStatus>(capacity);
+        }
+
+        public void Record(Guid modelId, PersistenceItemOutcomeStatus status)
+        {
+            this.statuses[modelId] = status;
+        }
+
+        public bool TryGetStatus(Guid modelId, out PersistenceItemOutcomeStatus status)
+        {
+            return this.statuses.TryGetValue(modelId, out status);
+        }
     }
 }

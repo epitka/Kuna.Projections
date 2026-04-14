@@ -183,11 +183,12 @@ public class InMemoryProjectionCacheTests
 
         firstCached.ShouldBeNull();
         secondCached.ShouldNotBeNull();
-        secondCached.ShouldDeepEqual(second with
-        {
-            IsNew = false,
-            PersistenceStatus = ProjectionPersistenceStatus.Persisted,
-        });
+        secondCached.ShouldDeepEqual(
+            second with
+            {
+                IsNew = false,
+                PersistenceStatus = ProjectionPersistenceStatus.Persisted,
+            });
     }
 
     [Fact]
@@ -235,10 +236,12 @@ public class InMemoryProjectionCacheTests
         var persistedCached = await cache.Get(persisted.Model.Id, CancellationToken.None);
 
         failedCached.ShouldNotBeNull();
-        failedCached.ShouldDeepEqual(failed with
-        {
-            PersistenceStatus = ProjectionPersistenceStatus.Failed,
-        });
+        failedCached.ShouldDeepEqual(
+            failed with
+            {
+                PersistenceStatus = ProjectionPersistenceStatus.Failed,
+            });
+
         persistedCached.ShouldBeNull();
     }
 

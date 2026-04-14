@@ -285,15 +285,17 @@ public class RunAsyncTests
         var persistedModelId = Guid.NewGuid();
         var laterModelId = Guid.NewGuid();
         var source = new FastSource(
-            [
-                CreateEnvelope(failedModelId, 0, 10, new ItemCreated { Id = failedModelId, Name = "failed", TypeName = nameof(ItemCreated), }),
-                CreateEnvelope(persistedModelId, 0, 11, new ItemCreated { Id = persistedModelId, Name = "persisted", TypeName = nameof(ItemCreated), }),
-                CreateEnvelope(laterModelId, 0, 12, new ItemCreated { Id = laterModelId, Name = "later", TypeName = nameof(ItemCreated), }),
-            ]);
+        [
+            CreateEnvelope(failedModelId, 0, 10, new ItemCreated { Id = failedModelId, Name = "failed", TypeName = nameof(ItemCreated), }),
+            CreateEnvelope(persistedModelId, 0, 11, new ItemCreated { Id = persistedModelId, Name = "persisted", TypeName = nameof(ItemCreated), }),
+            CreateEnvelope(laterModelId, 0, 12, new ItemCreated { Id = laterModelId, Name = "later", TypeName = nameof(ItemCreated), }),
+        ]);
+
         var stateStore = new NullStateStore();
         var projectionFactory = new ProjectionFactory<ItemModel>(
             id => new ItemProjection(id),
             stateStore);
+
         var settings = new ProjectionSettings<ItemModel>
         {
             CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
@@ -305,10 +307,12 @@ public class RunAsyncTests
             InFlightModelCacheCapacityMultiplier = 3,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
+
         var loggerFactory = LoggerFactory.Create(
             builder =>
             {
             });
+
         var sharedCache = new InMemoryModelStateCache<ItemModel>(settings);
         var engine = new ProjectionEngine<ItemModel>(
             projectionFactory,
@@ -316,6 +320,7 @@ public class RunAsyncTests
             sharedCache,
             settings,
             loggerFactory.CreateLogger<ProjectionEngine<ItemModel>>());
+
         var sink = new MixedOutcomeSink(failedModelId);
         var checkpointStore = new InMemoryCheckpointStore();
         var pipeline = new ProjectionPipeline<EventEnvelope, ItemModel>(
@@ -332,7 +337,7 @@ public class RunAsyncTests
 
         // The first flush contains both models, but only one fails.
         sink.Batches.Count.ShouldBe(2);
-        sink.Batches[0].Items.Select(x => x.Model.Id).ShouldBe([failedModelId, persistedModelId], ignoreOrder: true);
+        sink.Batches[0].Items.Select(x => x.Model.Id).ShouldBe([failedModelId, persistedModelId,], ignoreOrder: true);
 
         // The failed model stays completed-in-cache and must not be pulled again
         // on the later flush triggered by the third event.
@@ -410,7 +415,11 @@ public class RunAsyncTests
         };
     }
 
-    private static EventEnvelope CreateEnvelope(Guid modelId, long eventNumber, ulong streamPosition, Event @event)
+    private static EventEnvelope CreateEnvelope(
+        Guid modelId,
+        long eventNumber,
+        ulong streamPosition,
+        Event @event)
     {
         @event.TypeName = string.IsNullOrWhiteSpace(@event.TypeName) ? @event.GetType().Name : @event.TypeName;
         @event.CreatedOn = @event.CreatedOn == default ? DateTime.UtcNow : @event.CreatedOn;

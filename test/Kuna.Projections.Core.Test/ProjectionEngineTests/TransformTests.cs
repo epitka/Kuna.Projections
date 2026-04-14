@@ -431,7 +431,7 @@ public class TransformTests
         thirdResult.ShouldNotBeNull();
         thirdResult.IsNew.ShouldBeFalse();
         thirdResult.ExpectedEventNumber.ShouldBe(2);
-        createFromModelIsNew.ShouldBe([true, true, false]);
+        createFromModelIsNew.ShouldBe([true, true, false,]);
         A.CallTo(() => factory.Create(A<Guid>._, A<bool>._, A<CancellationToken>._)).MustNotHaveHappened();
     }
 

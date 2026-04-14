@@ -105,11 +105,12 @@ public sealed class InMemoryModelStateCache<TState>
 
             selected.Add(CloneProjectedState(inFlight));
             maxPosition = maxPosition == null || inFlight.GlobalEventPosition.Value > maxPosition.Value.Value
-                ? inFlight.GlobalEventPosition
-                : maxPosition;
+                              ? inFlight.GlobalEventPosition
+                              : maxPosition;
         }
 
-        if (selected.Count == 0 || maxPosition == null)
+        if (selected.Count == 0
+            || maxPosition == null)
         {
             return ValueTask.FromResult<PersistencePullBatch<TState>?>(null);
         }
@@ -138,22 +139,22 @@ public sealed class InMemoryModelStateCache<TState>
             }
 
             var updatedState = outcome.Status switch
-            {
-                PersistenceItemOutcomeStatus.Persisted => entry.State with
-                {
-                    IsNew = false,
-                    PersistenceStatus = ProjectionPersistenceStatus.Persisted,
-                },
-                PersistenceItemOutcomeStatus.Failed => entry.State with
-                {
-                    PersistenceStatus = ProjectionPersistenceStatus.Failed,
-                },
-                PersistenceItemOutcomeStatus.SkippedAsStale => entry.State with
-                {
-                    PersistenceStatus = ProjectionPersistenceStatus.Dirty,
-                },
-                _ => throw new ArgumentOutOfRangeException(),
-            };
+                               {
+                                   PersistenceItemOutcomeStatus.Persisted => entry.State with
+                                   {
+                                       IsNew = false,
+                                       PersistenceStatus = ProjectionPersistenceStatus.Persisted,
+                                   },
+                                   PersistenceItemOutcomeStatus.Failed => entry.State with
+                                   {
+                                       PersistenceStatus = ProjectionPersistenceStatus.Failed,
+                                   },
+                                   PersistenceItemOutcomeStatus.SkippedAsStale => entry.State with
+                                   {
+                                       PersistenceStatus = ProjectionPersistenceStatus.Dirty,
+                                   },
+                                   _ => throw new ArgumentOutOfRangeException(),
+                               };
 
             if (!this.inFlightCache.TryUpdate(outcome.ModelId, new CacheEntry(updatedState), entry))
             {
