@@ -72,8 +72,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IModelStateTransformer<EventEnvelope, TState>>(sp => sp.GetRequiredService<ProjectionEngine<TState>>());
         services.AddSingleton<IProjectionLifecycle>(sp => sp.GetRequiredService<ProjectionEngine<TState>>());
-        services.AddSingleton<IModelStateCache<TState>, InMemoryModelStateCache<TState>>();
-        services.AddSingleton<IProjectionCache<TState>>(sp => (IProjectionCache<TState>)sp.GetRequiredService<IModelStateCache<TState>>());
+        services.AddSingleton<IProjectionCache<TState>, InMemoryModelStateCache<TState>>();
 
         services.AddSingleton<IProjectionPipeline<TState>>(
             sp => new ProjectionPipeline<EventEnvelope, TState>(

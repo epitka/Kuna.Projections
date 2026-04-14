@@ -34,4 +34,9 @@ public interface IProjectionCache<TState>
         PersistencePullBatch<TState> batch,
         IReadOnlyList<PersistenceItemOutcome> outcomes,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns and resets cache lookup counters used for pipeline diagnostics.
+    /// </summary>
+    (long Hits, long Misses) ReadAndResetLookupStats();
 }

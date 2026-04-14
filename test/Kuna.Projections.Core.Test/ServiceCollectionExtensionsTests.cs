@@ -89,14 +89,8 @@ public class ServiceCollectionExtensionsTests
 
         services.ShouldContain(
             sd =>
-                sd.ServiceType == typeof(IModelStateCache<CoreServiceTestModel>)
-                && sd.ImplementationType == typeof(InMemoryModelStateCache<CoreServiceTestModel>)
-                && sd.Lifetime == ServiceLifetime.Singleton);
-
-        services.ShouldContain(
-            sd =>
                 sd.ServiceType == typeof(IProjectionCache<CoreServiceTestModel>)
-                && sd.ImplementationFactory != null
+                && sd.ImplementationType == typeof(InMemoryModelStateCache<CoreServiceTestModel>)
                 && sd.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(

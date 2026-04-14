@@ -612,9 +612,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
 
         (long Hits, long Misses) ReadCacheStats()
         {
-            return this.projectionCache is IModelStateCache<TState> stateCache
-                ? stateCache.ReadAndResetLookupStats()
-                : (0, 0);
+            return this.projectionCache.ReadAndResetLookupStats();
         }
     }
 
