@@ -279,6 +279,64 @@ public class TransformTests
     }
 
     [Fact]
+    public async Task Should_Recreate_From_Model_State_Cache_As_Update_After_Flush()
+    {
+        var factory = A.Fake<IProjectionFactory<ItemModel>>(opt => opt.Strict());
+        var handler = A.Fake<IProjectionFailureHandler<ItemModel>>(opt => opt.Strict());
+        var settings = CreateSettings();
+        var logger = LoggerFactory.Create(
+                                      builder =>
+                                      {
+                                      })
+                                  .CreateLogger<ProjectionEngine<ItemModel>>();
+
+        var modelId = Guid.NewGuid();
+        var cache = new InMemoryModelStateCache<ItemModel>(settings);
+        var createFromModelIsNew = new List<bool>();
+
+        cache.Set(
+            new ModelState<ItemModel>(
+                new ItemModel
+                {
+                    Id = modelId,
+                    EventNumber = 0,
+                    GlobalEventPosition = new GlobalEventPosition(10),
+                    Name = "created",
+                },
+                IsNew: true,
+                ShouldDelete: false,
+                GlobalEventPosition: new GlobalEventPosition(10),
+                ExpectedEventNumber: null));
+
+        A.CallTo(() => factory.CreateFromModel(A<ItemModel>._, A<bool>._))
+         .ReturnsLazily(
+             (ItemModel model, bool isNew) =>
+             {
+                 createFromModelIsNew.Add(isNew);
+                 var projection = new ItemProjection(model.Id)
+                 {
+                     IsNew = isNew,
+                 };
+
+                 projection.SetModelState(model);
+                 return projection;
+             });
+
+        var transformer = new ProjectionEngine<ItemModel>(factory, handler, cache, settings, logger);
+
+        var result = await transformer.Transform(
+                         CreateEnvelope(modelId, 1, new ItemUpdated { Id = modelId, Name = "updated", TypeName = nameof(ItemUpdated), }),
+                         CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result.IsNew.ShouldBeFalse();
+        result.ExpectedEventNumber.ShouldBe(0);
+        result.Model.Name.ShouldBe("updated");
+        createFromModelIsNew.ShouldBe([false,]);
+        A.CallTo(() => factory.Create(A<Guid>._, A<bool>._, A<CancellationToken>._)).MustNotHaveHappened();
+    }
+
+    [Fact]
     public async Task ClearAll_Should_Reset_Failed_Projection_Tracking()
     {
         var factory = A.Fake<IProjectionFactory<ItemModel>>();
