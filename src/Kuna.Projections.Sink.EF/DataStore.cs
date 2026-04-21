@@ -34,9 +34,6 @@ public class DataStore<TState, TDataContext>
     private readonly List<ProjectionFailure> pendingUpdateFailures;
     private readonly bool hasChildEntities;
     private readonly string modelName;
-    private readonly Stopwatch modelWriteMetricsLogStopwatch;
-    private double cumulativeModelWriteSaveChangesMs;
-    private long cumulativeModelWriteSaveChangesCalls;
 
     private TDataContext? dbContext;
     private IServiceScope? scope;
@@ -60,7 +57,6 @@ public class DataStore<TState, TDataContext>
 
         this.insertStopWatch = new Stopwatch();
         this.updateStopWatch = new Stopwatch();
-        this.modelWriteMetricsLogStopwatch = Stopwatch.StartNew();
     }
 
     private TDataContext DbContext => this.dbContext ?? throw new InvalidOperationException("DbContext has not been initialized.");
@@ -114,7 +110,6 @@ public class DataStore<TState, TDataContext>
         var toPersist = batch.Changes.Except(toExclude).ToArray();
 
         await this.PersistBatchInternal(toPersist, cancellationToken);
-        this.LogCumulativeModelWriteMetricsIfDue();
 
         foreach (var modelState in toPersist.Where(x => !x.ShouldDelete))
         {
@@ -139,8 +134,6 @@ public class DataStore<TState, TDataContext>
     /// <summary>
     /// Loads the persisted checkpoint for the specified model name.
     /// </summary>
-
-    // TODO: getcheckpoint.md
     public async Task<CheckPoint> GetCheckpoint(CancellationToken cancellationToken)
     {
         using var transientScope = this.serviceProvider.CreateScope();
@@ -254,15 +247,19 @@ public class DataStore<TState, TDataContext>
                     try
                     {
                         await transientContext.AddRangeAsync(models, cancellationToken);
-                        await this.SaveModelChangesAsync(transientContext, cancellationToken);
+                        await transientContext.SaveChangesAsync(cancellationToken);
                         await transaction.CommitAsync(cancellationToken);
+
                         this.insertStopWatch.Stop();
 
-                        this.logger.LogDebug(
-                            "Inserted {ModelCount} models in {SqlExecutionTime} milliseconds for {Model}",
-                            models.Count,
-                            this.insertStopWatch.ElapsedMilliseconds.ToString("N0"),
-                            this.modelName);
+                        if (this.logger.IsEnabled(LogLevel.Trace))
+                        {
+                            this.logger.LogTrace(
+                                "Inserted {ModelCount} models in {SqlExecutionTime} milliseconds for {Model}",
+                                models.Count,
+                                this.insertStopWatch.ElapsedMilliseconds.ToString("N0"),
+                                this.modelName);
+                        }
 
                         this.insertStopWatch.Reset();
                     }
@@ -296,17 +293,20 @@ public class DataStore<TState, TDataContext>
             {
                 transientContext!.Attach(model);
                 transientContext!.Entry(model).State = EntityState.Added;
-                await this.SaveModelChangesAsync(transientContext, cancellationToken);
+                await transientContext.SaveChangesAsync(cancellationToken);
             }
             catch (Exception ex) when (IsDuplicateKeyViolation(ex))
             {
                 // Replay may try to insert an already-persisted model when checkpoint lags behind sink writes.
                 transientContext!.Entry(model).State = EntityState.Detached;
-                this.logger.LogDebug(
-                    ex,
-                    "Skipping duplicate insert for {Model} {ModelId}",
-                    this.modelName,
-                    model.Id);
+                if (this.logger.IsEnabled(LogLevel.Debug))
+                {
+                    this.logger.LogDebug(
+                        ex,
+                        "Skipping duplicate insert for {Model} {ModelId}",
+                        this.modelName,
+                        model.Id);
+                }
             }
             catch (Exception ex)
             {
@@ -348,16 +348,19 @@ public class DataStore<TState, TDataContext>
 
                 try
                 {
-                    await this.SaveModelChangesAsync(this.DbContext, cancellationToken);
+                    await this.DbContext.SaveChangesAsync(cancellationToken);
 
                     await transaction.CommitAsync(cancellationToken);
                     this.updateStopWatch.Stop();
 
-                    this.logger.LogDebug(
-                        "Updated {ModelCount} models in {SqlExecutionTime} milliseconds for {Model}",
-                        pending.Count,
-                        this.updateStopWatch.ElapsedMilliseconds.ToString("N0"),
-                        this.modelName);
+                    if (this.logger.IsEnabled(LogLevel.Trace))
+                    {
+                        this.logger.LogTrace(
+                            "Updated {ModelCount} models in {SqlExecutionTime} milliseconds for {Model}",
+                            pending.Count,
+                            this.updateStopWatch.ElapsedMilliseconds.ToString("N0"),
+                            this.modelName);
+                    }
                 }
                 catch (DbUpdateConcurrencyException cex)
                 {
@@ -380,11 +383,14 @@ public class DataStore<TState, TDataContext>
                         failedEntry.State = EntityState.Detached;
                     }
 
-                    this.logger.LogDebug(
-                        cex,
-                        "Skipped {SkippedModelCount} stale projection changes for {Model}",
-                        skipped,
-                        this.modelName);
+                    if (this.logger.IsEnabled(LogLevel.Debug))
+                    {
+                        this.logger.LogDebug(
+                            cex,
+                            "Skipped {SkippedModelCount} stale projection changes for {Model}",
+                            skipped,
+                            this.modelName);
+                    }
 
                     if (pending.Count > 0)
                     {
@@ -514,32 +520,6 @@ public class DataStore<TState, TDataContext>
                 this.ApplyChildEntityStates(entry, new HashSet<object>(ReferenceEqualityComparer.Instance));
             }
         }
-    }
-
-    private async Task SaveModelChangesAsync(DbContext dbContext, CancellationToken cancellationToken)
-    {
-        var stopwatch = Stopwatch.StartNew();
-        await dbContext.SaveChangesAsync(cancellationToken);
-        stopwatch.Stop();
-
-        this.cumulativeModelWriteSaveChangesMs += stopwatch.Elapsed.TotalMilliseconds;
-        this.cumulativeModelWriteSaveChangesCalls++;
-    }
-
-    private void LogCumulativeModelWriteMetricsIfDue()
-    {
-        if (this.modelWriteMetricsLogStopwatch.Elapsed < TimeSpan.FromSeconds(10))
-        {
-            return;
-        }
-
-        this.logger.LogInformation(
-            "Cumulative model write SaveChanges metrics for {ModelName}: saveChangesCalls={SaveChangesCalls}, cumulativeSaveChangesMs={CumulativeSaveChangesMs}",
-            this.modelName,
-            this.cumulativeModelWriteSaveChangesCalls,
-            this.cumulativeModelWriteSaveChangesMs);
-
-        this.modelWriteMetricsLogStopwatch.Restart();
     }
 
     private bool ValidateAndDetectChildEntities()

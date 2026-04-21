@@ -382,11 +382,14 @@ namespace Kuna.Projections.EF
 
                             await transaction.CommitAsync();
 
-                            this.logger.LogInformation(
-                                "Inserted {ModelCount} models in {SqlExecutionTime} milliseconds for {Model}",
-                                models.Count,
-                                this.insertStopWatch.ElapsedMilliseconds.ToString("N0"),
-                                typeof(TModel).Name);
+                            if (this.logger.IsEnabled(LogLevel.Debug))
+                            {
+                                this.logger.LogDebug(
+                                    "Inserted {ModelCount} models in {SqlExecutionTime} milliseconds for {Model}",
+                                    models.Count,
+                                    this.insertStopWatch.ElapsedMilliseconds.ToString("N0"),
+                                    typeof(TModel).Name);
+                            }
 
                             this.insertStopWatch.Reset();
                         }
@@ -503,11 +506,14 @@ namespace Kuna.Projections.EF
 
                         await transaction.CommitAsync();
 
-                        this.logger.LogInformation(
-                            "Updated {ModelCount} models in {SqlExecutionTime} milliseconds for {Model}",
-                            models.Count,
-                            this.updateStopWatch.ElapsedMilliseconds.ToString("N0"),
-                            typeof(TModel).Name);
+                        if (this.logger.IsEnabled(LogLevel.Debug))
+                        {
+                            this.logger.LogDebug(
+                                "Updated {ModelCount} models in {SqlExecutionTime} milliseconds for {Model}",
+                                models.Count,
+                                this.updateStopWatch.ElapsedMilliseconds.ToString("N0"),
+                                typeof(TModel).Name);
+                        }
                     }
                     catch (DbUpdateException dbex)
                     {
