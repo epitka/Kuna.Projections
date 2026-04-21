@@ -68,21 +68,31 @@ public class DataStore<TState, TDataContext>
     {
         try
         {
-            var model = await this.DbContext.FindAsync<TState>([modelId,], cancellationToken);
+            using var transientScope = this.serviceProvider.CreateScope();
+
+            await using var transientContext = transientScope
+                                               .ServiceProvider
+                                               .GetRequiredService<TDataContext>();
+
+            var model = await transientContext.FindAsync<TState>([modelId,], cancellationToken);
 
             if (model != null
                 && this.hasChildEntities)
             {
-                await this.LoadNavigationGraphAsync(model, cancellationToken);
+                await this.LoadNavigationGraphAsync(transientContext, model, cancellationToken);
             }
 
             if (model != null
                 && this.hasChildEntities)
             {
-                this.MarkPersistedGraph(model);
+                this.MarkPersistedGraph(transientContext, model);
             }
 
             return model;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -299,6 +309,7 @@ public class DataStore<TState, TDataContext>
             {
                 // Replay may try to insert an already-persisted model when checkpoint lags behind sink writes.
                 transientContext!.Entry(model).State = EntityState.Detached;
+
                 if (this.logger.IsEnabled(LogLevel.Debug))
                 {
                     this.logger.LogDebug(
@@ -565,19 +576,23 @@ public class DataStore<TState, TDataContext>
         return hasParticipatingHierarchy;
     }
 
-    private async Task LoadNavigationGraphAsync(object root, CancellationToken cancellationToken)
+    private async Task LoadNavigationGraphAsync(DbContext dbContext, object root, CancellationToken cancellationToken)
     {
-        await this.LoadNavigationGraphAsync(root, new HashSet<object>(ReferenceEqualityComparer.Instance), cancellationToken);
+        await this.LoadNavigationGraphAsync(dbContext, root, new HashSet<object>(ReferenceEqualityComparer.Instance), cancellationToken);
     }
 
-    private async Task LoadNavigationGraphAsync(object node, HashSet<object> visited, CancellationToken cancellationToken)
+    private async Task LoadNavigationGraphAsync(
+        DbContext dbContext,
+        object node,
+        HashSet<object> visited,
+        CancellationToken cancellationToken)
     {
         if (!visited.Add(node))
         {
             return;
         }
 
-        var entry = this.DbContext.Entry(node);
+        var entry = dbContext.Entry(node);
 
         foreach (var navigationEntry in entry.Navigations)
         {
@@ -595,24 +610,29 @@ public class DataStore<TState, TDataContext>
                     {
                         if (child != null)
                         {
-                            await this.LoadNavigationGraphAsync(child, visited, cancellationToken);
+                            await this.LoadNavigationGraphAsync(dbContext, child, visited, cancellationToken);
                         }
                     }
 
                     break;
                 default:
-                    await this.LoadNavigationGraphAsync(navigationEntry.CurrentValue, visited, cancellationToken);
+                    await this.LoadNavigationGraphAsync(dbContext, navigationEntry.CurrentValue, visited, cancellationToken);
                     break;
             }
         }
     }
 
-    private void MarkPersistedGraph(object root)
+    private void MarkPersistedGraph(DbContext dbContext, object root)
     {
-        this.MarkPersistedGraph(root, new HashSet<object>(ReferenceEqualityComparer.Instance));
+        this.MarkPersistedGraph(dbContext, root, new HashSet<object>(ReferenceEqualityComparer.Instance));
     }
 
-    private void MarkPersistedGraph(object node, HashSet<object> visited)
+    private void MarkPersistedGraph(object root)
+    {
+        this.MarkPersistedGraph(this.DbContext, root, new HashSet<object>(ReferenceEqualityComparer.Instance));
+    }
+
+    private void MarkPersistedGraph(DbContext dbContext, object node, HashSet<object> visited)
     {
         if (!visited.Add(node))
         {
@@ -629,7 +649,7 @@ public class DataStore<TState, TDataContext>
             return;
         }
 
-        var entityType = this.DbContext.Model.FindEntityType(node.GetType());
+        var entityType = dbContext.Model.FindEntityType(node.GetType());
 
         if (entityType == null)
         {
@@ -649,13 +669,13 @@ public class DataStore<TState, TDataContext>
                     {
                         if (child != null)
                         {
-                            this.MarkPersistedGraph(child, visited);
+                            this.MarkPersistedGraph(dbContext, child, visited);
                         }
                     }
 
                     break;
                 default:
-                    this.MarkPersistedGraph(value, visited);
+                    this.MarkPersistedGraph(dbContext, value, visited);
                     break;
             }
         }
