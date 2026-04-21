@@ -35,11 +35,8 @@ public class DataStore<TState, TDataContext>
     private readonly bool hasChildEntities;
     private readonly string modelName;
 
-    private TDataContext? dbContext;
-    private IServiceScope? scope;
-
     /// <summary>
-    /// Initializes the EF-backed model store and its long-lived DbContext scope.
+    /// Initializes the EF-backed model store.
     /// </summary>
     public DataStore(
         IServiceProvider serviceProvider,
@@ -51,15 +48,12 @@ public class DataStore<TState, TDataContext>
         this.logger = logger;
         this.modelName = ProjectionModelName.For<TState>();
 
-        this.InitDbContext();
         this.pendingUpdateFailures = new List<ProjectionFailure>();
         this.hasChildEntities = this.ValidateAndDetectChildEntities();
 
         this.insertStopWatch = new Stopwatch();
         this.updateStopWatch = new Stopwatch();
     }
-
-    private TDataContext DbContext => this.dbContext ?? throw new InvalidOperationException("DbContext has not been initialized.");
 
     /// <summary>
     /// Loads the persisted model state for the specified model id.
@@ -121,11 +115,17 @@ public class DataStore<TState, TDataContext>
 
         await this.PersistBatchInternal(toPersist, cancellationToken);
 
-        foreach (var modelState in toPersist.Where(x => !x.ShouldDelete))
+        if (this.hasChildEntities)
         {
-            if (this.hasChildEntities)
+            using var transientScope = this.serviceProvider.CreateScope();
+
+            await using var transientContext = transientScope
+                                               .ServiceProvider
+                                               .GetRequiredService<TDataContext>();
+
+            foreach (var modelState in toPersist.Where(x => !x.ShouldDelete))
             {
-                this.MarkPersistedGraph(modelState.Model);
+                this.MarkPersistedGraph(transientContext, modelState.Model);
             }
         }
 
@@ -136,9 +136,6 @@ public class DataStore<TState, TDataContext>
                 GlobalEventPosition = batch.GlobalEventPosition,
             },
             cancellationToken);
-
-        this.DisposeScope();
-        this.InitDbContext();
     }
 
     /// <summary>
@@ -346,20 +343,31 @@ public class DataStore<TState, TDataContext>
             return;
         }
 
+        using var transientScope = this.serviceProvider.CreateScope();
+
+        await using var transientContext = transientScope
+                                           .ServiceProvider
+                                           .GetRequiredService<TDataContext>();
+
+        await this.SaveUpdates(transientContext, projections, cancellationToken);
+    }
+
+    private async Task SaveUpdates(TDataContext dbContext, List<ModelState<TState>> projections, CancellationToken cancellationToken)
+    {
         var pending = projections.ToList();
-        this.ApplyPendingEntries(pending);
+        this.ApplyPendingEntries(dbContext, pending);
         this.updateStopWatch.Restart();
 
-        var strategy = this.DbContext.Database.CreateExecutionStrategy();
+        var strategy = dbContext.Database.CreateExecutionStrategy();
 
         await strategy.ExecuteAsync(
             async () =>
             {
-                await using var transaction = await this.DbContext.Database.BeginTransactionAsync(cancellationToken);
+                await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
 
                 try
                 {
-                    await this.DbContext.SaveChangesAsync(cancellationToken);
+                    await dbContext.SaveChangesAsync(cancellationToken);
 
                     await transaction.CommitAsync(cancellationToken);
                     this.updateStopWatch.Stop();
@@ -405,8 +413,8 @@ public class DataStore<TState, TDataContext>
 
                     if (pending.Count > 0)
                     {
-                        this.ApplyPendingEntries(pending);
-                        await this.SaveUpdates(pending, cancellationToken);
+                        this.ApplyPendingEntries(dbContext, pending);
+                        await this.SaveUpdates(dbContext, pending, cancellationToken);
                     }
                 }
                 catch (DbUpdateException dbex)
@@ -457,8 +465,6 @@ public class DataStore<TState, TDataContext>
                         this.modelName,
                         pending.Count);
 
-                    this.DisposeScope();
-
                     foreach (var model in pending.Select(x => x.Model))
                     {
                         this.logger.LogWarning(
@@ -497,23 +503,23 @@ public class DataStore<TState, TDataContext>
 
                     if (pending.Count > 0)
                     {
-                        this.ApplyPendingEntries(pending);
-                        await this.SaveUpdates(pending, cancellationToken);
+                        this.ApplyPendingEntries(dbContext, pending);
+                        await this.SaveUpdates(dbContext, pending, cancellationToken);
                     }
                 }
             });
     }
 
-    private void ApplyPendingEntries(IReadOnlyCollection<ModelState<TState>> pending)
+    private void ApplyPendingEntries(DbContext dbContext, IReadOnlyCollection<ModelState<TState>> pending)
     {
         foreach (var (model, _, shouldDelete, _, expectedEventNumber) in pending)
         {
-            var entry = this.DbContext.Entry(model);
+            var entry = dbContext.Entry(model);
 
             if (entry.State == EntityState.Detached)
             {
-                this.DbContext.Attach(model);
-                entry = this.DbContext.Entry(model);
+                dbContext.Attach(model);
+                entry = dbContext.Entry(model);
             }
 
             entry.Property(nameof(IModel.EventNumber)).OriginalValue = expectedEventNumber;
@@ -528,14 +534,20 @@ public class DataStore<TState, TDataContext>
 
             if (this.hasChildEntities)
             {
-                this.ApplyChildEntityStates(entry, new HashSet<object>(ReferenceEqualityComparer.Instance));
+                this.ApplyChildEntityStates(dbContext, entry, new HashSet<object>(ReferenceEqualityComparer.Instance));
             }
         }
     }
 
     private bool ValidateAndDetectChildEntities()
     {
-        var entityType = this.DbContext.Model.FindEntityType(typeof(TState))
+        using var transientScope = this.serviceProvider.CreateScope();
+
+        using var transientContext = transientScope
+                                     .ServiceProvider
+                                     .GetRequiredService<TDataContext>();
+
+        var entityType = transientContext.Model.FindEntityType(typeof(TState))
                          ?? throw new InvalidOperationException($"EF model metadata for root model type '{typeof(TState).FullName}' was not found.");
 
         var visited = new HashSet<Type>();
@@ -627,11 +639,6 @@ public class DataStore<TState, TDataContext>
         this.MarkPersistedGraph(dbContext, root, new HashSet<object>(ReferenceEqualityComparer.Instance));
     }
 
-    private void MarkPersistedGraph(object root)
-    {
-        this.MarkPersistedGraph(this.DbContext, root, new HashSet<object>(ReferenceEqualityComparer.Instance));
-    }
-
     private void MarkPersistedGraph(DbContext dbContext, object node, HashSet<object> visited)
     {
         if (!visited.Add(node))
@@ -681,7 +688,7 @@ public class DataStore<TState, TDataContext>
         }
     }
 
-    private void ApplyChildEntityStates(EntityEntry entry, HashSet<object> visited)
+    private void ApplyChildEntityStates(DbContext dbContext, EntityEntry entry, HashSet<object> visited)
     {
         if (!visited.Add(entry.Entity))
         {
@@ -699,31 +706,31 @@ public class DataStore<TState, TDataContext>
                     {
                         if (child != null)
                         {
-                            this.ApplyEntityState(child, visited);
+                            this.ApplyEntityState(dbContext, child, visited);
                         }
                     }
 
                     break;
                 default:
-                    this.ApplyEntityState(navigationEntry.CurrentValue, visited);
+                    this.ApplyEntityState(dbContext, navigationEntry.CurrentValue, visited);
                     break;
             }
         }
     }
 
-    private void ApplyEntityState(object entity, HashSet<object> visited)
+    private void ApplyEntityState(DbContext dbContext, object entity, HashSet<object> visited)
     {
         if (!visited.Add(entity))
         {
             return;
         }
 
-        var entry = this.DbContext.Entry(entity);
+        var entry = dbContext.Entry(entity);
 
         if (entry.State == EntityState.Detached)
         {
-            this.DbContext.Attach(entity);
-            entry = this.DbContext.Entry(entity);
+            dbContext.Attach(entity);
+            entry = dbContext.Entry(entity);
         }
 
         if (entity is ChildEntity persistedEntity)
@@ -740,18 +747,6 @@ public class DataStore<TState, TDataContext>
             entry.State = EntityState.Modified;
         }
 
-        this.ApplyChildEntityStates(entry, visited);
-    }
-
-    private void InitDbContext()
-    {
-        this.scope = this.serviceProvider.CreateScope();
-        this.dbContext = this.scope.ServiceProvider.GetRequiredService<TDataContext>();
-    }
-
-    private void DisposeScope()
-    {
-        this.scope?.Dispose();
-        this.scope = null;
+        this.ApplyChildEntityStates(dbContext, entry, visited);
     }
 }
