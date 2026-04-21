@@ -212,6 +212,9 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                      {
                                          var envelope = signal.Envelope!;
                                          seenEvents++;
+
+                                         var change = await this.transformer.Transform(envelope, cancellationToken);
+                                         transformedEvents++;
                                          pendingEventCount++;
                                          lastObservedPosition = envelope.GlobalEventPosition;
                                          pendingLastObservedPosition = envelope.GlobalEventPosition;
@@ -222,9 +225,6 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                          {
                                              fullyDrainedLogged = false;
                                          }
-
-                                         var change = await this.transformer.Transform(envelope, cancellationToken);
-                                         transformedEvents++;
 
                                          if (change != null)
                                          {
