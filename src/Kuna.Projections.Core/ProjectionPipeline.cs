@@ -200,67 +200,76 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                              parallelism: 1,
                              async signal =>
                              {
-                                 if (inFlightFlushTask is { IsCompleted: true, })
+                                 try
                                  {
-                                     await ObserveFlushCompletionAsync(inFlightFlushTask, cancellationToken);
-                                     inFlightFlushTask = null;
-                                 }
-
-                                 switch (signal.Kind)
-                                 {
-                                     case RawSignalKind.Event:
+                                     if (inFlightFlushTask is { IsCompleted: true, })
                                      {
-                                         var envelope = signal.Envelope!;
-                                         seenEvents++;
-
-                                         var change = await this.transformer.Transform(envelope, cancellationToken);
-                                         transformedEvents++;
-                                         pendingEventCount++;
-                                         lastObservedPosition = envelope.GlobalEventPosition;
-                                         pendingLastObservedPosition = envelope.GlobalEventPosition;
-                                         hasPendingFlushWindow = true;
-                                         pendingModelIds.Add(envelope.ModelId);
-
-                                         if (!liveProcessingStarted)
-                                         {
-                                             fullyDrainedLogged = false;
-                                         }
-
-                                         if (change != null)
-                                         {
-                                             if (pendingChangesByModel.TryGetValue(change.Model.Id, out var existing))
-                                             {
-                                                 pendingChangesByModel[change.Model.Id] = change with
-                                                 {
-                                                     ExpectedEventNumber = existing.ExpectedEventNumber,
-                                                 };
-                                             }
-                                             else
-                                             {
-                                                 pendingChangesByModel[change.Model.Id] = change;
-                                             }
-                                         }
-
-                                         break;
+                                         await ObserveFlushCompletionAsync(inFlightFlushTask, cancellationToken);
+                                         inFlightFlushTask = null;
                                      }
-                                     case RawSignalKind.CaughtUp:
-                                         liveProcessingStarted = true;
-                                         break;
-                                     case RawSignalKind.Tick:
-                                         break;
-                                     case RawSignalKind.Complete:
-                                         break;
-                                     default:
-                                         throw new ArgumentOutOfRangeException();
-                                 }
 
-                                 if (inFlightFlushTask == null
-                                     && ShouldFlush(signal.Kind))
+                                     switch (signal.Kind)
+                                     {
+                                         case RawSignalKind.Event:
+                                         {
+                                             var envelope = signal.Envelope!;
+                                             seenEvents++;
+
+                                             var change = await this.transformer.Transform(envelope, cancellationToken);
+                                             transformedEvents++;
+
+                                             pendingEventCount++;
+                                             lastObservedPosition = envelope.GlobalEventPosition;
+                                             pendingLastObservedPosition = envelope.GlobalEventPosition;
+                                             hasPendingFlushWindow = true;
+                                             pendingModelIds.Add(envelope.ModelId);
+
+                                             if (!liveProcessingStarted)
+                                             {
+                                                 fullyDrainedLogged = false;
+                                             }
+
+                                             if (change != null)
+                                             {
+                                                 if (pendingChangesByModel.TryGetValue(change.Model.Id, out var existing))
+                                                 {
+                                                     pendingChangesByModel[change.Model.Id] = change with
+                                                     {
+                                                         ExpectedEventNumber = existing.ExpectedEventNumber,
+                                                     };
+                                                 }
+                                                 else
+                                                 {
+                                                     pendingChangesByModel[change.Model.Id] = change;
+                                                 }
+                                             }
+
+                                             break;
+                                         }
+                                         case RawSignalKind.CaughtUp:
+                                             liveProcessingStarted = true;
+                                             break;
+                                         case RawSignalKind.Tick:
+                                             break;
+                                         case RawSignalKind.Complete:
+                                             break;
+                                         default:
+                                             throw new ArgumentOutOfRangeException();
+                                     }
+
+                                     if (inFlightFlushTask == null
+                                         && ShouldFlush(signal.Kind))
+                                     {
+                                         inFlightFlushTask = StartFlush();
+                                     }
+
+                                     return NotUsed.Instance;
+                                 }
+                                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                                  {
-                                     inFlightFlushTask = StartFlush(cancellationToken);
+                                     Interlocked.Exchange(ref shutdownRequested, 1);
+                                     return NotUsed.Instance;
                                  }
-
-                                 return NotUsed.Instance;
                              });
 
             var runnable = stream
@@ -323,7 +332,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
 
         return;
 
-        Task<FlushResult> StartFlush(CancellationToken flushToken)
+        Task<FlushResult> StartFlush()
         {
             var flushedModelIds = pendingModelIds.ToArray();
             var flushPosition = pendingLastObservedPosition;
@@ -337,15 +346,14 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
             pendingEventCount = 0;
             hasPendingFlushWindow = false;
 
-            return PersistSnapshotAsync(changes, flushedModelIds, flushPosition, flushedEvents, flushToken);
+            return PersistSnapshotAsync(changes, flushedModelIds, flushPosition, flushedEvents);
         }
 
         async Task<FlushResult> PersistSnapshotAsync(
             IReadOnlyList<ModelState<TState>> changes,
             IReadOnlyCollection<Guid> flushedModelIds,
             GlobalEventPosition flushPosition,
-            long flushedEvents,
-            CancellationToken flushToken)
+            long flushedEvents)
         {
             var flushStopwatch = Stopwatch.StartNew();
             var batchInserted = 0;
@@ -378,7 +386,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                     GlobalEventPosition = flushPosition,
                 };
 
-                await this.sink.PersistBatch(batch, flushToken);
+                await this.sink.PersistBatch(batch, CancellationToken.None);
 
                 foreach (var change in changes)
                 {
@@ -392,7 +400,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                     ModelName = this.modelName,
                     GlobalEventPosition = flushPosition,
                 },
-                flushToken);
+                CancellationToken.None);
 
             var stats = this.modelStateCache.ReadAndResetLookupStats();
             flushStopwatch.Stop();
@@ -535,7 +543,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
 
             if (hasPendingFlushWindow)
             {
-                inFlightFlushTask = StartFlush(flushToken);
+                inFlightFlushTask = StartFlush();
                 await ObserveFlushCompletionAsync(inFlightFlushTask, flushToken);
                 inFlightFlushTask = null;
             }
@@ -682,5 +690,4 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         double ElapsedMilliseconds,
         long Events,
         int BatchModels);
-
 }

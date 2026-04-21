@@ -36,6 +36,10 @@ public sealed class ProjectionHostWorker : BackgroundService
 
             await Task.WhenAll(this.pipelines.Select(x => x.RunAsync(stoppingToken)));
         }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            this.logger.LogInformation("Projection host worker cancellation requested at {Now}", DateTime.Now);
+        }
         catch (Exception ex)
         {
             this.logger.LogError(
