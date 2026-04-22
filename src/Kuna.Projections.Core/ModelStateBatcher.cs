@@ -46,43 +46,44 @@ internal static class ModelStateBatcher
         var sawInput = false;
 
         return input =>
-               {
-                   if (input.IsComplete)
-                   {
-                       return !sawInput
-                                  ? []
-                                  : [Flush()];
-                   }
+        {
+            if (input.IsComplete)
+            {
+                return !sawInput
+                           ? []
+                           : [Flush(),];
+            }
 
-                   var change = input.Change
-                                ?? throw new InvalidOperationException("Batch input must contain a change unless it is complete.");
-                   sawInput = true;
+            var change = input.Change
+                         ?? throw new InvalidOperationException("Batch input must contain a change unless it is complete.");
 
-                   if (change is not { IsNew: true, ShouldDelete: true, })
-                   {
-                       changesByModel[change.Model.Id] = change;
-                       lastPosition = change.GlobalEventPosition;
-                   }
+            sawInput = true;
 
-                   return changesByModel.Count >= maxModelCount
-                              ? [Flush()]
-                              : [];
+            if (change is not { IsNew: true, ShouldDelete: true, })
+            {
+                changesByModel[change.Model.Id] = change;
+                lastPosition = change.GlobalEventPosition;
+            }
 
-                   ModelStatesBatch<TState> Flush()
-                   {
-                       var batch = new ModelStatesBatch<TState>
-                       {
-                           Changes = changesByModel.Values.ToList(),
-                           GlobalEventPosition = lastPosition,
-                       };
+            return changesByModel.Count >= maxModelCount
+                       ? [Flush(),]
+                       : [];
 
-                       changesByModel.Clear();
-                       lastPosition = default;
-                       sawInput = false;
+            ModelStatesBatch<TState> Flush()
+            {
+                var batch = new ModelStatesBatch<TState>
+                {
+                    Changes = changesByModel.Values.ToList(),
+                    GlobalEventPosition = lastPosition,
+                };
 
-                       return batch;
-                   }
-               };
+                changesByModel.Clear();
+                lastPosition = default;
+                sawInput = false;
+
+                return batch;
+            }
+        };
     }
 
     private static ModelStatesBatch<TState> ToBatch<TState>(IEnumerable<ModelState<TState>> changes)

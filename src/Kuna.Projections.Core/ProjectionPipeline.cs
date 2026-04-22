@@ -63,6 +63,14 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         Complete = 3,
     }
 
+    private enum PipelineSignalKind
+    {
+        Event = 0,
+        Tick = 1,
+        CaughtUp = 2,
+        Complete = 3,
+    }
+
     /// <summary>
     /// Runs the projection pipeline from the last persisted checkpoint until the
     /// source completes or cancellation is requested. While running, it buffers
@@ -119,7 +127,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
 
             var flushDelay = TimeSpan.FromMilliseconds(Math.Max(1, this.settings.LiveProcessingFlushDelay));
             var sourceBufferSize = Math.Max(1, this.settings.SourceBufferCapacity);
-            var transformSinkBufferSize = sourceBufferSize;
+            var transformSinkBufferSize = Math.Max(1, this.settings.TransformSinkBufferCapacity);
             timerCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             flushTimer = new PeriodicTimer(flushDelay);
 
@@ -139,6 +147,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                              envelope =>
                              {
                                  var signal = RawSignal.ForEnvelope(envelope);
+
                                  if (signal.Kind == RawSignalKind.Event)
                                  {
                                      TrackBufferedModel(envelope.ModelId);
@@ -151,7 +160,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
 
                          // Pull from source aggressively while transform and sink advance independently.
                          .Buffer(sourceBufferSize, OverflowStrategy.Backpressure)
-                         // .Async()
+                         .Async()
                          .SelectAsync(
                              parallelism: 1,
                              async signal =>
@@ -191,7 +200,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                  }
                              })
                          .Buffer(transformSinkBufferSize, OverflowStrategy.Backpressure)
-                         // .Async()
+                         .Async()
                          .Via(CreateBatchingFlow())
                          .SelectAsync(1, PersistFlushAsync);
 
@@ -294,141 +303,148 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                var hasPendingFlushWindow = false;
 
                                return signal =>
-                                      {
-                                          var output = new List<PipelineFlush<TState>>(1);
+                               {
+                                   var output = new List<PipelineFlush<TState>>(1);
 
-                                          switch (signal.Kind)
-                                          {
-                                              case PipelineSignalKind.Event:
-                                                  pendingEventCount++;
-                                                  pendingLastObservedPosition = signal.Position;
-                                                  hasPendingFlushWindow = true;
-                                                  pendingModelIds.Add(signal.ModelId);
-                                                  Volatile.Write(ref pendingModelCountSnapshot, pendingModelIds.Count);
-                                                  pendingModelEventCounts.TryGetValue(signal.ModelId, out var pendingModelEventCount);
-                                                  pendingModelEventCounts[signal.ModelId] = pendingModelEventCount + 1;
+                                   switch (signal.Kind)
+                                   {
+                                       case PipelineSignalKind.Event:
+                                           pendingEventCount++;
+                                           pendingLastObservedPosition = signal.Position;
+                                           hasPendingFlushWindow = true;
+                                           pendingModelIds.Add(signal.ModelId);
+                                           Volatile.Write(ref pendingModelCountSnapshot, pendingModelIds.Count);
+                                           pendingModelEventCounts.TryGetValue(signal.ModelId, out var pendingModelEventCount);
+                                           pendingModelEventCounts[signal.ModelId] = pendingModelEventCount + 1;
 
-                                                  if (signal.Change != null
-                                                      && signal.Change is not { IsNew: true, ShouldDelete: true, })
-                                                  {
-                                                      if (pendingChangesByModel.TryGetValue(signal.Change.Model.Id, out var existing))
-                                                      {
-                                                          pendingChangesByModel[signal.Change.Model.Id] = CloneModelState(signal.Change) with
-                                                          {
-                                                              ExpectedEventNumber = existing.ExpectedEventNumber,
-                                                          };
-                                                      }
-                                                      else
-                                                      {
-                                                          pendingChangesByModel[signal.Change.Model.Id] = CloneModelState(signal.Change);
-                                                      }
-                                                  }
+                                           if (signal.Change != null
+                                               && signal.Change is not { IsNew: true, ShouldDelete: true, })
+                                           {
+                                               if (pendingChangesByModel.TryGetValue(signal.Change.Model.Id, out var existing))
+                                               {
+                                                   pendingChangesByModel[signal.Change.Model.Id] = signal.Change with
+                                                   {
+                                                       ExpectedEventNumber = existing.ExpectedEventNumber,
+                                                   };
+                                               }
+                                               else
+                                               {
+                                                   pendingChangesByModel[signal.Change.Model.Id] = signal.Change;
+                                               }
+                                           }
 
-                                                  if (ShouldFlush(signal.Kind))
-                                                  {
-                                                      output.Add(StartFlush());
-                                                  }
+                                           if (ShouldFlush(signal.Kind))
+                                           {
+                                               output.Add(StartFlush());
+                                           }
 
-                                                  break;
+                                           break;
 
-                                              case PipelineSignalKind.CaughtUp:
-                                                  if (hasPendingFlushWindow)
-                                                  {
-                                                      output.Add(StartFlush());
-                                                  }
+                                       case PipelineSignalKind.CaughtUp:
+                                           if (hasPendingFlushWindow)
+                                           {
+                                               output.Add(StartFlush());
+                                           }
 
-                                                  liveProcessingStarted = true;
-                                                  MarkSourceTransformDrainObserved();
-                                                  if (output.Count == 0)
-                                                  {
-                                                      TryLogSourceTransformDrained();
-                                                      TryLogFullyDrained();
-                                                  }
+                                           liveProcessingStarted = true;
+                                           MarkSourceTransformDrainObserved();
 
-                                                  break;
+                                           if (output.Count == 0)
+                                           {
+                                               TryLogSourceTransformDrained();
+                                               TryLogFullyDrained();
+                                           }
 
-                                              case PipelineSignalKind.Tick:
-                                                  if (ShouldFlush(signal.Kind))
-                                                  {
-                                                      output.Add(StartFlush());
-                                                  }
+                                           break;
 
-                                                  break;
+                                       case PipelineSignalKind.Tick:
+                                           if (ShouldFlush(signal.Kind))
+                                           {
+                                               output.Add(StartFlush());
+                                           }
 
-                                              case PipelineSignalKind.Complete:
-                                                  if (hasPendingFlushWindow)
-                                                  {
-                                                      output.Add(StartFlush());
-                                                  }
+                                           break;
 
-                                                  MarkSourceTransformDrainObserved();
-                                                  if (output.Count == 0)
-                                                  {
-                                                      TryLogSourceTransformDrained();
-                                                      TryLogFullyDrained();
-                                                  }
+                                       case PipelineSignalKind.Complete:
+                                           if (hasPendingFlushWindow)
+                                           {
+                                               output.Add(StartFlush());
+                                           }
 
-                                                  break;
+                                           MarkSourceTransformDrainObserved();
 
-                                              default:
-                                                  throw new ArgumentOutOfRangeException();
-                                          }
+                                           if (output.Count == 0)
+                                           {
+                                               TryLogSourceTransformDrained();
+                                               TryLogFullyDrained();
+                                           }
 
-                                          return output;
+                                           break;
 
-                                          PipelineFlush<TState> StartFlush()
-                                          {
-                                              var flush = new PipelineFlush<TState>(
-                                                  pendingChangesByModel.Values.ToList(),
-                                                  pendingModelIds.ToArray(),
-                                                  new Dictionary<Guid, int>(pendingModelEventCounts),
-                                                  pendingLastObservedPosition,
-                                                  pendingEventCount);
+                                       default:
+                                           throw new ArgumentOutOfRangeException();
+                                   }
 
-                                              pendingChangesByModel.Clear();
-                                              pendingModelIds.Clear();
-                                              pendingModelEventCounts.Clear();
-                                              pendingEventCount = 0;
-                                              hasPendingFlushWindow = false;
-                                              Volatile.Write(ref pendingModelCountSnapshot, 0);
-                                              Interlocked.Increment(ref pendingBatchCount);
+                                   return output;
 
-                                              return flush;
-                                          }
+                                   PipelineFlush<TState> StartFlush()
+                                   {
+                                       var flush = new PipelineFlush<TState>(
+                                           pendingChangesByModel.Values.ToList(),
+                                           pendingModelIds.ToArray(),
+                                           new Dictionary<Guid, int>(pendingModelEventCounts),
+                                           pendingLastObservedPosition,
+                                           pendingEventCount);
 
-                                          bool ShouldFlush(PipelineSignalKind signalKind)
-                                          {
-                                              if (!hasPendingFlushWindow)
+                                       pendingChangesByModel.Clear();
+                                       pendingModelIds.Clear();
+                                       pendingModelEventCounts.Clear();
+                                       pendingEventCount = 0;
+                                       hasPendingFlushWindow = false;
+                                       Volatile.Write(ref pendingModelCountSnapshot, 0);
+                                       Interlocked.Increment(ref pendingBatchCount);
+
+                                       return flush;
+                                   }
+
+                                   bool ShouldFlush(PipelineSignalKind signalKind)
+                                   {
+                                       if (!hasPendingFlushWindow)
+                                       {
+                                           return false;
+                                       }
+
+                                       var strategy = liveProcessingStarted
+                                                          ? this.settings.LiveProcessingPersistenceStrategy
+                                                          : this.settings.CatchUpPersistenceStrategy;
+
+                                       var maxPending = Math.Max(1, this.settings.MaxPendingProjectionsCount);
+                                       var timerFlushDue = Interlocked.Exchange(ref periodicFlushRequested, 0) == 1;
+
+                                       return strategy switch
                                               {
-                                                  return false;
-                                              }
-
-                                              var strategy = liveProcessingStarted
-                                                                 ? this.settings.LiveProcessingPersistenceStrategy
-                                                                 : this.settings.CatchUpPersistenceStrategy;
-
-                                              var maxPending = Math.Max(1, this.settings.MaxPendingProjectionsCount);
-                                              var timerFlushDue = Interlocked.Exchange(ref periodicFlushRequested, 0) == 1;
-
-                                              return strategy switch
-                                                     {
-                                                         PersistenceStrategy.ImmediateModelFlush => signalKind == PipelineSignalKind.Event,
-                                                         PersistenceStrategy.TimeBasedBatching =>
-                                                             pendingModelIds.Count >= maxPending || signalKind == PipelineSignalKind.Tick || timerFlushDue,
-                                                         _ => pendingModelIds.Count >= maxPending,
-                                                     };
-                                          }
-                                      };
+                                                  PersistenceStrategy.ImmediateModelFlush => signalKind == PipelineSignalKind.Event,
+                                                  PersistenceStrategy.TimeBasedBatching =>
+                                                      pendingModelIds.Count >= maxPending || signalKind == PipelineSignalKind.Tick || timerFlushDue,
+                                                  _ => pendingModelIds.Count >= maxPending,
+                                              };
+                                   }
+                               };
                            });
         }
 
         async Task<FlushResult> PersistFlushAsync(PipelineFlush<TState> flush)
         {
             var flushStopwatch = Stopwatch.StartNew();
+            var phaseStopwatch = Stopwatch.StartNew();
             var batchInserted = 0;
             var batchUpdated = 0;
             var batchDeleted = 0;
             var changes = flush.Changes.Select(NormalizePersistedModelState).ToList();
+            var sinkPersistMs = 0d;
+            var cachePublishMs = 0d;
+            var checkpointPersistMs = 0d;
+            var lifecycleMs = 0d;
 
             if (changes.Count > 0)
             {
@@ -457,14 +473,19 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                 };
 
                 await this.sink.PersistBatch(batch, CancellationToken.None);
+                sinkPersistMs = phaseStopwatch.Elapsed.TotalMilliseconds;
+
+                phaseStopwatch.Restart();
 
                 foreach (var change in changes)
                 {
                     this.modelStateCache.Set(change);
-
                 }
+
+                cachePublishMs = phaseStopwatch.Elapsed.TotalMilliseconds;
             }
 
+            phaseStopwatch.Restart();
             await this.checkpointStore.PersistCheckpoint(
                 new CheckPoint
                 {
@@ -473,11 +494,16 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                 },
                 CancellationToken.None);
 
+            checkpointPersistMs = phaseStopwatch.Elapsed.TotalMilliseconds;
+
             var stats = this.modelStateCache.ReadAndResetLookupStats();
+            var runtimeStats = ReadRuntimeStats();
             flushStopwatch.Stop();
 
+            phaseStopwatch.Restart();
             var idsToClear = ReleaseFlushedModels(flush.ModelEventCounts);
-            this.lifecycle.OnFlushSucceeded(flush.ModelIds, idsToClear);
+            this.lifecycle.OnFlushSucceeded(flush.ModelIds, idsToClear, GetFlushedEventNumbers(changes));
+            lifecycleMs = phaseStopwatch.Elapsed.TotalMilliseconds;
 
             var flushResult = new FlushResult(
                 flush.ModelIds,
@@ -511,12 +537,21 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                 if (this.logger.IsEnabled(LogLevel.Debug))
                 {
                     this.logger.LogDebug(
-                        "Projection pipeline flush persisted for {ModelName}: batchModels={BatchModels}, inserted={Inserted}, updated={Updated}, deleted={Deleted}, inFlightCacheHits={InFlightCacheHits}, inFlightCacheMisses={InFlightCacheMisses}, flushedPosition={FlushedPosition}, phase={Phase}, strategy={Strategy}",
+                        "Projection pipeline flush persisted for {ModelName}: batchModels={BatchModels}, inserted={Inserted}, updated={Updated}, deleted={Deleted}, sinkPersistMs={SinkPersistMs:F0}, cachePublishMs={CachePublishMs:F0}, checkpointPersistMs={CheckpointPersistMs:F0}, lifecycleMs={LifecycleMs:F0}, runtimeProjectionHits={RuntimeProjectionHits}, cacheProjectionRestores={CacheProjectionRestores}, storeProjectionLoads={StoreProjectionLoads}, storeProjectionMisses={StoreProjectionMisses}, newProjectionCreates={NewProjectionCreates}, inFlightCacheHits={InFlightCacheHits}, inFlightCacheMisses={InFlightCacheMisses}, flushedPosition={FlushedPosition}, phase={Phase}, strategy={Strategy}",
                         this.modelName,
                         flushResult.BatchModels,
                         lastFlushInsertedModels,
                         lastFlushUpdatedModels,
                         lastFlushDeletedModels,
+                        sinkPersistMs,
+                        cachePublishMs,
+                        checkpointPersistMs,
+                        lifecycleMs,
+                        runtimeStats.RuntimeProjectionHits,
+                        runtimeStats.CacheProjectionRestores,
+                        runtimeStats.StoreProjectionLoads,
+                        runtimeStats.StoreProjectionMisses,
+                        runtimeStats.NewProjectionCreates,
                         lastFlushInFlightCacheHits,
                         lastFlushInFlightCacheMisses,
                         lastFlushedPosition,
@@ -529,6 +564,35 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
             TryLogFullyDrained();
 
             return flushResult;
+        }
+
+        ProjectionRuntimeStats ReadRuntimeStats()
+        {
+            return this.transformer is IProjectionRuntimeStats runtimeStats
+                       ? runtimeStats.ReadAndResetRuntimeStats()
+                       : default;
+        }
+
+        static IReadOnlyDictionary<Guid, long?> GetFlushedEventNumbers(IReadOnlyCollection<ModelState<TState>> changes)
+        {
+            if (changes.Count == 0)
+            {
+                return new Dictionary<Guid, long?>(0);
+            }
+
+            var eventNumbers = new Dictionary<Guid, long?>(changes.Count);
+
+            foreach (var change in changes)
+            {
+                if (!eventNumbers.TryGetValue(change.Model.Id, out var current)
+                    || current is null
+                    || change.Model.EventNumber > current)
+                {
+                    eventNumbers[change.Model.Id] = change.Model.EventNumber;
+                }
+            }
+
+            return eventNumbers;
         }
 
         void MarkSourceTransformDrainObserved()
@@ -596,7 +660,8 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
 
         ModelState<TState> NormalizePersistedModelState(ModelState<TState> change)
         {
-            if (!change.IsNew || change.ExpectedEventNumber is null or < 0)
+            if (!change.IsNew
+                || change.ExpectedEventNumber is null or < 0)
             {
                 return change;
             }
@@ -630,6 +695,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                     }
 
                     var remainingCount = bufferedEventCount - flushedEventCount;
+
                     if (remainingCount > 0)
                     {
                         bufferedModelEventCounts[modelId] = remainingCount;
@@ -715,14 +781,6 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
 
             return new RawSignal(RawSignalKind.Event, envelope);
         }
-    }
-
-    private enum PipelineSignalKind
-    {
-        Event = 0,
-        Tick = 1,
-        CaughtUp = 2,
-        Complete = 3,
     }
 
     private readonly record struct PipelineSignal<TModel>(

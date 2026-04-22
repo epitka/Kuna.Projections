@@ -56,7 +56,7 @@ public class OnFlushSucceededTests
 
         createCalls.ShouldBe(1);
 
-        lifecycle.OnFlushSucceeded([modelId,], [modelId,]);
+        lifecycle.OnFlushSucceeded([modelId,], [modelId,], new Dictionary<Guid, long?> { [modelId] = 0, });
 
         var second = await transformer.Transform(
                          CreateEnvelope(modelId, 1, new ItemUpdated { Id = modelId, Name = "second", TypeName = nameof(ItemUpdated), }),
@@ -92,11 +92,56 @@ public class OnFlushSucceededTests
 
         A.CallTo(() => handler.Handle(A<ProjectionFailure>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
 
-        lifecycle.OnFlushSucceeded([modelId,], [modelId,]);
+        lifecycle.OnFlushSucceeded([modelId,], [modelId,], new Dictionary<Guid, long?>());
 
         await transformer.Transform(CreateEnvelope(modelId, 3, new TestEvent { TypeName = nameof(TestEvent), }), CancellationToken.None);
 
         A.CallTo(() => handler.Handle(A<ProjectionFailure>._, A<CancellationToken>._)).MustHaveHappenedTwiceExactly();
+    }
+
+    [Fact]
+    public async Task Should_Not_Clear_Runtime_State_When_Projection_Advanced_Past_Flushed_Event()
+    {
+        var factory = A.Fake<IProjectionFactory<ItemModel>>();
+        var handler = A.Fake<IProjectionFailureHandler<ItemModel>>(opt => opt.Strict());
+        var settings = CreateSettings();
+        var logger = LoggerFactory.Create(
+                                      builder =>
+                                      {
+                                      })
+                                  .CreateLogger<ProjectionEngine<ItemModel>>();
+
+        var modelId = Guid.NewGuid();
+        var createCalls = 0;
+
+        A.CallTo(() => factory.Create(modelId, false, A<CancellationToken>._))
+         .ReturnsLazily(
+             _ =>
+             {
+                 createCalls++;
+                 return new ValueTask<Projection<ItemModel>?>(new ItemProjection(modelId));
+             });
+
+        var transformer = new ProjectionEngine<ItemModel>(factory, handler, new InMemoryModelStateCache<ItemModel>(settings), settings, logger);
+        IProjectionLifecycle lifecycle = transformer;
+
+        await transformer.Transform(
+            CreateEnvelope(modelId, 0, new ItemCreated { Id = modelId, Name = "first", TypeName = nameof(ItemCreated), }),
+            CancellationToken.None);
+
+        await transformer.Transform(
+            CreateEnvelope(modelId, 1, new ItemUpdated { Id = modelId, Name = "second", TypeName = nameof(ItemUpdated), }),
+            CancellationToken.None);
+
+        lifecycle.OnFlushSucceeded([modelId,], [modelId,], new Dictionary<Guid, long?> { [modelId] = 0, });
+
+        var third = await transformer.Transform(
+                        CreateEnvelope(modelId, 2, new ItemUpdated { Id = modelId, Name = "third", TypeName = nameof(ItemUpdated), }),
+                        CancellationToken.None);
+
+        third.ShouldNotBeNull();
+        third.Model.EventNumber.ShouldBe(2);
+        createCalls.ShouldBe(1);
     }
 
     private static ProjectionSettings<ItemModel> CreateSettings(bool skipStateNotFoundFailure = true)

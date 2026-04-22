@@ -14,6 +14,8 @@ internal sealed class TestProjectionSettings : IProjectionSettings<ItemModel>
 
     public int SourceBufferCapacity { get; set; }
 
+    public int TransformSinkBufferCapacity { get; set; } = 10000;
+
     public ProjectionSourceKind Source { get; set; } = ProjectionSourceKind.KurrentDB;
 
     public ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; } = ModelIdResolutionStrategy.PreferAttribute;

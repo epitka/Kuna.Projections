@@ -49,6 +49,7 @@ public class ServiceCollectionExtensionsTests
 
         settings.MaxPendingProjectionsCount.ShouldBe(12);
         settings.SourceBufferCapacity.ShouldBe(10000);
+        settings.TransformSinkBufferCapacity.ShouldBe(10000);
         settings.LiveProcessingFlushDelay.ShouldBe(1000);
         settings.CatchUpPersistenceStrategy.ShouldBe(PersistenceStrategy.ModelCountBatching);
         settings.LiveProcessingPersistenceStrategy.ShouldBe(PersistenceStrategy.ImmediateModelFlush);
@@ -133,6 +134,7 @@ public class ServiceCollectionExtensionsTests
         settings.LiveProcessingPersistenceStrategy.ShouldBe(PersistenceStrategy.ImmediateModelFlush);
         settings.MaxPendingProjectionsCount.ShouldBe(100);
         settings.SourceBufferCapacity.ShouldBe(10000);
+        settings.TransformSinkBufferCapacity.ShouldBe(10000);
         settings.LiveProcessingFlushDelay.ShouldBe(1000);
         settings.SkipStateNotFoundFailure.ShouldBeFalse();
         settings.InFlightModelCacheMinEntries.ShouldBe(10000);

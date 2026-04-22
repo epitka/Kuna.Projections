@@ -15,6 +15,13 @@ internal interface IProjectionLifecycle
     /// produced no persisted state change.
     /// <paramref name="clearModelIds"/> identifies the subset whose live
     /// runtime state can be discarded immediately after the flush.
+    /// <paramref name="flushedEventNumbers"/> carries the flushed stream-local
+    /// event number for models that produced persisted state. Runtime cleanup
+    /// must not remove a live projection that has already advanced beyond that
+    /// event number while the flush was in progress.
     /// </summary>
-    void OnFlushSucceeded(IReadOnlyCollection<Guid> flushedModelIds, IReadOnlyCollection<Guid> clearModelIds);
+    void OnFlushSucceeded(
+        IReadOnlyCollection<Guid> flushedModelIds,
+        IReadOnlyCollection<Guid> clearModelIds,
+        IReadOnlyDictionary<Guid, long?> flushedEventNumbers);
 }
