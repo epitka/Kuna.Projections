@@ -64,7 +64,7 @@ public class RunAsyncTests
         await runTask.WaitAsync(TimeSpan.FromSeconds(10), testCancellationToken);
 
         runtime.TransformedCount.ShouldBe(envelopes.Count);
-        sink.PersistCalls.ShouldBe(2);
+        sink.PersistCalls.ShouldBe(envelopes.Count);
     }
 
     [Fact]
@@ -124,6 +124,158 @@ public class RunAsyncTests
         persisted.Id.ShouldBe(modelId);
         persisted.EventNumber.ShouldBe(2);
         persisted.Name.ShouldBe("third");
+    }
+
+    [Fact]
+    public async Task Should_Cap_Sink_Batches_And_Backpressure_Transform_When_Sink_Is_Blocked()
+    {
+        var testCancellationToken = TestContext.Current.CancellationToken;
+        var envelopes = CreateEnvelopes(100);
+        var source = new FastSource(envelopes);
+        var runtime = new CountingEngineLike();
+        var sink = new CapturingBlockingSink();
+        var checkpointStore = new InMemoryCheckpointStore();
+        var settings = new ProjectionSettings<ItemModel>
+        {
+            CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
+            LiveProcessingPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
+            MaxPendingProjectionsCount = 3,
+            SourceBufferCapacity = 6,
+            LiveProcessingFlushDelay = 1000,
+            SkipStateNotFoundFailure = true,
+            InFlightModelCacheMinEntries = 10000,
+            InFlightModelCacheCapacityMultiplier = 3,
+            EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
+        };
+
+        var logger = LoggerFactory.Create(
+                                      builder =>
+                                      {
+                                      })
+                                  .CreateLogger<ProjectionPipeline<EventEnvelope, ItemModel>>();
+
+        var pipeline = new ProjectionPipeline<EventEnvelope, ItemModel>(
+            source,
+            runtime,
+            runtime,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            sink,
+            checkpointStore,
+            settings,
+            logger);
+
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(testCancellationToken);
+        var runTask = pipeline.RunAsync(linkedCts.Token);
+
+        await sink.FirstPersistStarted.Task.WaitAsync(TimeSpan.FromSeconds(5), testCancellationToken);
+        await Task.Delay(150, testCancellationToken);
+
+        sink.Batches.Count.ShouldBe(1);
+        sink.Batches[0].Changes.Count.ShouldBe(3);
+        runtime.TransformedCount.ShouldBeLessThan(40);
+
+        sink.ReleaseFirstPersist();
+        await runTask.WaitAsync(TimeSpan.FromSeconds(10), testCancellationToken);
+
+        var expectedBatchSizes = Enumerable.Repeat(3, 33).Append(1).ToArray();
+
+        runtime.TransformedCount.ShouldBe(envelopes.Count);
+        sink.Batches.All(x => x.Changes.Count <= 3).ShouldBeTrue();
+        sink.Batches.Select(x => x.Changes.Count).ShouldBe(expectedBatchSizes);
+    }
+
+    [Fact]
+    public async Task Should_Flush_TimeBasedBatching_While_Source_Continues_Producing()
+    {
+        var testCancellationToken = TestContext.Current.CancellationToken;
+        var modelId = Guid.NewGuid();
+        var envelopes = CreateEnvelopesForModel(modelId, 200);
+        var source = new DelayedSource(envelopes, TimeSpan.FromMilliseconds(10));
+        var runtime = new CountingEngineLike();
+        var sink = new CapturingBlockingSink();
+        var checkpointStore = new InMemoryCheckpointStore();
+        var settings = new ProjectionSettings<ItemModel>
+        {
+            CatchUpPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
+            LiveProcessingPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
+            MaxPendingProjectionsCount = 1000,
+            SourceBufferCapacity = 4,
+            LiveProcessingFlushDelay = 25,
+            SkipStateNotFoundFailure = true,
+            InFlightModelCacheMinEntries = 10000,
+            InFlightModelCacheCapacityMultiplier = 3,
+            EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
+        };
+
+        var logger = LoggerFactory.Create(
+                                      builder =>
+                                      {
+                                      })
+                                  .CreateLogger<ProjectionPipeline<EventEnvelope, ItemModel>>();
+
+        var pipeline = new ProjectionPipeline<EventEnvelope, ItemModel>(
+            source,
+            runtime,
+            runtime,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            sink,
+            checkpointStore,
+            settings,
+            logger);
+
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(testCancellationToken);
+        var runTask = pipeline.RunAsync(linkedCts.Token);
+
+        await sink.FirstPersistStarted.Task.WaitAsync(TimeSpan.FromSeconds(5), testCancellationToken);
+
+        runtime.TransformedCount.ShouldBeLessThan(settings.MaxPendingProjectionsCount);
+        sink.Batches.Count.ShouldBe(1);
+        sink.Batches[0].Changes.Count.ShouldBe(1);
+
+        sink.ReleaseFirstPersist();
+        await runTask.WaitAsync(TimeSpan.FromSeconds(10), testCancellationToken);
+    }
+
+    [Fact]
+    public async Task Should_Clear_Lifecycle_State_For_Flushed_Models()
+    {
+        var testCancellationToken = TestContext.Current.CancellationToken;
+        var envelopes = CreateEnvelopes(6);
+        var source = new FastSource(envelopes);
+        var runtime = new CountingEngineLike();
+        var sink = new CapturingSink();
+        var checkpointStore = new InMemoryCheckpointStore();
+        var settings = new ProjectionSettings<ItemModel>
+        {
+            CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
+            LiveProcessingPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
+            MaxPendingProjectionsCount = 3,
+            LiveProcessingFlushDelay = 1000,
+            SkipStateNotFoundFailure = true,
+            InFlightModelCacheMinEntries = 10000,
+            InFlightModelCacheCapacityMultiplier = 3,
+            EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
+        };
+
+        var logger = LoggerFactory.Create(
+                                      builder =>
+                                      {
+                                      })
+                                  .CreateLogger<ProjectionPipeline<EventEnvelope, ItemModel>>();
+
+        var pipeline = new ProjectionPipeline<EventEnvelope, ItemModel>(
+            source,
+            runtime,
+            runtime,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            sink,
+            checkpointStore,
+            settings,
+            logger);
+
+        await pipeline.RunAsync(testCancellationToken);
+
+        runtime.ClearedModelIds.OrderBy(x => x).ShouldBe(envelopes.Select(x => x.ModelId).OrderBy(x => x));
     }
 
     [Fact]
@@ -189,11 +341,15 @@ public class RunAsyncTests
         sink.ReleaseFirstPersist();
         await runTask.WaitAsync(TimeSpan.FromSeconds(10), testCancellationToken);
 
-        sink.Batches.Count.ShouldBe(2);
+        sink.Batches.Count.ShouldBe(3);
         sink.Batches[1].Changes.Count.ShouldBe(1);
-        sink.Batches[1].Changes[0].Model.EventNumber.ShouldBe(2);
-        sink.Batches[1].Changes[0].Model.Name.ShouldBe("third");
+        sink.Batches[1].Changes[0].Model.EventNumber.ShouldBe(1);
+        sink.Batches[1].Changes[0].Model.Name.ShouldBe("second");
         sink.Batches[1].Changes[0].ExpectedEventNumber.ShouldBe(0);
+        sink.Batches[2].Changes.Count.ShouldBe(1);
+        sink.Batches[2].Changes[0].Model.EventNumber.ShouldBe(2);
+        sink.Batches[2].Changes[0].Model.Name.ShouldBe("third");
+        sink.Batches[2].Changes[0].ExpectedEventNumber.ShouldBe(1);
     }
 
     [Fact]
@@ -273,8 +429,9 @@ public class RunAsyncTests
         await runTask.WaitAsync(TimeSpan.FromSeconds(10), testCancellationToken);
 
         createCalls.ShouldBe(1);
-        sink.Batches.Count.ShouldBe(2);
+        sink.Batches.Count.ShouldBe(3);
         sink.Batches[1].Changes[0].ExpectedEventNumber.ShouldBe(0);
+        sink.Batches[2].Changes[0].ExpectedEventNumber.ShouldBe(1);
     }
 
     private static IReadOnlyList<EventEnvelope> CreateEnvelopes(int count)
@@ -284,6 +441,29 @@ public class RunAsyncTests
         for (var i = 0; i < count; i++)
         {
             var modelId = Guid.NewGuid();
+            list.Add(
+                new EventEnvelope(
+                    eventNumber: i,
+                    streamPosition: new GlobalEventPosition((ulong)i),
+                    streamId: $"item-{modelId}",
+                    @event: new TestEvent
+                    {
+                        TypeName = nameof(TestEvent),
+                        CreatedOn = DateTime.UtcNow,
+                    },
+                    modelId: modelId,
+                    createdOn: DateTime.UtcNow));
+        }
+
+        return list;
+    }
+
+    private static IReadOnlyList<EventEnvelope> CreateEnvelopesForModel(Guid modelId, int count)
+    {
+        var list = new List<EventEnvelope>(count);
+
+        for (var i = 0; i < count; i++)
+        {
             list.Add(
                 new EventEnvelope(
                     eventNumber: i,

@@ -9,8 +9,11 @@ internal sealed class CountingEngineLike
       IProjectionLifecycle
 {
     private int transformedCount;
+    private readonly List<Guid> clearedModelIds = new();
 
     public int TransformedCount => this.transformedCount;
+
+    public IReadOnlyList<Guid> ClearedModelIds => this.clearedModelIds;
 
     public ValueTask<ModelState<ItemModel>?> Transform(EventEnvelope envelope, CancellationToken cancellationToken)
     {
@@ -35,5 +38,6 @@ internal sealed class CountingEngineLike
 
     public void OnFlushSucceeded(IReadOnlyCollection<Guid> flushedModelIds, IReadOnlyCollection<Guid> clearModelIds)
     {
+        this.clearedModelIds.AddRange(clearModelIds);
     }
 }
