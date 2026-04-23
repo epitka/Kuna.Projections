@@ -142,10 +142,12 @@ public class RunAsyncTests
         var liveEnvelopes = CreateEnvelopes(3);
         var source = new FastSource(
             new[]
-            {
-                catchUpEnvelope,
-                CreateCaughtUpEnvelope(),
-            }.Concat(liveEnvelopes).ToArray());
+                {
+                    catchUpEnvelope,
+                    CreateCaughtUpEnvelope(),
+                }.Concat(liveEnvelopes)
+                 .ToArray());
+
         var runtime = new CountingEngineLike();
         var sink = new CapturingSink();
         var checkpointStore = new InMemoryCheckpointStore();

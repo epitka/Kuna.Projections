@@ -316,6 +316,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                        case PipelineSignalKind.Event:
                                            pendingEventCount++;
                                            pendingLastObservedPosition = signal.Position;
+
                                            if (!hasPendingFlushWindow)
                                            {
                                                pendingFlushWindowStartedAt = Stopwatch.GetTimestamp();
@@ -432,13 +433,15 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                        var modelCountFlushThreshold = Math.Max(
                                            1,
                                            flushSettings.ModelCountThreshold);
+
                                        var timerFlushDue = Interlocked.Exchange(ref periodicFlushRequested, 0) == 1;
 
                                        return flushSettings.Strategy switch
                                               {
                                                   PersistenceStrategy.ImmediateModelFlush => signalKind == PipelineSignalKind.Event,
                                                   PersistenceStrategy.TimeBasedBatching =>
-                                                      IsFlushDelayElapsed(flushSettings.Delay) && (signalKind == PipelineSignalKind.Event || signalKind == PipelineSignalKind.Tick || timerFlushDue),
+                                                      IsFlushDelayElapsed(flushSettings.Delay)
+                                                      && (signalKind == PipelineSignalKind.Event || signalKind == PipelineSignalKind.Tick || timerFlushDue),
                                                   _ => pendingModelIds.Count >= modelCountFlushThreshold,
                                               };
 
