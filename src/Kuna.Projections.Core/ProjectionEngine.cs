@@ -21,6 +21,7 @@ internal sealed class ProjectionEngine<TState>
     private readonly IProjectionFactory<TState> projectionFactory;
     private readonly IProjectionFailureHandler<TState> failureHandler;
     private readonly IModelStateCache<TState> modelStateCache;
+    private readonly ProjectionCreationRegistration<TState> creationRegistration;
     private readonly IProjectionSettings<TState> settings;
     private readonly ILogger logger;
     private readonly string modelName;
@@ -36,12 +37,14 @@ internal sealed class ProjectionEngine<TState>
         IProjectionFactory<TState> projectionFactory,
         IProjectionFailureHandler<TState> failureHandler,
         IModelStateCache<TState> modelStateCache,
+        ProjectionCreationRegistration<TState> creationRegistration,
         IProjectionSettings<TState> settings,
         ILogger<ProjectionEngine<TState>> logger)
     {
         this.projectionFactory = projectionFactory;
         this.failureHandler = failureHandler;
         this.modelStateCache = modelStateCache;
+        this.creationRegistration = creationRegistration;
         this.settings = settings;
         this.logger = logger;
         this.modelName = ProjectionModelName.For<TState>();
@@ -183,11 +186,25 @@ internal sealed class ProjectionEngine<TState>
         EventEnvelope envelope,
         CancellationToken cancellationToken)
     {
-        var loadModelFromStore = envelope.EventNumber > 0;
+        var createFromInitialEvent = this.ShouldCreateFromInitialEvent(envelope);
+        var loadModelFromStore = !createFromInitialEvent;
 
         if (this.projections.TryGetValue(envelope.ModelId, out var projection))
         {
             Interlocked.Increment(ref this.runtimeProjectionHits);
+            return projection;
+        }
+
+        if (createFromInitialEvent)
+        {
+            Interlocked.Increment(ref this.newProjectionCreates);
+            projection = await this.projectionFactory.Create(envelope.ModelId, loadModelFromStore: false, cancellationToken);
+
+            if (projection != null)
+            {
+                projection.ModelState.EventNumber = envelope.EventNumber - 1;
+            }
+
             return projection;
         }
 
@@ -244,5 +261,10 @@ internal sealed class ProjectionEngine<TState>
         this.failedProjections.TryAdd(envelope.ModelId, 0);
 
         return null;
+    }
+
+    private bool ShouldCreateFromInitialEvent(EventEnvelope envelope)
+    {
+        return this.creationRegistration.InitialEventType == envelope.Event.GetType();
     }
 }

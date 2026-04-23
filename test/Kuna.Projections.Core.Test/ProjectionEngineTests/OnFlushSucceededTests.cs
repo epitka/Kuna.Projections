@@ -47,7 +47,14 @@ public class OnFlushSucceededTests
                  return new ValueTask<Projection<ItemModel>?>(projection);
              });
 
-        var transformer = new ProjectionEngine<ItemModel>(factory, handler, new InMemoryModelStateCache<ItemModel>(settings), settings, logger);
+        var transformer = new ProjectionEngine<ItemModel>(
+            factory,
+            handler,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            CreateRegistration<ItemCreated>(),
+            settings,
+            logger);
+
         IProjectionLifecycle lifecycle = transformer;
 
         await transformer.Transform(
@@ -84,7 +91,14 @@ public class OnFlushSucceededTests
         A.CallTo(() => factory.Create(modelId, true, A<CancellationToken>._))
          .Returns((Projection<ItemModel>?)null);
 
-        var transformer = new ProjectionEngine<ItemModel>(factory, handler, new InMemoryModelStateCache<ItemModel>(settings), settings, logger);
+        var transformer = new ProjectionEngine<ItemModel>(
+            factory,
+            handler,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            CreateRegistration<ItemCreated>(),
+            settings,
+            logger);
+
         IProjectionLifecycle lifecycle = transformer;
 
         await transformer.Transform(CreateEnvelope(modelId, 1, new TestEvent { TypeName = nameof(TestEvent), }), CancellationToken.None);
@@ -122,7 +136,14 @@ public class OnFlushSucceededTests
                  return new ValueTask<Projection<ItemModel>?>(new ItemProjection(modelId));
              });
 
-        var transformer = new ProjectionEngine<ItemModel>(factory, handler, new InMemoryModelStateCache<ItemModel>(settings), settings, logger);
+        var transformer = new ProjectionEngine<ItemModel>(
+            factory,
+            handler,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            CreateRegistration<ItemCreated>(),
+            settings,
+            logger);
+
         IProjectionLifecycle lifecycle = transformer;
 
         await transformer.Transform(
@@ -175,5 +196,11 @@ public class OnFlushSucceededTests
             modelId: modelId,
             createdOn: DateTime.UtcNow,
             @event: @event);
+    }
+
+    private static ProjectionCreationRegistration<ItemModel> CreateRegistration<TEvent>()
+        where TEvent : Event
+    {
+        return new ProjectionCreationRegistration<ItemModel>(typeof(TEvent));
     }
 }

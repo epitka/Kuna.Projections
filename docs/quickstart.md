@@ -236,6 +236,8 @@ There are two supported hosting patterns:
 
 ## 9. Register services for DI
 
+Important: `WithInitialEvent<TEvent>()` is required here. Without it, the runtime does not know which event is allowed to create a new projection instance. Use the event that creates the model or starts the aggregate stream, such as `AccountCreated`.
+
 ```csharp
 using Kuna.Projections.Core;
 using Kuna.Projections.Source.Kurrent;
@@ -250,7 +252,8 @@ services.AddDbContext<AccountProjectionDbContext>(
 
 services.AddKurrentDBSource<Account>(configuration, loggerFactory, "AccountProjection");
 services.AddSqlProjectionsDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
-services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection");
+services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
+        .WithInitialEvent<AccountCreated>();
 ```
 
 Note that DbContext requires db schema to be passed in. For more information see [configuration-reference.md](configuration-reference.md#when-to-use-a-projection-specific-schema).
@@ -260,6 +263,7 @@ These calls do the heavy lifting:
 - `AddKurrentDBSource<TState>(...)` wires the current KurrentDB-backed implementation of `IEventSource<EventEnvelope>`
 - `AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)` wires SQL-backed state loading, persistence, checkpointing, and failure handling
 - `AddProjection<TState>(...)` wires projection creation, transformation, caching, and the runtime pipeline
+- `WithInitialEvent<TEvent>()` tells the runtime which event creates a new projection instance for that model type; use the event that starts the aggregate or stream, such as `AccountCreated`
 - `AddProjectionHost(...)` runs all registered pipelines and startup tasks
 - `AddHostedService<TWorker>()` is the manual alternative if you are not using `AddProjectionHost(...)`
 
