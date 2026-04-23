@@ -46,28 +46,30 @@ If you omit `settingsSectionName`, the default section name is `Projections`. Th
 
 | Key | Type | Default | Required | Notes                                                                   |
 | --- | --- | --- | --- |-------------------------------------------------------------------------|
-| `CatchUpPersistenceStrategy` | `PersistenceStrategy` | `ModelCountBatching` | No | Used before the source reaches live processing.                         |
-| `LiveProcessingPersistenceStrategy` | `PersistenceStrategy` | `ImmediateModelFlush` | No | Used after the source catches up.                                       |
-| `MaxPendingProjectionsCount` | `int` | `100` | No | Count-based flush threshold and a sizing input for cache capacity.      |
+| `CatchUpFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior before the source reaches live processing.               |
+| `LiveProcessingFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior after the source catches up.                             |
 | `SourceBufferCapacity` | `int` | `10000` | No | Stream buffer size between source and transform stages.                 |
 | `Source` | `ProjectionSourceKind` | `KurrentDB` | No | Selects which source implementation the projection uses.                |
 | `ModelIdResolutionStrategy` | `ModelIdResolutionStrategy` | `PreferAttribute` | No | Controls how model ids are derived from events and stream ids.          |
 | `ReadBufferCapacity` | `int` | `12000` | No | In-process read buffer between the Kurrent subscription and consumer.   |
-| `LiveProcessingFlushDelay` | `int` | `1000` | No | Milliseconds between live periodic flush ticks.                         |
 | `SkipStateNotFoundFailure` | `bool` | `false` | No | Suppresses failure persistence for missing state on non-initial events. |
 | `InFlightModelCacheMinEntries` | `int` | `10000` | No | Minimum retained size of the in-memory post-flush cache.                |
-| `InFlightModelCacheCapacityMultiplier` | `int` | `3` | No | Combined with `MaxPendingProjectionsCount` to size that cache.          |
+| `InFlightModelCacheCapacityMultiplier` | `int` | `3` | No | Combined with flush model-count thresholds to size that cache.          |
 | `EventVersionCheckStrategy` | `EventVersionCheckStrategy` | `Consecutive` | No | Controls event ordering validation before `Apply(...)`.                 |
 
-### `CatchUpPersistenceStrategy`
+### `CatchUpFlush`
 
-Type: `PersistenceStrategy`
+Type: `ProjectionFlushSettings`
 
-Allowed values:
+Default:
 
-- `ModelCountBatching`
-- `TimeBasedBatching`
-- `ImmediateModelFlush`
+```json
+{
+  "Strategy": "ModelCountBatching",
+  "ModelCountThreshold": 100,
+  "Delay": 1000
+}
+```
 
 Used for:
 
@@ -76,19 +78,23 @@ Used for:
 Guidance:
 
 - start with `ModelCountBatching` for replay-heavy startup
+- set `ModelCountThreshold` to control count-based catch-up flush size
+- `Delay` is only used when `Strategy` is `TimeBasedBatching`
 - use `ImmediateModelFlush` only when lower buffering matters more than throughput
 
-### `LiveProcessingPersistenceStrategy`
+### `LiveProcessingFlush`
 
-Type: `PersistenceStrategy`
+Type: `ProjectionFlushSettings`
 
-Allowed values:
+Default:
 
-- `ModelCountBatching`
-- `TimeBasedBatching`
-- `ImmediateModelFlush`
-
-Default: `ImmediateModelFlush`
+```json
+{
+  "Strategy": "ImmediateModelFlush",
+  "ModelCountThreshold": 100,
+  "Delay": 1000
+}
+```
 
 Used for:
 
@@ -98,8 +104,35 @@ Guidance:
 
 - keep `ImmediateModelFlush` for lowest latency
 - use `TimeBasedBatching` when fewer writes matter more than immediate persistence
+- set `Delay` in milliseconds for `TimeBasedBatching`
+- set `ModelCountThreshold` only when using `ModelCountBatching`
 
-### `MaxPendingProjectionsCount`
+### `ProjectionFlushSettings.Strategy`
+
+Type: `PersistenceStrategy`
+
+Allowed values:
+
+- `ModelCountBatching`
+- `TimeBasedBatching`
+- `ImmediateModelFlush`
+
+Used for:
+
+- selecting the flush strategy for `CatchUpFlush` or `LiveProcessingFlush`
+
+Behavior:
+
+- `ImmediateModelFlush`: flush each model change immediately
+- `ModelCountBatching`: flush when distinct pending model count reaches `ModelCountThreshold`
+- `TimeBasedBatching`: flush when `Delay` has elapsed
+
+Guidance:
+
+- use `ModelCountBatching` for catch-up throughput
+- use `ImmediateModelFlush` or `TimeBasedBatching` for live processing depending on latency/write-frequency tradeoffs
+
+### `ProjectionFlushSettings.ModelCountThreshold`
 
 Type: `int`
 
@@ -107,13 +140,34 @@ Default: `100`
 
 Used for:
 
-- count-based flush decisions
+- count-based flush decisions when `Strategy` is `ModelCountBatching`
 - in-flight cache sizing
 
 Guidance:
 
 - increase it to batch more distinct models per flush
 - expect higher memory use and longer replay windows as you raise it
+
+### `ProjectionFlushSettings.Delay`
+
+Type: `int`
+
+Unit: milliseconds
+
+Default: `1000`
+
+Used for:
+
+- time-based flush decisions when `Strategy` is `TimeBasedBatching`
+
+Runtime behavior:
+
+- the pipeline applies `Math.Max(1, Delay)`
+
+Guidance:
+
+- shorter values reduce time-based batching delay
+- longer values reduce flush frequency but increase persistence latency
 
 ### `SourceBufferCapacity`
 
@@ -186,27 +240,6 @@ Guidance:
 - keep the default unless you have measured a reason to change it
 - larger values can improve throughput at the cost of more memory
 
-### `LiveProcessingFlushDelay`
-
-Type: `int`
-
-Unit: milliseconds
-
-Default: `1000`
-
-Used for:
-
-- periodic live flush ticks
-
-Runtime behavior:
-
-- the pipeline applies `Math.Max(1, LiveProcessingFlushDelay)`
-
-Guidance:
-
-- shorter values reduce live batching delay
-- longer values reduce flush frequency but increase persistence latency
-
 ### `SkipStateNotFoundFailure`
 
 Type: `bool`
@@ -244,12 +277,15 @@ Default: `3`
 
 Meaning:
 
-- dynamic cache sizing multiplier tied to `MaxPendingProjectionsCount`
+- dynamic cache sizing multiplier tied to the larger of the catch-up and live model-count thresholds
 
 Effective cache capacity:
 
 ```text
-max(InFlightModelCacheMinEntries, MaxPendingProjectionsCount * InFlightModelCacheCapacityMultiplier)
+max(
+    InFlightModelCacheMinEntries,
+    max(CatchUpFlush.ModelCountThreshold, LiveProcessingFlush.ModelCountThreshold)
+        * InFlightModelCacheCapacityMultiplier)
 ```
 
 ### `EventVersionCheckStrategy`

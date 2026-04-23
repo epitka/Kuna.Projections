@@ -117,16 +117,19 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         try
         {
             this.logger.LogInformation(
-                "Projection pipeline starting for {ModelName}: startPosition={StartPosition}, catchUpStrategy={CatchUpStrategy}, liveStrategy={LiveStrategy}, catchUpModelCountFlushThreshold={CatchUpModelCountFlushThreshold}, liveProcessingModelCountFlushThreshold={LiveProcessingModelCountFlushThreshold}, liveFlushDelayMs={LiveFlushDelayMs}",
+                "Projection pipeline starting for {ModelName}: startPosition={StartPosition}, catchUpStrategy={CatchUpStrategy}, liveStrategy={LiveStrategy}, catchUpModelCountThreshold={CatchUpModelCountThreshold}, liveModelCountThreshold={LiveModelCountThreshold}, catchUpFlushDelay={CatchUpFlushDelay}, liveFlushDelay={LiveFlushDelay}",
                 this.modelName,
                 start,
-                this.settings.CatchUpPersistenceStrategy,
-                this.settings.LiveProcessingPersistenceStrategy,
-                this.settings.CatchUpModelCountFlushThreshold,
-                this.settings.LiveProcessingModelCountFlushThreshold,
-                this.settings.LiveProcessingFlushDelay);
+                this.settings.CatchUpFlush.Strategy,
+                this.settings.LiveProcessingFlush.Strategy,
+                this.settings.CatchUpFlush.ModelCountThreshold,
+                this.settings.LiveProcessingFlush.ModelCountThreshold,
+                NormalizeFlushDelay(this.settings.CatchUpFlush.Delay),
+                NormalizeFlushDelay(this.settings.LiveProcessingFlush.Delay));
 
-            var flushDelay = TimeSpan.FromMilliseconds(Math.Max(1, this.settings.LiveProcessingFlushDelay));
+            var catchUpFlushDelay = NormalizeFlushDelay(this.settings.CatchUpFlush.Delay);
+            var liveProcessingFlushDelay = NormalizeFlushDelay(this.settings.LiveProcessingFlush.Delay);
+            var flushDelay = catchUpFlushDelay <= liveProcessingFlushDelay ? catchUpFlushDelay : liveProcessingFlushDelay;
             var sourceBufferSize = Math.Max(1, this.settings.SourceBufferCapacity);
             var transformSinkBufferSize = Math.Max(1, this.settings.TransformSinkBufferCapacity);
             timerCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -302,6 +305,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                var pendingLastObservedPosition = start;
                                var pendingEventCount = 0L;
                                var hasPendingFlushWindow = false;
+                               var pendingFlushWindowStartedAt = 0L;
 
                                return signal =>
                                {
@@ -312,6 +316,11 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                        case PipelineSignalKind.Event:
                                            pendingEventCount++;
                                            pendingLastObservedPosition = signal.Position;
+                                           if (!hasPendingFlushWindow)
+                                           {
+                                               pendingFlushWindowStartedAt = Stopwatch.GetTimestamp();
+                                           }
+
                                            hasPendingFlushWindow = true;
                                            pendingModelIds.Add(signal.ModelId);
                                            Volatile.Write(ref pendingModelCountSnapshot, pendingModelIds.Count);
@@ -402,6 +411,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                        pendingModelEventCounts.Clear();
                                        pendingEventCount = 0;
                                        hasPendingFlushWindow = false;
+                                       pendingFlushWindowStartedAt = 0;
                                        Volatile.Write(ref pendingModelCountSnapshot, 0);
                                        Interlocked.Increment(ref pendingBatchCount);
 
@@ -415,24 +425,28 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                            return false;
                                        }
 
-                                       var strategy = liveProcessingStarted
-                                                          ? this.settings.LiveProcessingPersistenceStrategy
-                                                          : this.settings.CatchUpPersistenceStrategy;
+                                       var flushSettings = liveProcessingStarted
+                                                               ? this.settings.LiveProcessingFlush
+                                                               : this.settings.CatchUpFlush;
 
                                        var modelCountFlushThreshold = Math.Max(
                                            1,
-                                           liveProcessingStarted
-                                               ? this.settings.LiveProcessingModelCountFlushThreshold
-                                               : this.settings.CatchUpModelCountFlushThreshold);
+                                           flushSettings.ModelCountThreshold);
                                        var timerFlushDue = Interlocked.Exchange(ref periodicFlushRequested, 0) == 1;
 
-                                       return strategy switch
+                                       return flushSettings.Strategy switch
                                               {
                                                   PersistenceStrategy.ImmediateModelFlush => signalKind == PipelineSignalKind.Event,
                                                   PersistenceStrategy.TimeBasedBatching =>
-                                                      signalKind == PipelineSignalKind.Tick || timerFlushDue,
+                                                      IsFlushDelayElapsed(flushSettings.Delay) && (signalKind == PipelineSignalKind.Event || signalKind == PipelineSignalKind.Tick || timerFlushDue),
                                                   _ => pendingModelIds.Count >= modelCountFlushThreshold,
                                               };
+
+                                       bool IsFlushDelayElapsed(int delayMilliseconds)
+                                       {
+                                           return pendingFlushWindowStartedAt > 0
+                                                  && Stopwatch.GetElapsedTime(pendingFlushWindowStartedAt) >= NormalizeFlushDelay(delayMilliseconds);
+                                       }
                                    }
                                };
                            });
@@ -536,8 +550,8 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
             if (flushResult.BatchModels > 0)
             {
                 var activeStrategy = liveProcessingStarted
-                                         ? this.settings.LiveProcessingPersistenceStrategy
-                                         : this.settings.CatchUpPersistenceStrategy;
+                                         ? this.settings.LiveProcessingFlush.Strategy
+                                         : this.settings.CatchUpFlush.Strategy;
 
                 if (this.logger.IsEnabled(LogLevel.Debug))
                 {
@@ -763,6 +777,11 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
     private static bool IsCaughtUpSignal(TEnvelope envelope)
     {
         return envelope is EventEnvelope { Event: ProjectionCaughtUpEvent, };
+    }
+
+    private static TimeSpan NormalizeFlushDelay(int delayMilliseconds)
+    {
+        return TimeSpan.FromMilliseconds(Math.Max(1, delayMilliseconds));
     }
 
     private readonly record struct RawSignal(RawSignalKind Kind, TEnvelope? Envelope)

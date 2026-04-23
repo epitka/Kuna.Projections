@@ -54,7 +54,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                 TargetEvents: 5000,
                 MinimumCompleteOrders: 333,
                 ProjectionStartOffsetEvents: 1_000,
-                CatchUpPersistenceStrategy: PersistenceStrategy.ModelCountBatching,
+                CatchUpStrategy: PersistenceStrategy.ModelCountBatching,
                 LivePersistenceStrategy: PersistenceStrategy.ImmediateModelFlush,
                 EventsBoundedCapacity: 50_000,
                 ModelCountFlushThreshold: 1_000,
@@ -101,7 +101,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
             this.postgresFixture.ConnectionString,
             testCase.EventsBoundedCapacity,
             testCase.ModelCountFlushThreshold,
-            testCase.CatchUpPersistenceStrategy,
+            testCase.CatchUpStrategy,
             testCase.LivePersistenceStrategy);
 
         var pipeline = provider.GetRequiredService<IProjectionPipeline<Order>>();
@@ -656,11 +656,11 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                      .AddInMemoryCollection(
                          new Dictionary<string, string?>
                          {
-                             ["Projections:CatchUpPersistenceStrategy"] = catchUpPersistenceStrategy.ToString(),
-                             ["Projections:LiveProcessingPersistenceStrategy"] = livePersistenceStrategy.ToString(),
-                             ["Projections:CatchUpModelCountFlushThreshold"] = modelCountFlushThreshold.ToString(CultureInfo.InvariantCulture),
-                             ["Projections:LiveProcessingModelCountFlushThreshold"] = modelCountFlushThreshold.ToString(CultureInfo.InvariantCulture),
-                             ["Projections:LiveProcessingFlushDelay"] = "25",
+                             ["Projections:CatchUpFlush:Strategy"] = catchUpPersistenceStrategy.ToString(),
+                             ["Projections:LiveProcessingFlush:Strategy"] = livePersistenceStrategy.ToString(),
+                             ["Projections:CatchUpFlush:ModelCountThreshold"] = modelCountFlushThreshold.ToString(CultureInfo.InvariantCulture),
+                             ["Projections:LiveProcessingFlush:ModelCountThreshold"] = modelCountFlushThreshold.ToString(CultureInfo.InvariantCulture),
+                             ["Projections:LiveProcessingFlush:Delay"] = "25",
                              ["Projections:SkipStateNotFoundFailure"] = "false",
                              ["Projections:InFlightModelCacheMinEntries"] = "10000",
                              ["Projections:InFlightModelCacheCapacityMultiplier"] = "3",
@@ -834,7 +834,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         int TargetEvents,
         int MinimumCompleteOrders,
         int ProjectionStartOffsetEvents,
-        PersistenceStrategy CatchUpPersistenceStrategy,
+        PersistenceStrategy CatchUpStrategy,
         PersistenceStrategy LivePersistenceStrategy,
         int EventsBoundedCapacity,
         int ModelCountFlushThreshold,

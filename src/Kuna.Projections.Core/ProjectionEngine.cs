@@ -45,7 +45,7 @@ internal sealed class ProjectionEngine<TState>
         this.settings = settings;
         this.logger = logger;
         this.modelName = ProjectionModelName.For<TState>();
-        var initialCapacity = Math.Max(1, Math.Max(settings.CatchUpModelCountFlushThreshold, settings.LiveProcessingModelCountFlushThreshold));
+        var initialCapacity = Math.Max(1, Math.Max(settings.CatchUpFlush.ModelCountThreshold, settings.LiveProcessingFlush.ModelCountThreshold));
         this.projections = new ConcurrentDictionary<Guid, Projection<TState>>(Environment.ProcessorCount, initialCapacity);
         this.failedProjections = new ConcurrentDictionary<Guid, byte>(Environment.ProcessorCount, initialCapacity);
     }

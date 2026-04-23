@@ -6,13 +6,15 @@ namespace Kuna.Projections.Core.Test.ModelStateBatcherTests;
 
 internal sealed class TestProjectionSettings : IProjectionSettings<ItemModel>
 {
-    public PersistenceStrategy CatchUpPersistenceStrategy { get; set; } = PersistenceStrategy.ModelCountBatching;
+    public ProjectionFlushSettings CatchUpFlush { get; set; } = new()
+    {
+        Strategy = PersistenceStrategy.ModelCountBatching,
+    };
 
-    public PersistenceStrategy LiveProcessingPersistenceStrategy { get; set; } = PersistenceStrategy.TimeBasedBatching;
-
-    public int CatchUpModelCountFlushThreshold { get; set; }
-
-    public int LiveProcessingModelCountFlushThreshold { get; set; }
+    public ProjectionFlushSettings LiveProcessingFlush { get; set; } = new()
+    {
+        Strategy = PersistenceStrategy.TimeBasedBatching,
+    };
 
     public int SourceBufferCapacity { get; set; }
 
@@ -23,8 +25,6 @@ internal sealed class TestProjectionSettings : IProjectionSettings<ItemModel>
     public ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; } = ModelIdResolutionStrategy.PreferAttribute;
 
     public int ReadBufferCapacity { get; set; } = 12000;
-
-    public int LiveProcessingFlushDelay { get; set; }
 
     public bool SkipStateNotFoundFailure { get; set; } = true;
 

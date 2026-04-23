@@ -16,7 +16,7 @@ internal static class ModelStateBatcher
     public static Flow<ModelState<TState>, ModelStatesBatch<TState>, NotUsed> Create<TState>(IProjectionSettings<TState> settings)
         where TState : class, IModel, new()
     {
-        switch (settings.CatchUpPersistenceStrategy)
+        switch (settings.CatchUpFlush.Strategy)
         {
             case PersistenceStrategy.ImmediateModelFlush:
                 return Flow.Create<ModelState<TState>>()
@@ -26,7 +26,7 @@ internal static class ModelStateBatcher
                 return Flow.Create<ModelState<TState>>()
                            .GroupedWithin(
                                int.MaxValue,
-                               TimeSpan.FromMilliseconds(Math.Max(1, settings.LiveProcessingFlushDelay)))
+                               NormalizeDelay(settings.CatchUpFlush.Delay))
                            .Select(ToBatch);
 
             case PersistenceStrategy.ModelCountBatching:
@@ -34,8 +34,13 @@ internal static class ModelStateBatcher
                 return Flow.Create<ModelState<TState>>()
                            .Select(BatchInput<TState>.ForChange)
                            .Concat(Source.Single(BatchInput<TState>.Complete()))
-                           .StatefulSelectMany(() => CreateDistinctModelBatcher<TState>(Math.Max(1, settings.CatchUpModelCountFlushThreshold)));
+                           .StatefulSelectMany(() => CreateDistinctModelBatcher<TState>(Math.Max(1, settings.CatchUpFlush.ModelCountThreshold)));
         }
+    }
+
+    private static TimeSpan NormalizeDelay(int delayMilliseconds)
+    {
+        return TimeSpan.FromMilliseconds(Math.Max(1, delayMilliseconds));
     }
 
     private static Func<BatchInput<TState>, IEnumerable<ModelStatesBatch<TState>>> CreateDistinctModelBatcher<TState>(int maxModelCount)

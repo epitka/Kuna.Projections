@@ -40,10 +40,16 @@ public class ReadAndResetLookupStatsTests
     {
         return new ProjectionSettings<ItemModel>
         {
-            CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-            LiveProcessingPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            CatchUpModelCountFlushThreshold = 100,
-            LiveProcessingFlushDelay = 1000,
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                ModelCountThreshold = 100,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.TimeBasedBatching,
+                Delay = 1000,
+            },
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,
             InFlightModelCacheCapacityMultiplier = 3,

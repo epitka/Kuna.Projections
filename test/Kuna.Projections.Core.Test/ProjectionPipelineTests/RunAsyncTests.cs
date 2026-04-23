@@ -25,10 +25,16 @@ public class RunAsyncTests
         var checkpointStore = new InMemoryCheckpointStore();
         var settings = new ProjectionSettings<ItemModel>
         {
-            CatchUpPersistenceStrategy = PersistenceStrategy.ImmediateModelFlush,
-            LiveProcessingPersistenceStrategy = PersistenceStrategy.ImmediateModelFlush,
-            CatchUpModelCountFlushThreshold = 16,
-            LiveProcessingFlushDelay = 1000,
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ImmediateModelFlush,
+                ModelCountThreshold = 16,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ImmediateModelFlush,
+                Delay = 1000,
+            },
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,
             InFlightModelCacheCapacityMultiplier = 3,
@@ -81,10 +87,16 @@ public class RunAsyncTests
 
         var settings = new ProjectionSettings<ItemModel>
         {
-            CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-            LiveProcessingPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-            CatchUpModelCountFlushThreshold = 100,
-            LiveProcessingFlushDelay = 1000,
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                ModelCountThreshold = 100,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                Delay = 1000,
+            },
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,
             InFlightModelCacheCapacityMultiplier = 3,
@@ -143,11 +155,17 @@ public class RunAsyncTests
         var checkpointStore = new InMemoryCheckpointStore();
         var settings = new ProjectionSettings<ItemModel>
         {
-            CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-            LiveProcessingPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-            CatchUpModelCountFlushThreshold = 100,
-            LiveProcessingModelCountFlushThreshold = 2,
-            LiveProcessingFlushDelay = 1000,
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                ModelCountThreshold = 100,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                ModelCountThreshold = 2,
+                Delay = 1000,
+            },
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,
             InFlightModelCacheCapacityMultiplier = 3,
@@ -186,12 +204,18 @@ public class RunAsyncTests
         var checkpointStore = new InMemoryCheckpointStore();
         var settings = new ProjectionSettings<ItemModel>
         {
-            CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-            LiveProcessingPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-            CatchUpModelCountFlushThreshold = 3,
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                ModelCountThreshold = 3,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                Delay = 1000,
+            },
             SourceBufferCapacity = 6,
             TransformSinkBufferCapacity = 6,
-            LiveProcessingFlushDelay = 1000,
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,
             InFlightModelCacheCapacityMultiplier = 3,
@@ -246,12 +270,19 @@ public class RunAsyncTests
         var checkpointStore = new InMemoryCheckpointStore();
         var settings = new ProjectionSettings<ItemModel>
         {
-            CatchUpPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            LiveProcessingPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            CatchUpModelCountFlushThreshold = 1000,
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.TimeBasedBatching,
+                ModelCountThreshold = 1000,
+                Delay = 25,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.TimeBasedBatching,
+                Delay = 25,
+            },
             SourceBufferCapacity = 4,
             TransformSinkBufferCapacity = 4,
-            LiveProcessingFlushDelay = 25,
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,
             InFlightModelCacheCapacityMultiplier = 3,
@@ -279,7 +310,7 @@ public class RunAsyncTests
 
         await sink.FirstPersistStarted.Task.WaitAsync(TimeSpan.FromSeconds(5), testCancellationToken);
 
-        runtime.TransformedCount.ShouldBeLessThan(settings.CatchUpModelCountFlushThreshold);
+        runtime.TransformedCount.ShouldBeLessThan(settings.CatchUpFlush.ModelCountThreshold);
         sink.Batches.Count.ShouldBe(1);
         sink.Batches[0].Changes.Count.ShouldBe(1);
 
@@ -298,11 +329,18 @@ public class RunAsyncTests
         var checkpointStore = new InMemoryCheckpointStore();
         var settings = new ProjectionSettings<ItemModel>
         {
-            CatchUpPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            LiveProcessingPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            CatchUpModelCountFlushThreshold = 1,
-            LiveProcessingModelCountFlushThreshold = 1,
-            LiveProcessingFlushDelay = 1000,
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.TimeBasedBatching,
+                ModelCountThreshold = 1,
+                Delay = 1000,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.TimeBasedBatching,
+                ModelCountThreshold = 1,
+                Delay = 1000,
+            },
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,
             InFlightModelCacheCapacityMultiplier = 3,
@@ -342,10 +380,16 @@ public class RunAsyncTests
         var checkpointStore = new InMemoryCheckpointStore();
         var settings = new ProjectionSettings<ItemModel>
         {
-            CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-            LiveProcessingPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-            CatchUpModelCountFlushThreshold = 3,
-            LiveProcessingFlushDelay = 1000,
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                ModelCountThreshold = 3,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                Delay = 1000,
+            },
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,
             InFlightModelCacheCapacityMultiplier = 3,
@@ -387,10 +431,16 @@ public class RunAsyncTests
 
         var settings = new ProjectionSettings<ItemModel>
         {
-            CatchUpPersistenceStrategy = PersistenceStrategy.ImmediateModelFlush,
-            LiveProcessingPersistenceStrategy = PersistenceStrategy.ImmediateModelFlush,
-            CatchUpModelCountFlushThreshold = 16,
-            LiveProcessingFlushDelay = 1000,
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ImmediateModelFlush,
+                ModelCountThreshold = 16,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ImmediateModelFlush,
+                Delay = 1000,
+            },
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,
             InFlightModelCacheCapacityMultiplier = 3,
@@ -456,10 +506,16 @@ public class RunAsyncTests
         var handler = A.Fake<IProjectionFailureHandler<ItemModel>>(opt => opt.Strict());
         var settings = new ProjectionSettings<ItemModel>
         {
-            CatchUpPersistenceStrategy = PersistenceStrategy.ImmediateModelFlush,
-            LiveProcessingPersistenceStrategy = PersistenceStrategy.ImmediateModelFlush,
-            CatchUpModelCountFlushThreshold = 16,
-            LiveProcessingFlushDelay = 1000,
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ImmediateModelFlush,
+                ModelCountThreshold = 16,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ImmediateModelFlush,
+                Delay = 1000,
+            },
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,
             InFlightModelCacheCapacityMultiplier = 3,

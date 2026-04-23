@@ -85,11 +85,17 @@ public class SetTests
     {
         return new ProjectionSettings<ItemModel>
         {
-            CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-            LiveProcessingPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            CatchUpModelCountFlushThreshold = modelCountFlushThreshold,
-            LiveProcessingModelCountFlushThreshold = modelCountFlushThreshold,
-            LiveProcessingFlushDelay = 1000,
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                ModelCountThreshold = modelCountFlushThreshold,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.TimeBasedBatching,
+                ModelCountThreshold = modelCountFlushThreshold,
+                Delay = 1000,
+            },
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = minEntries,
             InFlightModelCacheCapacityMultiplier = capacityMultiplier,

@@ -6,13 +6,9 @@ namespace Kuna.Projections.Abstractions.Services;
 public interface IProjectionSettings<TState>
     where TState : class, Models.IModel, new()
 {
-    Models.PersistenceStrategy CatchUpPersistenceStrategy { get; set; }
+    ProjectionFlushSettings CatchUpFlush { get; set; }
 
-    Models.PersistenceStrategy LiveProcessingPersistenceStrategy { get; set; }
-
-    int CatchUpModelCountFlushThreshold { get; set; }
-
-    int LiveProcessingModelCountFlushThreshold { get; set; }
+    ProjectionFlushSettings LiveProcessingFlush { get; set; }
 
     int SourceBufferCapacity { get; set; }
 
@@ -23,11 +19,6 @@ public interface IProjectionSettings<TState>
     ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; }
 
     int ReadBufferCapacity { get; set; }
-
-    /// <summary>
-    /// Flush delay in milliseconds.
-    /// </summary>
-    int LiveProcessingFlushDelay { get; set; }
 
     /// <summary>
     /// Skip failure generation when state is not found in the data store.
@@ -41,7 +32,7 @@ public interface IProjectionSettings<TState>
 
     /// <summary>
     /// Dynamic capacity multiplier based on model-count flush thresholds.
-    /// Effective cache size is max(InFlightModelCacheMinEntries, max(CatchUpModelCountFlushThreshold, LiveProcessingModelCountFlushThreshold) * multiplier).
+    /// Effective cache size is max(InFlightModelCacheMinEntries, max(CatchUpFlush.ModelCountThreshold, LiveProcessingFlush.ModelCountThreshold) * multiplier).
     /// </summary>
     int InFlightModelCacheCapacityMultiplier { get; set; }
 
@@ -57,34 +48,53 @@ public static class ProjectionSettingsSection
 }
 
 /// <summary>
+/// Defines flush behavior for a projection processing phase.
+/// </summary>
+public class ProjectionFlushSettings
+{
+    /// <summary>
+    /// Persistence strategy used by the phase.
+    /// </summary>
+    public Models.PersistenceStrategy Strategy { get; set; } = Models.PersistenceStrategy.ModelCountBatching;
+
+    /// <summary>
+    /// Number of distinct models allowed to accumulate before a count-based flush is triggered.
+    /// Applies when <see cref="Strategy"/> is <see cref="Models.PersistenceStrategy.ModelCountBatching"/>.
+    /// </summary>
+    public int ModelCountThreshold { get; set; } = 100;
+
+    /// <summary>
+    /// Delay in milliseconds before a time-based flush is triggered.
+    /// Applies when <see cref="Strategy"/> is <see cref="Models.PersistenceStrategy.TimeBasedBatching"/>.
+    /// </summary>
+    public int Delay { get; set; } = 1000;
+}
+
+/// <summary>
 /// Default mutable implementation of <see cref="IProjectionSettings{TState}"/>.
 /// </summary>
 public class ProjectionSettings<TState> : IProjectionSettings<TState>
     where TState : class, Models.IModel, new()
 {
     /// <summary>
-    /// Persistence strategy used while the projection is catching up from an existing checkpoint.
-    /// Use batching strategies here to improve replay throughput.
+    /// Flush behavior used while the projection is catching up from an existing checkpoint.
     /// </summary>
-    public Models.PersistenceStrategy CatchUpPersistenceStrategy { get; set; } = Models.PersistenceStrategy.ModelCountBatching;
+    public ProjectionFlushSettings CatchUpFlush { get; set; } = new()
+    {
+        Strategy = Models.PersistenceStrategy.ModelCountBatching,
+        ModelCountThreshold = 100,
+        Delay = 1000,
+    };
 
     /// <summary>
-    /// Persistence strategy used after the projection reaches the live tail of the stream.
-    /// The default favors lower latency over write batching.
+    /// Flush behavior used after the projection reaches the live tail of the stream.
     /// </summary>
-    public Models.PersistenceStrategy LiveProcessingPersistenceStrategy { get; set; } = Models.PersistenceStrategy.ImmediateModelFlush;
-
-    /// <summary>
-    /// Number of distinct models allowed to accumulate during catch-up before a count-based flush is triggered.
-    /// Increase this to batch more work per flush at the cost of memory and replay latency.
-    /// </summary>
-    public int CatchUpModelCountFlushThreshold { get; set; } = 100;
-
-    /// <summary>
-    /// Number of distinct models allowed to accumulate during live processing before a count-based flush is triggered.
-    /// Applies when live processing uses model-count batching.
-    /// </summary>
-    public int LiveProcessingModelCountFlushThreshold { get; set; } = 100;
+    public ProjectionFlushSettings LiveProcessingFlush { get; set; } = new()
+    {
+        Strategy = Models.PersistenceStrategy.ImmediateModelFlush,
+        ModelCountThreshold = 100,
+        Delay = 1000,
+    };
 
     /// <summary>
     /// Number of source envelopes that may be buffered ahead of transformation.
@@ -114,12 +124,6 @@ public class ProjectionSettings<TState> : IProjectionSettings<TState>
     /// This is an application-side runtime buffer, not a KurrentDB connection setting.
     /// </summary>
     public int ReadBufferCapacity { get; set; } = 12000;
-
-    /// <summary>
-    /// Delay in milliseconds before a time-based live flush is executed.
-    /// Only applies to live strategies that batch writes over time.
-    /// </summary>
-    public int LiveProcessingFlushDelay { get; set; } = 1000;
 
     /// <summary>
     /// When true, missing state for a non-initial event is ignored instead of recorded as a projection failure.
