@@ -3,7 +3,7 @@ using Kuna.Projections.Abstractions.Models;
 
 namespace Kuna.Projections.Core;
 
-internal sealed class ProjectionCreationRegistration<TState>
+public sealed class ProjectionCreationRegistration<TState>
     where TState : class, IModel, new()
 {
     public ProjectionCreationRegistration(Type? initialEventType)

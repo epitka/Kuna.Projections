@@ -108,6 +108,7 @@ public class RunAsyncTests
             projectionFactory,
             new NoOpFailureHandler(),
             new InMemoryModelStateCache<ItemModel>(settings),
+            new ProjectionCreationRegistration<ItemModel>(typeof(ItemCreated)),
             settings,
             loggerFactory.CreateLogger<ProjectionEngine<ItemModel>>());
 
@@ -449,6 +450,7 @@ public class RunAsyncTests
             projectionFactory,
             new NoOpFailureHandler(),
             sharedCache,
+            new ProjectionCreationRegistration<ItemModel>(typeof(ItemCreated)),
             settings,
             loggerFactory.CreateLogger<ProjectionEngine<ItemModel>>());
 
@@ -543,6 +545,7 @@ public class RunAsyncTests
             factory,
             handler,
             sharedCache,
+            new ProjectionCreationRegistration<ItemModel>(typeof(ItemCreated)),
             settings,
             loggerFactory.CreateLogger<ProjectionEngine<ItemModel>>());
 
