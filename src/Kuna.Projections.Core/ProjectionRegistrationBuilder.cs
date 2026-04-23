@@ -30,9 +30,7 @@ public sealed class ProjectionRegistrationBuilder<TState>
                 $"Projection {typeof(TState).FullName} already has initial event {existingRegistration.InitialEventType.FullName} configured.");
         }
 
-        this.services.Replace(
-            ServiceDescriptor.Singleton(
-                new ProjectionCreationRegistration<TState>(typeof(TEvent))));
+        this.services.Replace(ServiceDescriptor.Singleton(new ProjectionCreationRegistration<TState>(typeof(TEvent))));
 
         return this;
     }

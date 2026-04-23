@@ -188,8 +188,7 @@ public class ServiceCollectionExtensionsTests
         services.AddProjection<CoreServiceTestModel>(configuration);
 
         using var provider = services.BuildServiceProvider();
-        var ex = Should.Throw<InvalidOperationException>(
-            () => provider.GetRequiredService<ProjectionEngine<CoreServiceTestModel>>());
+        var ex = Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<ProjectionEngine<CoreServiceTestModel>>());
 
         ex.Message.ShouldContain(nameof(ProjectionCreationRegistration<CoreServiceTestModel>));
     }
@@ -234,11 +233,25 @@ public class ServiceCollectionExtensionsTests
         var builder = services.AddProjection<CoreServiceTestModel>(configuration)
                               .WithInitialEvent<TestInitialEvent>();
 
-        var ex = Should.Throw<InvalidOperationException>(
-            () => builder.WithInitialEvent<AnotherInitialEvent>());
+        var ex = Should.Throw<InvalidOperationException>(() => builder.WithInitialEvent<AnotherInitialEvent>());
 
         ex.Message.ShouldContain(typeof(CoreServiceTestModel).FullName!);
         ex.Message.ShouldContain(typeof(TestInitialEvent).FullName!);
+    }
+
+    private static object GetProjectionCreationRegistration<TState>(IServiceProvider provider)
+        where TState : class, IModel, new()
+    {
+        var registrationType = typeof(ServiceCollectionExtensions).Assembly
+                                                                  .GetType("Kuna.Projections.Core.ProjectionCreationRegistration`1")!
+                                                                  .MakeGenericType(typeof(TState));
+
+        return provider.GetRequiredService(registrationType);
+    }
+
+    private static Type? GetInitialEventType(object registration)
+    {
+        return (Type?)registration.GetType().GetProperty("InitialEventType")!.GetValue(registration);
     }
 
     public sealed class CoreServiceTestModel : Model
@@ -295,20 +308,5 @@ public class ServiceCollectionExtensionsTests
         {
             return Task.FromResult<BadCtorModel?>(null);
         }
-    }
-
-    private static object GetProjectionCreationRegistration<TState>(IServiceProvider provider)
-        where TState : class, IModel, new()
-    {
-        var registrationType = typeof(ServiceCollectionExtensions).Assembly
-                                                                 .GetType("Kuna.Projections.Core.ProjectionCreationRegistration`1")!
-                                                                 .MakeGenericType(typeof(TState));
-
-        return provider.GetRequiredService(registrationType);
-    }
-
-    private static Type? GetInitialEventType(object registration)
-    {
-        return (Type?)registration.GetType().GetProperty("InitialEventType")!.GetValue(registration);
     }
 }

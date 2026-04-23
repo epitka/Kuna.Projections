@@ -54,8 +54,8 @@ public static class ServiceCollectionExtensions
         services.AddKurrentDBSource<Order>(configuration, factory, "OrdersProjection");
         services.AddSqlProjectionsDataStore<Order, OrdersDbContext>(schema: ProjectionSchema);
         services.AddProjection<Order>(
-            configuration,
-            settingsSectionName: "OrdersProjection")
+                    configuration,
+                    settingsSectionName: "OrdersProjection")
                 .WithInitialEvent<OrderCreatedEvent>();
 
         services.AddScoped<OrdersReplayConsistencyDiagnostics>();

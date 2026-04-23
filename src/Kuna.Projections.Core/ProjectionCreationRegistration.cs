@@ -8,7 +8,8 @@ public sealed class ProjectionCreationRegistration<TState>
 {
     public ProjectionCreationRegistration(Type? initialEventType)
     {
-        if (initialEventType != null && !typeof(Event).IsAssignableFrom(initialEventType))
+        if (initialEventType != null
+            && !typeof(Event).IsAssignableFrom(initialEventType))
         {
             throw new ArgumentException($"Initial event type must inherit from {typeof(Event).FullName}.", nameof(initialEventType));
         }

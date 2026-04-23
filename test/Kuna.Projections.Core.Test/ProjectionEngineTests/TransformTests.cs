@@ -30,7 +30,13 @@ public class TransformTests
         A.CallTo(() => factory.Create(modelId, true, A<CancellationToken>._))
          .Returns((Projection<ItemModel>?)null);
 
-        var transformer = new ProjectionEngine<ItemModel>(factory, handler, new InMemoryModelStateCache<ItemModel>(settings), CreateRegistration<ItemCreated>(), settings, logger);
+        var transformer = new ProjectionEngine<ItemModel>(
+            factory,
+            handler,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            CreateRegistration<ItemCreated>(),
+            settings,
+            logger);
 
         var first = await transformer.Transform(CreateEnvelope(modelId, 1, new TestEvent { TypeName = nameof(TestEvent), }), CancellationToken.None);
         var second = await transformer.Transform(CreateEnvelope(modelId, 2, new TestEvent { TypeName = nameof(TestEvent), }), CancellationToken.None);
@@ -73,7 +79,13 @@ public class TransformTests
         A.CallTo(() => factory.Create(modelId, true, A<CancellationToken>._))
          .Returns(projection);
 
-        var transformer = new ProjectionEngine<ItemModel>(factory, handler, new InMemoryModelStateCache<ItemModel>(settings), CreateRegistration<ItemCreated>(), settings, logger);
+        var transformer = new ProjectionEngine<ItemModel>(
+            factory,
+            handler,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            CreateRegistration<ItemCreated>(),
+            settings,
+            logger);
 
         await Should.ThrowAsync<Kuna.Projections.Abstractions.Exceptions.EventOutOfOrderException>(
             () =>
@@ -110,7 +122,13 @@ public class TransformTests
         A.CallTo(() => factory.Create(modelId, false, A<CancellationToken>._))
          .Returns(new ItemProjection(modelId));
 
-        var transformer = new ProjectionEngine<ItemModel>(factory, handler, new InMemoryModelStateCache<ItemModel>(settings), CreateRegistration<TestEvent>(), settings, logger);
+        var transformer = new ProjectionEngine<ItemModel>(
+            factory,
+            handler,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            CreateRegistration<TestEvent>(),
+            settings,
+            logger);
 
         await Should.ThrowAsync<Exception>(
             () =>
@@ -134,7 +152,13 @@ public class TransformTests
         A.CallTo(() => factory.Create(modelId, false, A<CancellationToken>._))
          .Returns(new ItemProjection(modelId));
 
-        var transformer = new ProjectionEngine<ItemModel>(factory, handler, new InMemoryModelStateCache<ItemModel>(settings), CreateRegistration<ItemCreated>(), settings, logger);
+        var transformer = new ProjectionEngine<ItemModel>(
+            factory,
+            handler,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            CreateRegistration<ItemCreated>(),
+            settings,
+            logger);
 
         var result = await transformer.Transform(
                          CreateEnvelope(modelId, 42, new ItemCreated { Id = modelId, Name = "n1", TypeName = nameof(ItemCreated), }),
@@ -171,7 +195,13 @@ public class TransformTests
         A.CallTo(() => factory.Create(modelId, true, A<CancellationToken>._))
          .Returns(projection);
 
-        var transformer = new ProjectionEngine<ItemModel>(factory, handler, new InMemoryModelStateCache<ItemModel>(settings), CreateRegistration<ItemCreated>(), settings, logger);
+        var transformer = new ProjectionEngine<ItemModel>(
+            factory,
+            handler,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            CreateRegistration<ItemCreated>(),
+            settings,
+            logger);
 
         var result = await transformer.Transform(
                          CreateEnvelope(modelId, 1, new ItemUpdated { Id = modelId, Name = "new", TypeName = nameof(ItemUpdated), }),
@@ -218,7 +248,13 @@ public class TransformTests
                  return new ValueTask<Projection<ItemModel>?>(p);
              });
 
-        var transformer = new ProjectionEngine<ItemModel>(factory, handler, new InMemoryModelStateCache<ItemModel>(settings), CreateRegistration<ItemCreated>(), settings, logger);
+        var transformer = new ProjectionEngine<ItemModel>(
+            factory,
+            handler,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            CreateRegistration<ItemCreated>(),
+            settings,
+            logger);
 
         var first = await transformer.Transform(
                         CreateEnvelope(modelId, 0, new ItemCreated { Id = modelId, Name = "a", TypeName = nameof(ItemCreated), }),
@@ -317,7 +353,13 @@ public class TransformTests
         A.CallTo(() => factory.Create(modelId, true, A<CancellationToken>._))
          .Returns((Projection<ItemModel>?)null);
 
-        var transformer = new ProjectionEngine<ItemModel>(factory, handler, new InMemoryModelStateCache<ItemModel>(settings), CreateRegistration<ItemCreated>(), settings, logger);
+        var transformer = new ProjectionEngine<ItemModel>(
+            factory,
+            handler,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            CreateRegistration<ItemCreated>(),
+            settings,
+            logger);
 
         await transformer.Transform(CreateEnvelope(modelId, 1, new TestEvent { TypeName = nameof(TestEvent), }), CancellationToken.None);
         await transformer.Transform(CreateEnvelope(modelId, 2, new TestEvent { TypeName = nameof(TestEvent), }), CancellationToken.None);

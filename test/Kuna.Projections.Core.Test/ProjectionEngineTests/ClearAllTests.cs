@@ -28,7 +28,13 @@ public class ClearAllTests
         A.CallTo(() => factory.Create(modelId, true, A<CancellationToken>._))
          .Returns((Projection<ItemModel>?)null);
 
-        var transformer = new ProjectionEngine<ItemModel>(factory, handler, new InMemoryModelStateCache<ItemModel>(settings), new ProjectionCreationRegistration<ItemModel>(typeof(ItemCreated)), settings, logger);
+        var transformer = new ProjectionEngine<ItemModel>(
+            factory,
+            handler,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            new ProjectionCreationRegistration<ItemModel>(typeof(ItemCreated)),
+            settings,
+            logger);
 
         await transformer.Transform(CreateEnvelope(modelId, 1, new TestEvent { TypeName = nameof(TestEvent), }), CancellationToken.None);
         await transformer.Transform(CreateEnvelope(modelId, 2, new TestEvent { TypeName = nameof(TestEvent), }), CancellationToken.None);
