@@ -634,13 +634,13 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         services.AddSingleton<IProjectionSettings<Order>>(
             new ProjectionSettings<Order>
             {
-                ReadBufferCapacity = eventsBoundedCapacity,
                 ModelIdResolutionStrategy = ModelIdResolutionStrategy.PreferAttribute,
             });
 
         services.AddSingleton(
             new KurrentDbSourceSettings
             {
+                SubscriptionBufferCapacity = eventsBoundedCapacity,
                 Filter = new KurrentDbFilterSettings
                 {
                     Kind = KurrentDbFilterKind.StreamPrefix,

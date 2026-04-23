@@ -868,15 +868,12 @@ public class KurrentDbProjectionSourceIntegrationTests
             envelopeFactory,
             new KurrentDbSourceSettings
             {
+                SubscriptionBufferCapacity = 100,
                 Filter = new KurrentDbFilterSettings
                 {
                     Kind = KurrentDbFilterKind.StreamPrefix,
                     Prefixes = [streamPrefix,],
                 },
-            },
-            new ProjectionSettings<SourceIntegrationModel>
-            {
-                ReadBufferCapacity = 100,
             },
             loggerFactory.CreateLogger<KurrentDbEventSource<SourceIntegrationModel>>());
     }

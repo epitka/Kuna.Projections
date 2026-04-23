@@ -130,8 +130,8 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
             var catchUpFlushDelay = NormalizeFlushDelay(this.settings.CatchUpFlush.Delay);
             var liveProcessingFlushDelay = NormalizeFlushDelay(this.settings.LiveProcessingFlush.Delay);
             var flushDelay = catchUpFlushDelay <= liveProcessingFlushDelay ? catchUpFlushDelay : liveProcessingFlushDelay;
-            var sourceBufferSize = Math.Max(1, this.settings.SourceBufferCapacity);
-            var transformSinkBufferSize = Math.Max(1, this.settings.TransformSinkBufferCapacity);
+            var sourceBufferSize = Math.Max(1, this.settings.Backpressure.SourceToTransformBufferCapacity);
+            var transformSinkBufferSize = Math.Max(1, this.settings.Backpressure.TransformToSinkBufferCapacity);
             timerCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             flushTimer = new PeriodicTimer(flushDelay);
 

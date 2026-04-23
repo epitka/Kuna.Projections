@@ -19,7 +19,7 @@ public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
 {
     private readonly KurrentDBClient eventStoreClient;
     private readonly IEventEnvelopeFactory envelopeFactory;
-    private readonly IProjectionSettings<TState> projectionSettings;
+    private readonly KurrentDbSourceSettings sourceSettings;
     private readonly SubscriptionFilterOptions filterOptions;
     private readonly ILogger logger;
 
@@ -31,12 +31,11 @@ public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
         KurrentDBClient eventStoreClient,
         IEventEnvelopeFactory envelopeFactory,
         KurrentDbSourceSettings sourceSettings,
-        IProjectionSettings<TState> projectionSettings,
         ILogger<KurrentDbEventSource<TState>> logger)
     {
         this.eventStoreClient = eventStoreClient;
         this.envelopeFactory = envelopeFactory;
-        this.projectionSettings = projectionSettings;
+        this.sourceSettings = sourceSettings;
         this.filterOptions = KurrentDbSubscriptionFilterFactory.Create(sourceSettings.Filter);
         this.logger = logger;
     }
@@ -50,7 +49,7 @@ public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var channel = Channel.CreateBounded<EventEnvelope>(
-            new BoundedChannelOptions(this.projectionSettings.ReadBufferCapacity)
+            new BoundedChannelOptions(this.sourceSettings.SubscriptionBufferCapacity)
             {
                 SingleReader = true,
                 SingleWriter = false,

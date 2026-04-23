@@ -16,15 +16,11 @@ internal sealed class TestProjectionSettings : IProjectionSettings<ItemModel>
         Strategy = PersistenceStrategy.TimeBasedBatching,
     };
 
-    public int SourceBufferCapacity { get; set; }
-
-    public int TransformSinkBufferCapacity { get; set; } = 10000;
+    public ProjectionBackpressureSettings Backpressure { get; set; } = new();
 
     public ProjectionSourceKind Source { get; set; } = ProjectionSourceKind.KurrentDB;
 
     public ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; } = ModelIdResolutionStrategy.PreferAttribute;
-
-    public int ReadBufferCapacity { get; set; } = 12000;
 
     public bool SkipStateNotFoundFailure { get; set; } = true;
 

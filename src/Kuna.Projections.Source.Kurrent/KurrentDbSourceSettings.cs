@@ -7,5 +7,7 @@ public sealed class KurrentDbSourceSettings
 {
     public const string SectionName = "KurrentDB";
 
+    public int SubscriptionBufferCapacity { get; init; } = 12000;
+
     public KurrentDbFilterSettings Filter { get; init; } = new();
 }

@@ -214,8 +214,11 @@ public class RunAsyncTests
                 Strategy = PersistenceStrategy.ModelCountBatching,
                 Delay = 1000,
             },
-            SourceBufferCapacity = 6,
-            TransformSinkBufferCapacity = 6,
+            Backpressure = new ProjectionBackpressureSettings
+            {
+                SourceToTransformBufferCapacity = 6,
+                TransformToSinkBufferCapacity = 6,
+            },
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,
             InFlightModelCacheCapacityMultiplier = 3,
@@ -281,8 +284,11 @@ public class RunAsyncTests
                 Strategy = PersistenceStrategy.TimeBasedBatching,
                 Delay = 25,
             },
-            SourceBufferCapacity = 4,
-            TransformSinkBufferCapacity = 4,
+            Backpressure = new ProjectionBackpressureSettings
+            {
+                SourceToTransformBufferCapacity = 4,
+                TransformToSinkBufferCapacity = 4,
+            },
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,
             InFlightModelCacheCapacityMultiplier = 3,

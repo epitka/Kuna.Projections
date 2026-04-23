@@ -75,7 +75,7 @@ public static class ServiceCollectionExtensions
                 var sourceSettings = kurrentSection.Get<KurrentDbSourceSettings>()
                                      ?? throw new InvalidOperationException($"Missing configuration section: {kurrentSectionPath}");
 
-                ValidateSourceSettings(resolvedProjectionSettings, sourceSettings, kurrentSectionPath);
+                ValidateSourceSettings(sourceSettings, kurrentSectionPath);
 
                 return sourceSettings;
             });
@@ -113,15 +113,13 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    private static void ValidateSourceSettings<TState>(
-        IProjectionSettings<TState> projectionSettings,
+    private static void ValidateSourceSettings(
         KurrentDbSourceSettings sourceSettings,
         string sectionPath)
-        where TState : class, IModel, new()
     {
-        if (projectionSettings.ReadBufferCapacity < 1)
+        if (sourceSettings.SubscriptionBufferCapacity < 1)
         {
-            throw new InvalidOperationException("ReadBufferCapacity must be greater than or equal to 1.");
+            throw new InvalidOperationException($"{sectionPath}:SubscriptionBufferCapacity must be greater than or equal to 1.");
         }
 
         ArgumentNullException.ThrowIfNull(sourceSettings.Filter);

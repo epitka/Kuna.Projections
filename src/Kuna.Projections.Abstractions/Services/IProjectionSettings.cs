@@ -10,15 +10,11 @@ public interface IProjectionSettings<TState>
 
     ProjectionFlushSettings LiveProcessingFlush { get; set; }
 
-    int SourceBufferCapacity { get; set; }
-
-    int TransformSinkBufferCapacity { get; set; }
+    ProjectionBackpressureSettings Backpressure { get; set; }
 
     ProjectionSourceKind Source { get; set; }
 
     ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; }
-
-    int ReadBufferCapacity { get; set; }
 
     /// <summary>
     /// Skip failure generation when state is not found in the data store.
@@ -71,6 +67,23 @@ public class ProjectionFlushSettings
 }
 
 /// <summary>
+/// Defines backpressure buffer capacities between projection pipeline stages.
+/// </summary>
+public class ProjectionBackpressureSettings
+{
+    /// <summary>
+    /// Number of source envelopes that may be buffered ahead of transformation.
+    /// Increase this only when the source is starved by backpressure and you have memory headroom.
+    /// </summary>
+    public int SourceToTransformBufferCapacity { get; set; } = 10000;
+
+    /// <summary>
+    /// Number of transformed signals that may be buffered ahead of sink batching and persistence.
+    /// </summary>
+    public int TransformToSinkBufferCapacity { get; set; } = 10000;
+}
+
+/// <summary>
 /// Default mutable implementation of <see cref="IProjectionSettings{TState}"/>.
 /// </summary>
 public class ProjectionSettings<TState> : IProjectionSettings<TState>
@@ -97,17 +110,9 @@ public class ProjectionSettings<TState> : IProjectionSettings<TState>
     };
 
     /// <summary>
-    /// Number of source envelopes that may be buffered ahead of transformation.
-    /// Increase this only when the source is starved by backpressure and you have memory headroom.
+    /// Backpressure buffer capacities between projection pipeline stages.
     /// </summary>
-    public int SourceBufferCapacity { get; set; } = 10000;
-
-    /// <summary>
-    /// Number of transformed signals that may be buffered ahead of sink batching
-    /// and persistence. Keep this much smaller than source buffering when the
-    /// source can replay faster than the sink can persist.
-    /// </summary>
-    public int TransformSinkBufferCapacity { get; set; } = 10000;
+    public ProjectionBackpressureSettings Backpressure { get; set; } = new();
 
     /// <summary>
     /// Selects which event source implementation should be used for the projection.
@@ -118,12 +123,6 @@ public class ProjectionSettings<TState> : IProjectionSettings<TState>
     /// Controls how the target model id is resolved from incoming events.
     /// </summary>
     public ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; } = ModelIdResolutionStrategy.PreferAttribute;
-
-    /// <summary>
-    /// Number of envelopes that may be buffered between the source subscription task and the async consumer.
-    /// This is an application-side runtime buffer, not a KurrentDB connection setting.
-    /// </summary>
-    public int ReadBufferCapacity { get; set; } = 12000;
 
     /// <summary>
     /// When true, missing state for a non-initial event is ignored instead of recorded as a projection failure.

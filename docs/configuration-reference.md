@@ -48,10 +48,9 @@ If you omit `settingsSectionName`, the default section name is `Projections`. Th
 | --- | --- | --- | --- |-------------------------------------------------------------------------|
 | `CatchUpFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior before the source reaches live processing.               |
 | `LiveProcessingFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior after the source catches up.                             |
-| `SourceBufferCapacity` | `int` | `10000` | No | Stream buffer size between source and transform stages.                 |
+| `Backpressure` | `ProjectionBackpressureSettings` | See below | No | Backpressure buffer capacities between projection pipeline stages.      |
 | `Source` | `ProjectionSourceKind` | `KurrentDB` | No | Selects which source implementation the projection uses.                |
 | `ModelIdResolutionStrategy` | `ModelIdResolutionStrategy` | `PreferAttribute` | No | Controls how model ids are derived from events and stream ids.          |
-| `ReadBufferCapacity` | `int` | `12000` | No | In-process read buffer between the Kurrent subscription and consumer.   |
 | `SkipStateNotFoundFailure` | `bool` | `false` | No | Suppresses failure persistence for missing state on non-initial events. |
 | `InFlightModelCacheMinEntries` | `int` | `10000` | No | Minimum retained size of the in-memory post-flush cache.                |
 | `InFlightModelCacheCapacityMultiplier` | `int` | `3` | No | Combined with flush model-count thresholds to size that cache.          |
@@ -169,23 +168,84 @@ Guidance:
 - shorter values reduce time-based batching delay
 - longer values reduce flush frequency but increase persistence latency
 
-### `SourceBufferCapacity`
+### `Backpressure`
+
+Type: `ProjectionBackpressureSettings`
+
+Default:
+
+```json
+{
+  "SourceToTransformBufferCapacity": 10000,
+  "TransformToSinkBufferCapacity": 10000
+}
+```
+
+Used for:
+
+- bounded backpressure buffers between pipeline stages
+
+Pipeline flow:
+
+```mermaid
+flowchart LR
+    Source["Source reader"]
+    BufferA["SourceToTransformBufferCapacity"]
+    Transform["Transform"]
+    BufferB["TransformToSinkBufferCapacity"]
+    Sink["Batching and sink persistence"]
+
+    Source --> BufferA --> Transform --> BufferB --> Sink
+```
+
+#### `Backpressure.SourceToTransformBufferCapacity`
 
 Type: `int`
 
 Default: `10000`
 
-Used for:
+Meaning:
 
-- the internal pipeline buffer between reading and transforming events
+- Akka stream buffer between source signal reading and transformation
 
 Runtime behavior:
 
-- the pipeline applies `Math.Max(1, SourceBufferCapacity)`
+- the pipeline applies `Math.Max(1, SourceToTransformBufferCapacity)`
+- when full, source reading is backpressured
+
+#### `Backpressure.TransformToSinkBufferCapacity`
+
+Type: `int`
+
+Default: `10000`
+
+Meaning:
+
+- Akka stream buffer between transformation and batching/sink persistence
+
+Runtime behavior:
+
+- the pipeline applies `Math.Max(1, TransformToSinkBufferCapacity)`
+- when full, transformation is backpressured
 
 Guidance:
 
-- leave the default unless you have measured source-side backpressure or memory pressure
+- tune from the sink backwards
+- start by sizing `TransformToSinkBufferCapacity` because sink persistence is usually the controlling pressure point
+- set `SourceToTransformBufferCapacity` only as large as needed to keep transform fed while sink flushes proceed
+
+Example:
+
+```json
+{
+  "Backpressure": {
+    "SourceToTransformBufferCapacity": 100000,
+    "TransformToSinkBufferCapacity": 10000
+  }
+}
+```
+
+This example intentionally allows source reading to run ahead of transformation and keeps the final buffer before sink persistence smaller. Use values this large only after measuring memory use and replay throughput.
 
 ### `Source`
 
@@ -224,21 +284,6 @@ Guidance:
 - `PreferAttribute` is the most flexible default
 - `RequireStreamId` is a good fit when stream naming is authoritative
 - `RequireMatch` is the strictest option and helps catch mismatches early
-
-### `ReadBufferCapacity`
-
-Type: `int`
-
-Default: `12000`
-
-Meaning:
-
-- bounded channel capacity used while the Kurrent subscription feeds envelopes into the async stream consumed by the pipeline
-
-Guidance:
-
-- keep the default unless you have measured a reason to change it
-- larger values can improve throughput at the cost of more memory
 
 ### `SkipStateNotFoundFailure`
 
@@ -326,8 +371,30 @@ The section is required when the root projection setting `Source` is `KurrentDB`
 
 | Key | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
+| `SubscriptionBufferCapacity` | `int` | `12000` | No | Source-local bounded channel capacity between Kurrent subscription reading and the projection pipeline consumer. |
 | `Filter.Kind` | `KurrentDbFilterKind` | `StreamPrefix` | No | Only `StreamPrefix` is supported in the current implementation. |
 | `Filter.Prefixes` | `string[]` | `[]` | Yes | Must contain exactly one non-empty prefix. |
+
+### `SubscriptionBufferCapacity`
+
+Type: `int`
+
+Default: `12000`
+
+Meaning:
+
+- bounded channel capacity used while the Kurrent subscription feeds envelopes into the async stream consumed by the projection pipeline
+- this is source-specific buffering, not an Akka pipeline backpressure buffer
+
+Runtime behavior:
+
+- Kurrent source registration validates it is greater than or equal to `1`
+- when full, the subscription writer waits
+
+Guidance:
+
+- tune this only when the Kurrent subscription needs to absorb bursts before Akka pipeline demand catches up
+- keep it separate from `Backpressure.SourceToTransformBufferCapacity` and `Backpressure.TransformToSinkBufferCapacity`, which are Akka stream buffers
 
 ### `Filter.Kind`
 

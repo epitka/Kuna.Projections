@@ -50,8 +50,8 @@ public class ServiceCollectionExtensionsTests
 
         settings.CatchUpFlush.ModelCountThreshold.ShouldBe(12);
         settings.LiveProcessingFlush.ModelCountThreshold.ShouldBe(7);
-        settings.SourceBufferCapacity.ShouldBe(10000);
-        settings.TransformSinkBufferCapacity.ShouldBe(10000);
+        settings.Backpressure.SourceToTransformBufferCapacity.ShouldBe(10000);
+        settings.Backpressure.TransformToSinkBufferCapacity.ShouldBe(10000);
         settings.LiveProcessingFlush.Delay.ShouldBe(1000);
         settings.CatchUpFlush.Strategy.ShouldBe(PersistenceStrategy.ModelCountBatching);
         settings.LiveProcessingFlush.Strategy.ShouldBe(PersistenceStrategy.ImmediateModelFlush);
@@ -136,8 +136,8 @@ public class ServiceCollectionExtensionsTests
         settings.LiveProcessingFlush.Strategy.ShouldBe(PersistenceStrategy.ImmediateModelFlush);
         settings.CatchUpFlush.ModelCountThreshold.ShouldBe(100);
         settings.LiveProcessingFlush.ModelCountThreshold.ShouldBe(100);
-        settings.SourceBufferCapacity.ShouldBe(10000);
-        settings.TransformSinkBufferCapacity.ShouldBe(10000);
+        settings.Backpressure.SourceToTransformBufferCapacity.ShouldBe(10000);
+        settings.Backpressure.TransformToSinkBufferCapacity.ShouldBe(10000);
         settings.LiveProcessingFlush.Delay.ShouldBe(1000);
         settings.SkipStateNotFoundFailure.ShouldBeFalse();
         settings.InFlightModelCacheMinEntries.ShouldBe(10000);
