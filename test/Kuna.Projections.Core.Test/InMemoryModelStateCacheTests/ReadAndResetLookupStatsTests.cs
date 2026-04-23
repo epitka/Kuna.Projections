@@ -50,7 +50,6 @@ public class ReadAndResetLookupStatsTests
                 Strategy = PersistenceStrategy.TimeBasedBatching,
                 Delay = 1000,
             },
-            SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,
             InFlightModelCacheCapacityMultiplier = 3,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,

@@ -22,8 +22,6 @@ internal sealed class TestProjectionSettings : IProjectionSettings<ItemModel>
 
     public ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; } = ModelIdResolutionStrategy.PreferAttribute;
 
-    public bool SkipStateNotFoundFailure { get; set; } = true;
-
     public int InFlightModelCacheMinEntries { get; set; } = 10000;
 
     public int InFlightModelCacheCapacityMultiplier { get; set; } = 3;

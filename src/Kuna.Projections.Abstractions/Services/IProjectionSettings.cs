@@ -17,11 +17,6 @@ public interface IProjectionSettings<TState>
     ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; }
 
     /// <summary>
-    /// Skip failure generation when state is not found in the data store.
-    /// </summary>
-    bool SkipStateNotFoundFailure { get; set; }
-
-    /// <summary>
     /// Minimum number of in-flight model cache entries retained even when pending batch sizes are small.
     /// </summary>
     int InFlightModelCacheMinEntries { get; set; }
@@ -123,12 +118,6 @@ public class ProjectionSettings<TState> : IProjectionSettings<TState>
     /// Controls how the target model id is resolved from incoming events.
     /// </summary>
     public ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; } = ModelIdResolutionStrategy.PreferAttribute;
-
-    /// <summary>
-    /// When true, missing state for a non-initial event is ignored instead of recorded as a projection failure.
-    /// Keep this false unless your stream intentionally tolerates missing historical state.
-    /// </summary>
-    public bool SkipStateNotFoundFailure { get; set; } = false;
 
     /// <summary>
     /// Minimum in-flight cache capacity retained even when pending batch sizes are small.

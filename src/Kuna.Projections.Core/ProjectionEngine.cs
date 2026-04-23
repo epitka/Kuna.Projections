@@ -227,11 +227,6 @@ internal sealed class ProjectionEngine<TState>
             envelope.EventNumber,
             this.modelName);
 
-        if (this.settings.SkipStateNotFoundFailure)
-        {
-            return null;
-        }
-
         var ex = $"Projection state not found in data store for {envelope.StreamId}, event {envelope.EventNumber}";
 
         var failure = new ProjectionFailure(

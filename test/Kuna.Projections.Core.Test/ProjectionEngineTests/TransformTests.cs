@@ -14,54 +14,11 @@ namespace Kuna.Projections.Core.Test.ProjectionEngineTests;
 public class TransformTests
 {
     [Fact]
-    public async Task When_State_Not_Found_And_Skip_Enabled_Should_Return_Null()
-    {
-        var factory = A.Fake<IProjectionFactory<ItemModel>>(opt => opt.Strict());
-        var handler = A.Fake<IProjectionFailureHandler<ItemModel>>(opt => opt.Strict());
-        var settings = new ProjectionSettings<ItemModel>
-        {
-            CatchUpFlush = new ProjectionFlushSettings
-            {
-                Strategy = PersistenceStrategy.ModelCountBatching,
-                ModelCountThreshold = 100,
-            },
-            LiveProcessingFlush = new ProjectionFlushSettings
-            {
-                Strategy = PersistenceStrategy.TimeBasedBatching,
-                Delay = 1000,
-            },
-            SkipStateNotFoundFailure = true,
-            InFlightModelCacheMinEntries = 10000,
-            InFlightModelCacheCapacityMultiplier = 3,
-            EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
-        };
-
-        var logger = LoggerFactory.Create(
-                                      builder =>
-                                      {
-                                      })
-                                  .CreateLogger<ProjectionEngine<ItemModel>>();
-
-        var modelId = Guid.NewGuid();
-
-        A.CallTo(() => factory.Create(modelId, true, A<CancellationToken>._))
-         .Returns((Projection<ItemModel>?)null);
-
-        var transformer = new ProjectionEngine<ItemModel>(factory, handler, new InMemoryModelStateCache<ItemModel>(settings), settings, logger);
-
-        var envelope = CreateEnvelope(modelId, 1, new TestEvent { TypeName = nameof(TestEvent), });
-
-        var result = await transformer.Transform(envelope, CancellationToken.None);
-
-        result.ShouldBeNull();
-    }
-
-    [Fact]
-    public async Task When_State_Not_Found_And_Skip_Disabled_Should_Persist_Failure_And_Skip_Subsequent_Events()
+    public async Task When_State_Not_Found_Should_Persist_Failure_And_Skip_Subsequent_Events()
     {
         var factory = A.Fake<IProjectionFactory<ItemModel>>(opt => opt.Strict());
         var handler = A.Fake<IProjectionFailureHandler<ItemModel>>();
-        var settings = CreateSettings(skipStateNotFoundFailure: false);
+        var settings = CreateSettings();
         var logger = LoggerFactory.Create(
                                       builder =>
                                       {
@@ -347,7 +304,7 @@ public class TransformTests
     {
         var factory = A.Fake<IProjectionFactory<ItemModel>>();
         var handler = A.Fake<IProjectionFailureHandler<ItemModel>>();
-        var settings = CreateSettings(skipStateNotFoundFailure: false);
+        var settings = CreateSettings();
         var logger = LoggerFactory.Create(
                                       builder =>
                                       {
@@ -373,7 +330,7 @@ public class TransformTests
         A.CallTo(() => handler.Handle(A<ProjectionFailure>._, A<CancellationToken>._)).MustHaveHappenedTwiceExactly();
     }
 
-    private static ProjectionSettings<ItemModel> CreateSettings(bool skipStateNotFoundFailure = true)
+    private static ProjectionSettings<ItemModel> CreateSettings()
     {
         return new ProjectionSettings<ItemModel>
         {
@@ -387,7 +344,6 @@ public class TransformTests
                 Strategy = PersistenceStrategy.TimeBasedBatching,
                 Delay = 1000,
             },
-            SkipStateNotFoundFailure = skipStateNotFoundFailure,
             InFlightModelCacheMinEntries = 10000,
             InFlightModelCacheCapacityMultiplier = 3,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,

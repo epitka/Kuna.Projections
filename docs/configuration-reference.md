@@ -51,7 +51,6 @@ If you omit `settingsSectionName`, the default section name is `Projections`. Th
 | `Backpressure` | `ProjectionBackpressureSettings` | See below | No | Backpressure buffer capacities between projection pipeline stages.      |
 | `Source` | `ProjectionSourceKind` | `KurrentDB` | No | Selects which source implementation the projection uses.                |
 | `ModelIdResolutionStrategy` | `ModelIdResolutionStrategy` | `PreferAttribute` | No | Controls how model ids are derived from events and stream ids.          |
-| `SkipStateNotFoundFailure` | `bool` | `false` | No | Suppresses failure persistence for missing state on non-initial events. |
 | `InFlightModelCacheMinEntries` | `int` | `10000` | No | Minimum retained size of the in-memory post-flush cache.                |
 | `InFlightModelCacheCapacityMultiplier` | `int` | `3` | No | Combined with flush model-count thresholds to size that cache.          |
 | `EventVersionCheckStrategy` | `EventVersionCheckStrategy` | `Consecutive` | No | Controls event ordering validation before `Apply(...)`.                 |
@@ -284,20 +283,6 @@ Guidance:
 - `PreferAttribute` is the most flexible default
 - `RequireStreamId` is a good fit when stream naming is authoritative
 - `RequireMatch` is the strictest option and helps catch mismatches early
-
-### `SkipStateNotFoundFailure`
-
-Type: `bool`
-
-Default: `false`
-
-Meaning:
-
-- when `true`, the runtime skips persisting a projection failure when a non-initial event resolves to a model whose current state cannot be loaded
-
-Guidance:
-
-- leave it `false` unless your replay or migration flow intentionally tolerates missing state
 
 ### `InFlightModelCacheMinEntries`
 

@@ -96,7 +96,6 @@ public class SetTests
                 ModelCountThreshold = modelCountFlushThreshold,
                 Delay = 1000,
             },
-            SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = minEntries,
             InFlightModelCacheCapacityMultiplier = capacityMultiplier,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
