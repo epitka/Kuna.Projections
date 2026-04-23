@@ -90,8 +90,8 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         var lastFlushInsertedModels = 0L;
         var lastFlushUpdatedModels = 0L;
         var lastFlushDeletedModels = 0L;
-        var lastFlushInFlightCacheHits = 0L;
-        var lastFlushInFlightCacheMisses = 0L;
+        var lastFlushModelStateCacheHits = 0L;
+        var lastFlushModelStateCacheMisses = 0L;
         var flushCount = 0L;
         var cumulativeFlushMs = 0d;
         var runtimeStopwatch = Stopwatch.StartNew();
@@ -117,17 +117,21 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         try
         {
             this.logger.LogInformation(
-                "Projection pipeline starting for {ModelName}: startPosition={StartPosition}, catchUpStrategy={CatchUpStrategy}, liveStrategy={LiveStrategy}, maxPendingProjections={MaxPendingProjections}, liveFlushDelayMs={LiveFlushDelayMs}",
+                "Projection pipeline starting for {ModelName}: startPosition={StartPosition}, catchUpStrategy={CatchUpStrategy}, liveStrategy={LiveStrategy}, catchUpModelCountThreshold={CatchUpModelCountThreshold}, liveModelCountThreshold={LiveModelCountThreshold}, catchUpFlushDelay={CatchUpFlushDelay}, liveFlushDelay={LiveFlushDelay}",
                 this.modelName,
                 start,
-                this.settings.CatchUpPersistenceStrategy,
-                this.settings.LiveProcessingPersistenceStrategy,
-                this.settings.MaxPendingProjectionsCount,
-                this.settings.LiveProcessingFlushDelay);
+                this.settings.CatchUpFlush.Strategy,
+                this.settings.LiveProcessingFlush.Strategy,
+                this.settings.CatchUpFlush.ModelCountThreshold,
+                this.settings.LiveProcessingFlush.ModelCountThreshold,
+                NormalizeFlushDelay(this.settings.CatchUpFlush.Delay),
+                NormalizeFlushDelay(this.settings.LiveProcessingFlush.Delay));
 
-            var flushDelay = TimeSpan.FromMilliseconds(Math.Max(1, this.settings.LiveProcessingFlushDelay));
-            var sourceBufferSize = Math.Max(1, this.settings.SourceBufferCapacity);
-            var transformSinkBufferSize = Math.Max(1, this.settings.TransformSinkBufferCapacity);
+            var catchUpFlushDelay = NormalizeFlushDelay(this.settings.CatchUpFlush.Delay);
+            var liveProcessingFlushDelay = NormalizeFlushDelay(this.settings.LiveProcessingFlush.Delay);
+            var flushDelay = catchUpFlushDelay <= liveProcessingFlushDelay ? catchUpFlushDelay : liveProcessingFlushDelay;
+            var sourceBufferSize = Math.Max(1, this.settings.Backpressure.SourceToTransformBufferCapacity);
+            var transformSinkBufferSize = Math.Max(1, this.settings.Backpressure.TransformToSinkBufferCapacity);
             timerCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             flushTimer = new PeriodicTimer(flushDelay);
 
@@ -226,7 +230,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
             else
             {
                 this.logger.LogInformation(
-                    "Projection pipeline completed for {ModelName}: seen={SeenEvents}, transformed={TransformedEvents}, flushCount={FlushCount}, cumulativeFlushMs={CumulativeFlushMs:F0}, lastFlushInsertedModels={LastFlushInsertedModels}, lastFlushUpdatedModels={LastFlushUpdatedModels}, lastFlushDeletedModels={LastFlushDeletedModels}, lastFlushInFlightCacheHits={LastFlushInFlightCacheHits}, lastFlushInFlightCacheMisses={LastFlushInFlightCacheMisses}, lastObservedPosition={LastObservedPosition}, lastFlushedPosition={LastFlushedPosition}",
+                    "Projection pipeline completed for {ModelName}: seen={SeenEvents}, transformed={TransformedEvents}, flushCount={FlushCount}, cumulativeFlushMs={CumulativeFlushMs:F0}, lastFlushInsertedModels={LastFlushInsertedModels}, lastFlushUpdatedModels={LastFlushUpdatedModels}, lastFlushDeletedModels={LastFlushDeletedModels}, lastFlushModelStateCacheHits={LastFlushModelStateCacheHits}, lastFlushModelStateCacheMisses={LastFlushModelStateCacheMisses}, lastObservedPosition={LastObservedPosition}, lastFlushedPosition={LastFlushedPosition}",
                     this.modelName,
                     seenEvents,
                     transformedEvents,
@@ -235,8 +239,8 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                     lastFlushInsertedModels,
                     lastFlushUpdatedModels,
                     lastFlushDeletedModels,
-                    lastFlushInFlightCacheHits,
-                    lastFlushInFlightCacheMisses,
+                    lastFlushModelStateCacheHits,
+                    lastFlushModelStateCacheMisses,
                     lastObservedPosition,
                     lastFlushedPosition);
             }
@@ -301,6 +305,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                var pendingLastObservedPosition = start;
                                var pendingEventCount = 0L;
                                var hasPendingFlushWindow = false;
+                               var pendingFlushWindowStartedAt = 0L;
 
                                return signal =>
                                {
@@ -311,6 +316,12 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                        case PipelineSignalKind.Event:
                                            pendingEventCount++;
                                            pendingLastObservedPosition = signal.Position;
+
+                                           if (!hasPendingFlushWindow)
+                                           {
+                                               pendingFlushWindowStartedAt = Stopwatch.GetTimestamp();
+                                           }
+
                                            hasPendingFlushWindow = true;
                                            pendingModelIds.Add(signal.ModelId);
                                            Volatile.Write(ref pendingModelCountSnapshot, pendingModelIds.Count);
@@ -401,6 +412,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                        pendingModelEventCounts.Clear();
                                        pendingEventCount = 0;
                                        hasPendingFlushWindow = false;
+                                       pendingFlushWindowStartedAt = 0;
                                        Volatile.Write(ref pendingModelCountSnapshot, 0);
                                        Interlocked.Increment(ref pendingBatchCount);
 
@@ -414,20 +426,30 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                            return false;
                                        }
 
-                                       var strategy = liveProcessingStarted
-                                                          ? this.settings.LiveProcessingPersistenceStrategy
-                                                          : this.settings.CatchUpPersistenceStrategy;
+                                       var flushSettings = liveProcessingStarted
+                                                               ? this.settings.LiveProcessingFlush
+                                                               : this.settings.CatchUpFlush;
 
-                                       var maxPending = Math.Max(1, this.settings.MaxPendingProjectionsCount);
+                                       var modelCountFlushThreshold = Math.Max(
+                                           1,
+                                           flushSettings.ModelCountThreshold);
+
                                        var timerFlushDue = Interlocked.Exchange(ref periodicFlushRequested, 0) == 1;
 
-                                       return strategy switch
+                                       return flushSettings.Strategy switch
                                               {
                                                   PersistenceStrategy.ImmediateModelFlush => signalKind == PipelineSignalKind.Event,
                                                   PersistenceStrategy.TimeBasedBatching =>
-                                                      pendingModelIds.Count >= maxPending || signalKind == PipelineSignalKind.Tick || timerFlushDue,
-                                                  _ => pendingModelIds.Count >= maxPending,
+                                                      IsFlushDelayElapsed(flushSettings.Delay)
+                                                      && (signalKind == PipelineSignalKind.Event || signalKind == PipelineSignalKind.Tick || timerFlushDue),
+                                                  _ => pendingModelIds.Count >= modelCountFlushThreshold,
                                               };
+
+                                       bool IsFlushDelayElapsed(int delayMilliseconds)
+                                       {
+                                           return pendingFlushWindowStartedAt > 0
+                                                  && Stopwatch.GetElapsedTime(pendingFlushWindowStartedAt) >= NormalizeFlushDelay(delayMilliseconds);
+                                       }
                                    }
                                };
                            });
@@ -520,8 +542,8 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
             lastFlushInsertedModels = flushResult.InsertedModels;
             lastFlushUpdatedModels = flushResult.UpdatedModels;
             lastFlushDeletedModels = flushResult.DeletedModels;
-            lastFlushInFlightCacheHits = flushResult.InFlightCacheHits;
-            lastFlushInFlightCacheMisses = flushResult.InFlightCacheMisses;
+            lastFlushModelStateCacheHits = flushResult.ModelStateCacheHits;
+            lastFlushModelStateCacheMisses = flushResult.ModelStateCacheMisses;
             lastFlushedPosition = flushResult.FlushedPosition;
             processedEvents += flushResult.Events;
             flushCount++;
@@ -531,13 +553,13 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
             if (flushResult.BatchModels > 0)
             {
                 var activeStrategy = liveProcessingStarted
-                                         ? this.settings.LiveProcessingPersistenceStrategy
-                                         : this.settings.CatchUpPersistenceStrategy;
+                                         ? this.settings.LiveProcessingFlush.Strategy
+                                         : this.settings.CatchUpFlush.Strategy;
 
                 if (this.logger.IsEnabled(LogLevel.Debug))
                 {
                     this.logger.LogDebug(
-                        "Projection pipeline flush persisted for {ModelName}: batchModels={BatchModels}, inserted={Inserted}, updated={Updated}, deleted={Deleted}, sinkPersistMs={SinkPersistMs:F0}, cachePublishMs={CachePublishMs:F0}, checkpointPersistMs={CheckpointPersistMs:F0}, lifecycleMs={LifecycleMs:F0}, runtimeProjectionHits={RuntimeProjectionHits}, cacheProjectionRestores={CacheProjectionRestores}, storeProjectionLoads={StoreProjectionLoads}, storeProjectionMisses={StoreProjectionMisses}, newProjectionCreates={NewProjectionCreates}, inFlightCacheHits={InFlightCacheHits}, inFlightCacheMisses={InFlightCacheMisses}, flushedPosition={FlushedPosition}, phase={Phase}, strategy={Strategy}",
+                        "Projection pipeline flush persisted for {ModelName}: batchModels={BatchModels}, inserted={Inserted}, updated={Updated}, deleted={Deleted}, sinkPersistMs={SinkPersistMs:F0}, cachePublishMs={CachePublishMs:F0}, checkpointPersistMs={CheckpointPersistMs:F0}, lifecycleMs={LifecycleMs:F0}, runtimeProjectionHits={RuntimeProjectionHits}, modelStateCacheRestores={ModelStateCacheRestores}, storeProjectionLoads={StoreProjectionLoads}, storeProjectionMisses={StoreProjectionMisses}, newProjectionCreates={NewProjectionCreates}, modelStateCacheHits={ModelStateCacheHits}, modelStateCacheMisses={ModelStateCacheMisses}, flushedPosition={FlushedPosition}, phase={Phase}, strategy={Strategy}",
                         this.modelName,
                         flushResult.BatchModels,
                         lastFlushInsertedModels,
@@ -548,12 +570,12 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                         checkpointPersistMs,
                         lifecycleMs,
                         runtimeStats.RuntimeProjectionHits,
-                        runtimeStats.CacheProjectionRestores,
+                        runtimeStats.ModelStateCacheRestores,
                         runtimeStats.StoreProjectionLoads,
                         runtimeStats.StoreProjectionMisses,
                         runtimeStats.NewProjectionCreates,
-                        lastFlushInFlightCacheHits,
-                        lastFlushInFlightCacheMisses,
+                        lastFlushModelStateCacheHits,
+                        lastFlushModelStateCacheMisses,
                         lastFlushedPosition,
                         liveProcessingStarted ? "Live" : "CatchUp",
                         activeStrategy);
@@ -760,6 +782,11 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         return envelope is EventEnvelope { Event: ProjectionCaughtUpEvent, };
     }
 
+    private static TimeSpan NormalizeFlushDelay(int delayMilliseconds)
+    {
+        return TimeSpan.FromMilliseconds(Math.Max(1, delayMilliseconds));
+    }
+
     private readonly record struct RawSignal(RawSignalKind Kind, TEnvelope? Envelope)
     {
         public static RawSignal Tick()
@@ -828,8 +855,8 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         int InsertedModels,
         int UpdatedModels,
         int DeletedModels,
-        long InFlightCacheHits,
-        long InFlightCacheMisses,
+        long ModelStateCacheHits,
+        long ModelStateCacheMisses,
         double ElapsedMilliseconds,
         long Events,
         int BatchModels);

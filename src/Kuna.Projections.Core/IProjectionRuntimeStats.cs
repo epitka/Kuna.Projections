@@ -7,7 +7,7 @@ internal interface IProjectionRuntimeStats
 
 internal readonly record struct ProjectionRuntimeStats(
     long RuntimeProjectionHits,
-    long CacheProjectionRestores,
+    long ModelStateCacheRestores,
     long StoreProjectionLoads,
     long StoreProjectionMisses,
     long NewProjectionCreates);

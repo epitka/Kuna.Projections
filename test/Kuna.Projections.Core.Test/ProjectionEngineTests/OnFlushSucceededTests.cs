@@ -72,7 +72,7 @@ public class OnFlushSucceededTests
     {
         var factory = A.Fake<IProjectionFactory<ItemModel>>();
         var handler = A.Fake<IProjectionFailureHandler<ItemModel>>();
-        var settings = CreateSettings(skipStateNotFoundFailure: false);
+        var settings = CreateSettings();
         var logger = LoggerFactory.Create(
                                       builder =>
                                       {
@@ -144,17 +144,21 @@ public class OnFlushSucceededTests
         createCalls.ShouldBe(1);
     }
 
-    private static ProjectionSettings<ItemModel> CreateSettings(bool skipStateNotFoundFailure = true)
+    private static ProjectionSettings<ItemModel> CreateSettings()
     {
         return new ProjectionSettings<ItemModel>
         {
-            CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-            LiveProcessingPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            MaxPendingProjectionsCount = 100,
-            LiveProcessingFlushDelay = 1000,
-            SkipStateNotFoundFailure = skipStateNotFoundFailure,
-            InFlightModelCacheMinEntries = 10000,
-            InFlightModelCacheCapacityMultiplier = 3,
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                ModelCountThreshold = 100,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.TimeBasedBatching,
+                Delay = 1000,
+            },
+            ModelStateCacheCapacity = 10000,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
     }

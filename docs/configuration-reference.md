@@ -46,28 +46,27 @@ If you omit `settingsSectionName`, the default section name is `Projections`. Th
 
 | Key | Type | Default | Required | Notes                                                                   |
 | --- | --- | --- | --- |-------------------------------------------------------------------------|
-| `CatchUpPersistenceStrategy` | `PersistenceStrategy` | `ModelCountBatching` | No | Used before the source reaches live processing.                         |
-| `LiveProcessingPersistenceStrategy` | `PersistenceStrategy` | `ImmediateModelFlush` | No | Used after the source catches up.                                       |
-| `MaxPendingProjectionsCount` | `int` | `100` | No | Count-based flush threshold and a sizing input for cache capacity.      |
-| `SourceBufferCapacity` | `int` | `10000` | No | Stream buffer size between source and transform stages.                 |
+| `CatchUpFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior before the source reaches live processing.               |
+| `LiveProcessingFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior after the source catches up.                             |
+| `Backpressure` | `ProjectionBackpressureSettings` | See below | No | Backpressure buffer capacities between projection pipeline stages.      |
 | `Source` | `ProjectionSourceKind` | `KurrentDB` | No | Selects which source implementation the projection uses.                |
 | `ModelIdResolutionStrategy` | `ModelIdResolutionStrategy` | `PreferAttribute` | No | Controls how model ids are derived from events and stream ids.          |
-| `ReadBufferCapacity` | `int` | `12000` | No | In-process read buffer between the Kurrent subscription and consumer.   |
-| `LiveProcessingFlushDelay` | `int` | `1000` | No | Milliseconds between live periodic flush ticks.                         |
-| `SkipStateNotFoundFailure` | `bool` | `false` | No | Suppresses failure persistence for missing state on non-initial events. |
-| `InFlightModelCacheMinEntries` | `int` | `10000` | No | Minimum retained size of the in-memory post-flush cache.                |
-| `InFlightModelCacheCapacityMultiplier` | `int` | `3` | No | Combined with `MaxPendingProjectionsCount` to size that cache.          |
+| `ModelStateCacheCapacity` | `int` | `10000` | No | Number of model states retained in memory.                              |
 | `EventVersionCheckStrategy` | `EventVersionCheckStrategy` | `Consecutive` | No | Controls event ordering validation before `Apply(...)`.                 |
 
-### `CatchUpPersistenceStrategy`
+### `CatchUpFlush`
 
-Type: `PersistenceStrategy`
+Type: `ProjectionFlushSettings`
 
-Allowed values:
+Default:
 
-- `ModelCountBatching`
-- `TimeBasedBatching`
-- `ImmediateModelFlush`
+```json
+{
+  "Strategy": "ModelCountBatching",
+  "ModelCountThreshold": 100,
+  "Delay": 1000
+}
+```
 
 Used for:
 
@@ -76,19 +75,23 @@ Used for:
 Guidance:
 
 - start with `ModelCountBatching` for replay-heavy startup
+- set `ModelCountThreshold` to control count-based catch-up flush size
+- `Delay` is only used when `Strategy` is `TimeBasedBatching`
 - use `ImmediateModelFlush` only when lower buffering matters more than throughput
 
-### `LiveProcessingPersistenceStrategy`
+### `LiveProcessingFlush`
 
-Type: `PersistenceStrategy`
+Type: `ProjectionFlushSettings`
 
-Allowed values:
+Default:
 
-- `ModelCountBatching`
-- `TimeBasedBatching`
-- `ImmediateModelFlush`
-
-Default: `ImmediateModelFlush`
+```json
+{
+  "Strategy": "ImmediateModelFlush",
+  "ModelCountThreshold": 100,
+  "Delay": 1000
+}
+```
 
 Used for:
 
@@ -98,8 +101,35 @@ Guidance:
 
 - keep `ImmediateModelFlush` for lowest latency
 - use `TimeBasedBatching` when fewer writes matter more than immediate persistence
+- set `Delay` in milliseconds for `TimeBasedBatching`
+- set `ModelCountThreshold` only when using `ModelCountBatching`
 
-### `MaxPendingProjectionsCount`
+### `ProjectionFlushSettings.Strategy`
+
+Type: `PersistenceStrategy`
+
+Allowed values:
+
+- `ModelCountBatching`
+- `TimeBasedBatching`
+- `ImmediateModelFlush`
+
+Used for:
+
+- selecting the flush strategy for `CatchUpFlush` or `LiveProcessingFlush`
+
+Behavior:
+
+- `ImmediateModelFlush`: flush each model change immediately
+- `ModelCountBatching`: flush when distinct pending model count reaches `ModelCountThreshold`
+- `TimeBasedBatching`: flush when `Delay` has elapsed
+
+Guidance:
+
+- use `ModelCountBatching` for catch-up throughput
+- use `ImmediateModelFlush` or `TimeBasedBatching` for live processing depending on latency/write-frequency tradeoffs
+
+### `ProjectionFlushSettings.ModelCountThreshold`
 
 Type: `int`
 
@@ -107,7 +137,7 @@ Default: `100`
 
 Used for:
 
-- count-based flush decisions
+- count-based flush decisions when `Strategy` is `ModelCountBatching`
 - in-flight cache sizing
 
 Guidance:
@@ -115,23 +145,105 @@ Guidance:
 - increase it to batch more distinct models per flush
 - expect higher memory use and longer replay windows as you raise it
 
-### `SourceBufferCapacity`
+### `ProjectionFlushSettings.Delay`
+
+Type: `int`
+
+Unit: milliseconds
+
+Default: `1000`
+
+Used for:
+
+- time-based flush decisions when `Strategy` is `TimeBasedBatching`
+
+Runtime behavior:
+
+- the pipeline applies `Math.Max(1, Delay)`
+
+Guidance:
+
+- shorter values reduce time-based batching delay
+- longer values reduce flush frequency but increase persistence latency
+
+### `Backpressure`
+
+Type: `ProjectionBackpressureSettings`
+
+Default:
+
+```json
+{
+  "SourceToTransformBufferCapacity": 10000,
+  "TransformToSinkBufferCapacity": 10000
+}
+```
+
+Used for:
+
+- bounded backpressure buffers between pipeline stages
+
+Pipeline flow:
+
+```mermaid
+flowchart LR
+    Source["Source reader"]
+    BufferA["SourceToTransformBufferCapacity"]
+    Transform["Transform"]
+    BufferB["TransformToSinkBufferCapacity"]
+    Sink["Batching and sink persistence"]
+
+    Source --> BufferA --> Transform --> BufferB --> Sink
+```
+
+#### `Backpressure.SourceToTransformBufferCapacity`
 
 Type: `int`
 
 Default: `10000`
 
-Used for:
+Meaning:
 
-- the internal pipeline buffer between reading and transforming events
+- Akka stream buffer between source signal reading and transformation
 
 Runtime behavior:
 
-- the pipeline applies `Math.Max(1, SourceBufferCapacity)`
+- the pipeline applies `Math.Max(1, SourceToTransformBufferCapacity)`
+- when full, source reading is backpressured
+
+#### `Backpressure.TransformToSinkBufferCapacity`
+
+Type: `int`
+
+Default: `10000`
+
+Meaning:
+
+- Akka stream buffer between transformation and batching/sink persistence
+
+Runtime behavior:
+
+- the pipeline applies `Math.Max(1, TransformToSinkBufferCapacity)`
+- when full, transformation is backpressured
 
 Guidance:
 
-- leave the default unless you have measured source-side backpressure or memory pressure
+- tune from the sink backwards
+- start by sizing `TransformToSinkBufferCapacity` because sink persistence is usually the controlling pressure point
+- set `SourceToTransformBufferCapacity` only as large as needed to keep transform fed while sink flushes proceed
+
+Example:
+
+```json
+{
+  "Backpressure": {
+    "SourceToTransformBufferCapacity": 100000,
+    "TransformToSinkBufferCapacity": 10000
+  }
+}
+```
+
+This example intentionally allows source reading to run ahead of transformation and keeps the final buffer before sink persistence smaller. Use values this large only after measuring memory use and replay throughput.
 
 ### `Source`
 
@@ -171,57 +283,7 @@ Guidance:
 - `RequireStreamId` is a good fit when stream naming is authoritative
 - `RequireMatch` is the strictest option and helps catch mismatches early
 
-### `ReadBufferCapacity`
-
-Type: `int`
-
-Default: `12000`
-
-Meaning:
-
-- bounded channel capacity used while the Kurrent subscription feeds envelopes into the async stream consumed by the pipeline
-
-Guidance:
-
-- keep the default unless you have measured a reason to change it
-- larger values can improve throughput at the cost of more memory
-
-### `LiveProcessingFlushDelay`
-
-Type: `int`
-
-Unit: milliseconds
-
-Default: `1000`
-
-Used for:
-
-- periodic live flush ticks
-
-Runtime behavior:
-
-- the pipeline applies `Math.Max(1, LiveProcessingFlushDelay)`
-
-Guidance:
-
-- shorter values reduce live batching delay
-- longer values reduce flush frequency but increase persistence latency
-
-### `SkipStateNotFoundFailure`
-
-Type: `bool`
-
-Default: `false`
-
-Meaning:
-
-- when `true`, the runtime skips persisting a projection failure when a non-initial event resolves to a model whose current state cannot be loaded
-
-Guidance:
-
-- leave it `false` unless your replay or migration flow intentionally tolerates missing state
-
-### `InFlightModelCacheMinEntries`
+### `ModelStateCacheCapacity`
 
 Type: `int`
 
@@ -229,28 +291,17 @@ Default: `10000`
 
 Meaning:
 
-- minimum capacity of the in-memory cache that keeps recently flushed model state available after persistence succeeds
+- capacity of the in-memory cache that keeps model state available after persistence succeeds
 
 Why this exists:
 
 - it closes the short timing gap between a successful flush and a later reload of the same model
 - that avoids false missing-state or ordering issues immediately after a flush
+- it avoids reloading hot models from the persistent store immediately after their runtime projection state is cleared
 
-### `InFlightModelCacheCapacityMultiplier`
+Runtime behavior:
 
-Type: `int`
-
-Default: `3`
-
-Meaning:
-
-- dynamic cache sizing multiplier tied to `MaxPendingProjectionsCount`
-
-Effective cache capacity:
-
-```text
-max(InFlightModelCacheMinEntries, MaxPendingProjectionsCount * InFlightModelCacheCapacityMultiplier)
-```
+- values less than `1` disable the cache
 
 ### `EventVersionCheckStrategy`
 
@@ -290,8 +341,30 @@ The section is required when the root projection setting `Source` is `KurrentDB`
 
 | Key | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
+| `SubscriptionBufferCapacity` | `int` | `12000` | No | Source-local bounded channel capacity between Kurrent subscription reading and the projection pipeline consumer. |
 | `Filter.Kind` | `KurrentDbFilterKind` | `StreamPrefix` | No | Only `StreamPrefix` is supported in the current implementation. |
 | `Filter.Prefixes` | `string[]` | `[]` | Yes | Must contain exactly one non-empty prefix. |
+
+### `SubscriptionBufferCapacity`
+
+Type: `int`
+
+Default: `12000`
+
+Meaning:
+
+- bounded channel capacity used while the Kurrent subscription feeds envelopes into the async stream consumed by the projection pipeline
+- this is source-specific buffering, not an Akka pipeline backpressure buffer
+
+Runtime behavior:
+
+- Kurrent source registration validates it is greater than or equal to `1`
+- when full, the subscription writer waits
+
+Guidance:
+
+- tune this only when the Kurrent subscription needs to absorb bursts before Akka pipeline demand catches up
+- keep it separate from `Backpressure.SourceToTransformBufferCapacity` and `Backpressure.TransformToSinkBufferCapacity`, which are Akka stream buffers
 
 ### `Filter.Kind`
 
