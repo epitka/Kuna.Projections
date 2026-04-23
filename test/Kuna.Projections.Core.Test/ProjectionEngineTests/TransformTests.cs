@@ -268,7 +268,7 @@ public class TransformTests
         first.ShouldNotBeNull();
         second.ShouldNotBeNull();
 
-        transformer.OnFlushSucceeded([modelId,], [modelId,]);
+        transformer.OnFlushSucceeded([modelId,], [modelId,], new Dictionary<Guid, long?> { [modelId] = 1, });
 
         var third = await transformer.Transform(
                         CreateEnvelope(modelId, 2, new ItemUpdated { Id = modelId, Name = "c", TypeName = nameof(ItemUpdated), }),

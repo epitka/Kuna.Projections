@@ -8,9 +8,12 @@ internal sealed class CountingEngineLike
     : IModelStateTransformer<EventEnvelope, ItemModel>,
       IProjectionLifecycle
 {
+    private readonly List<Guid> clearedModelIds = new();
     private int transformedCount;
 
     public int TransformedCount => this.transformedCount;
+
+    public IReadOnlyList<Guid> ClearedModelIds => this.clearedModelIds;
 
     public ValueTask<ModelState<ItemModel>?> Transform(EventEnvelope envelope, CancellationToken cancellationToken)
     {
@@ -33,7 +36,11 @@ internal sealed class CountingEngineLike
                 ExpectedEventNumber: null));
     }
 
-    public void OnFlushSucceeded(IReadOnlyCollection<Guid> flushedModelIds, IReadOnlyCollection<Guid> clearModelIds)
+    public void OnFlushSucceeded(
+        IReadOnlyCollection<Guid> flushedModelIds,
+        IReadOnlyCollection<Guid> clearModelIds,
+        IReadOnlyDictionary<Guid, long?> flushedEventNumbers)
     {
+        this.clearedModelIds.AddRange(clearModelIds);
     }
 }

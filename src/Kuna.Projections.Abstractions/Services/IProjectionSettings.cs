@@ -14,6 +14,8 @@ public interface IProjectionSettings<TState>
 
     int SourceBufferCapacity { get; set; }
 
+    int TransformSinkBufferCapacity { get; set; }
+
     ProjectionSourceKind Source { get; set; }
 
     ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; }
@@ -81,6 +83,13 @@ public class ProjectionSettings<TState> : IProjectionSettings<TState>
     /// Increase this only when the source is starved by backpressure and you have memory headroom.
     /// </summary>
     public int SourceBufferCapacity { get; set; } = 10000;
+
+    /// <summary>
+    /// Number of transformed signals that may be buffered ahead of sink batching
+    /// and persistence. Keep this much smaller than source buffering when the
+    /// source can replay faster than the sink can persist.
+    /// </summary>
+    public int TransformSinkBufferCapacity { get; set; } = 10000;
 
     /// <summary>
     /// Selects which event source implementation should be used for the projection.

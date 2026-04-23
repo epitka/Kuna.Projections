@@ -56,6 +56,37 @@ public class CreateTests
     }
 
     [Fact]
+    public async Task Create_Should_Cap_ModelCountBatching_By_Distinct_Model_Ids()
+    {
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var thirdId = Guid.NewGuid();
+        var changes = new[]
+        {
+            Helpers.CreateChange(firstId, 1, "first-v1"),
+            Helpers.CreateChange(firstId, 2, "first-v2"),
+            Helpers.CreateChange(secondId, 3, "second"),
+            Helpers.CreateChange(thirdId, 4, "third"),
+        };
+
+        var batches = await Helpers.RunBatcher(
+                          new TestProjectionSettings
+                          {
+                              CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
+                              MaxPendingProjectionsCount = 2,
+                          },
+                          changes);
+
+        batches.Count.ShouldBe(2);
+        batches[0].Changes.Count.ShouldBe(2);
+        batches[0].GlobalEventPosition.ShouldBe(new GlobalEventPosition(3));
+        batches[0].Changes.ShouldContain(x => x.Model.Id == firstId && x.Model.Name == "first-v2");
+        batches[0].Changes.ShouldContain(x => x.Model.Id == secondId);
+        batches[1].Changes.Count.ShouldBe(1);
+        batches[1].Changes[0].Model.Id.ShouldBe(thirdId);
+    }
+
+    [Fact]
     public async Task Create_Should_Filter_Invalid_NewAndDelete_Changes()
     {
         var validId = Guid.NewGuid();

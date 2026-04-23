@@ -14,6 +14,7 @@ namespace Kuna.Projections.Core;
 /// </summary>
 internal sealed class ProjectionEngine<TState>
     : IModelStateTransformer<EventEnvelope, TState>,
+      IProjectionRuntimeStats,
       IProjectionLifecycle
     where TState : class, IModel, new()
 {
@@ -25,6 +26,11 @@ internal sealed class ProjectionEngine<TState>
     private readonly string modelName;
     private readonly ConcurrentDictionary<Guid, Projection<TState>> projections;
     private readonly ConcurrentDictionary<Guid, byte> failedProjections;
+    private long runtimeProjectionHits;
+    private long cacheProjectionRestores;
+    private long storeProjectionLoads;
+    private long storeProjectionMisses;
+    private long newProjectionCreates;
 
     public ProjectionEngine(
         IProjectionFactory<TState> projectionFactory,
@@ -125,7 +131,10 @@ internal sealed class ProjectionEngine<TState>
     /// Clears live in-memory runtime state for all models that participated in a
     /// successfully completed flush window, including failed-model markers.
     /// </summary>
-    public void OnFlushSucceeded(IReadOnlyCollection<Guid> flushedModelIds, IReadOnlyCollection<Guid> clearModelIds)
+    public void OnFlushSucceeded(
+        IReadOnlyCollection<Guid> flushedModelIds,
+        IReadOnlyCollection<Guid> clearModelIds,
+        IReadOnlyDictionary<Guid, long?> flushedEventNumbers)
     {
         foreach (var modelId in flushedModelIds)
         {
@@ -137,6 +146,13 @@ internal sealed class ProjectionEngine<TState>
 
         foreach (var modelId in clearModelIds)
         {
+            if (this.projections.TryGetValue(modelId, out var projection)
+                && flushedEventNumbers.TryGetValue(modelId, out var flushedEventNumber)
+                && projection.ModelState.EventNumber > flushedEventNumber)
+            {
+                continue;
+            }
+
             this.projections.TryRemove(modelId, out _);
             this.failedProjections.TryRemove(modelId, out _);
         }
@@ -152,18 +168,30 @@ internal sealed class ProjectionEngine<TState>
         this.failedProjections.Clear();
     }
 
+    public ProjectionRuntimeStats ReadAndResetRuntimeStats()
+    {
+        return new ProjectionRuntimeStats(
+            Interlocked.Exchange(ref this.runtimeProjectionHits, 0),
+            Interlocked.Exchange(ref this.cacheProjectionRestores, 0),
+            Interlocked.Exchange(ref this.storeProjectionLoads, 0),
+            Interlocked.Exchange(ref this.storeProjectionMisses, 0),
+            Interlocked.Exchange(ref this.newProjectionCreates, 0));
+    }
+
     private async ValueTask<Projection<TState>?> GetOrCreateProjection(
         EventEnvelope envelope,
         CancellationToken cancellationToken)
     {
         if (this.projections.TryGetValue(envelope.ModelId, out var projection))
         {
+            Interlocked.Increment(ref this.runtimeProjectionHits);
             return projection;
         }
 
         if (this.modelStateCache.TryGet(envelope.ModelId, out var cached)
             && cached != null)
         {
+            Interlocked.Increment(ref this.cacheProjectionRestores);
             projection = this.projectionFactory.CreateFromModel(cached.Model, cached.IsNew);
             this.projections[envelope.ModelId] = projection;
             return projection;
@@ -171,11 +199,25 @@ internal sealed class ProjectionEngine<TState>
 
         var loadModelFromStore = envelope.EventNumber > 0;
 
+        if (loadModelFromStore)
+        {
+            Interlocked.Increment(ref this.storeProjectionLoads);
+        }
+        else
+        {
+            Interlocked.Increment(ref this.newProjectionCreates);
+        }
+
         projection = await this.projectionFactory.Create(envelope.ModelId, loadModelFromStore, cancellationToken);
 
         if (projection != null)
         {
             return projection;
+        }
+
+        if (loadModelFromStore)
+        {
+            Interlocked.Increment(ref this.storeProjectionMisses);
         }
 
         this.logger.LogWarning(

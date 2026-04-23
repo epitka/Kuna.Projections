@@ -106,17 +106,49 @@ public class DataStore<TState, TDataContext>
     /// </summary>
     public async Task PersistBatch(ModelStatesBatch<TState> batch, CancellationToken cancellationToken)
     {
+        var persistStopwatch = Stopwatch.StartNew();
+        var phaseStopwatch = Stopwatch.StartNew();
+
         // let's remove items that are both IsNew and ShouldDelete
         // no reason to insert them and immediately delete them
         var toExclude = batch.Changes
                              .Where(x => x is { IsNew: true, ShouldDelete: true, });
 
         var toPersist = batch.Changes.Except(toExclude).ToArray();
+        var excludedCount = batch.Changes.Count - toPersist.Length;
+        var insertCount = toPersist.Count(x => x.IsNew);
+        var updateCount = toPersist.Count(x => !x.IsNew);
 
-        await this.PersistBatchInternal(toPersist, cancellationToken);
+        var checkpoint = new CheckPoint
+        {
+            ModelName = this.modelName,
+            GlobalEventPosition = batch.GlobalEventPosition,
+        };
+
+        PersistBatchTimings sinkTimings;
+
+        try
+        {
+            sinkTimings = await this.PersistBatchInternal(toPersist, checkpoint, cancellationToken);
+        }
+        catch (Exception ex) when (ex is DbUpdateException or DbUpdateConcurrencyException)
+        {
+            this.logger.LogWarning(
+                ex,
+                "Unified batch persist failed for {Model}, falling back to isolated persistence handling...",
+                this.modelName);
+
+            await this.PersistBatchInternal(toPersist, cancellationToken);
+            await this.PersistCheckpoint(checkpoint, cancellationToken);
+            sinkTimings = default;
+        }
+
+        var modelPersistMs = phaseStopwatch.Elapsed.TotalMilliseconds;
+        var markPersistedGraphMs = 0d;
 
         if (this.hasChildEntities)
         {
+            phaseStopwatch.Restart();
             using var transientScope = this.serviceProvider.CreateScope();
 
             await using var transientContext = transientScope
@@ -127,15 +159,30 @@ public class DataStore<TState, TDataContext>
             {
                 this.MarkPersistedGraph(transientContext, modelState.Model);
             }
+
+            markPersistedGraphMs = phaseStopwatch.Elapsed.TotalMilliseconds;
         }
 
-        await this.PersistCheckpoint(
-            new CheckPoint
-            {
-                ModelName = this.modelName,
-                GlobalEventPosition = batch.GlobalEventPosition,
-            },
-            cancellationToken);
+        persistStopwatch.Stop();
+
+        if (this.logger.IsEnabled(LogLevel.Debug))
+        {
+            this.logger.LogDebug(
+                "Projection EF sink persisted for {Model}: batchChanges={BatchChanges}, persisted={Persisted}, inserted={Inserted}, updated={Updated}, excluded={Excluded}, modelPersistMs={ModelPersistMs:F0}, insertMs={InsertMs:F0}, updateMs={UpdateMs:F0}, checkpointMs={CheckpointMs:F0}, commitMs={CommitMs:F0}, markPersistedGraphMs={MarkPersistedGraphMs:F0}, totalMs={TotalMs:F0}",
+                this.modelName,
+                batch.Changes.Count,
+                toPersist.Length,
+                insertCount,
+                updateCount,
+                excludedCount,
+                modelPersistMs,
+                sinkTimings.InsertMs,
+                sinkTimings.UpdateMs,
+                sinkTimings.CheckpointMs,
+                sinkTimings.CommitMs,
+                markPersistedGraphMs,
+                persistStopwatch.Elapsed.TotalMilliseconds);
+        }
     }
 
     /// <summary>
@@ -206,6 +253,84 @@ public class DataStore<TState, TDataContext>
                    PostgresException { SqlState: PostgresDuplicatePkViolationError, } => true,
                    _                                                                  => false,
                };
+    }
+
+    private async Task<PersistBatchTimings> PersistBatchInternal(
+        ModelState<TState>[] modelStates,
+        CheckPoint checkPoint,
+        CancellationToken cancellationToken)
+    {
+        var timings = new PersistBatchTimings();
+        var phaseStopwatch = new Stopwatch();
+        var toInsert = modelStates
+                       .Where(x => x.IsNew)
+                       .Select(x => x.Model)
+                       .ToArray();
+
+        var toUpdate = modelStates
+                       .Where(x => !x.IsNew)
+                       .ToArray();
+
+        using var transientScope = this.serviceProvider.CreateScope();
+
+        await using var transientContext = transientScope
+                                           .ServiceProvider
+                                           .GetRequiredService<TDataContext>();
+
+        var originalAutoDetectChanges = transientContext.ChangeTracker.AutoDetectChangesEnabled;
+        transientContext.ChangeTracker.AutoDetectChangesEnabled = false;
+
+        var strategy = transientContext!.Database.CreateExecutionStrategy();
+
+        try
+        {
+            await strategy.ExecuteAsync(
+                async () =>
+                {
+                    await using var transaction = await transientContext.Database.BeginTransactionAsync(cancellationToken);
+
+                    try
+                    {
+                        if (toInsert.Length > 0)
+                        {
+                            phaseStopwatch.Restart();
+                            await transientContext.AddRangeAsync(toInsert, cancellationToken);
+                            await transientContext.SaveChangesAsync(cancellationToken);
+                            transientContext.ChangeTracker.Clear();
+                            timings.InsertMs = phaseStopwatch.Elapsed.TotalMilliseconds;
+                        }
+
+                        if (toUpdate.Length > 0)
+                        {
+                            phaseStopwatch.Restart();
+                            this.ApplyPendingEntries(transientContext, toUpdate);
+                            await transientContext.SaveChangesAsync(cancellationToken);
+                            transientContext.ChangeTracker.Clear();
+                            timings.UpdateMs = phaseStopwatch.Elapsed.TotalMilliseconds;
+                        }
+
+                        phaseStopwatch.Restart();
+                        await this.ApplyCheckpoint(transientContext, checkPoint, cancellationToken);
+                        await transientContext.SaveChangesAsync(cancellationToken);
+                        timings.CheckpointMs = phaseStopwatch.Elapsed.TotalMilliseconds;
+
+                        phaseStopwatch.Restart();
+                        await transaction.CommitAsync(cancellationToken);
+                        timings.CommitMs = phaseStopwatch.Elapsed.TotalMilliseconds;
+                    }
+                    catch
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                        throw;
+                    }
+                });
+        }
+        finally
+        {
+            transientContext.ChangeTracker.AutoDetectChangesEnabled = originalAutoDetectChanges;
+        }
+
+        return timings;
     }
 
     private async Task PersistBatchInternal(ModelState<TState>[] modelStates, CancellationToken cancellationToken)
@@ -512,8 +637,15 @@ public class DataStore<TState, TDataContext>
 
     private void ApplyPendingEntries(DbContext dbContext, IReadOnlyCollection<ModelState<TState>> pending)
     {
-        foreach (var (model, _, shouldDelete, _, expectedEventNumber) in pending)
+        foreach (var (model, isNew, shouldDelete, _, expectedEventNumber) in pending)
         {
+            if (isNew
+                && !shouldDelete)
+            {
+                dbContext.Add(model);
+                continue;
+            }
+
             var entry = dbContext.Entry(model);
 
             if (entry.State == EntityState.Detached)
@@ -522,14 +654,14 @@ public class DataStore<TState, TDataContext>
                 entry = dbContext.Entry(model);
             }
 
-            entry.Property(nameof(IModel.EventNumber)).OriginalValue = expectedEventNumber;
-
             if (shouldDelete)
             {
+                entry.Property(nameof(IModel.EventNumber)).OriginalValue = expectedEventNumber;
                 entry.State = EntityState.Deleted;
                 continue;
             }
 
+            entry.Property(nameof(IModel.EventNumber)).OriginalValue = expectedEventNumber;
             entry.State = EntityState.Modified;
 
             if (this.hasChildEntities)
@@ -537,6 +669,27 @@ public class DataStore<TState, TDataContext>
                 this.ApplyChildEntityStates(dbContext, entry, new HashSet<object>(ReferenceEqualityComparer.Instance));
             }
         }
+    }
+
+    private async Task ApplyCheckpoint(
+        DbContext dbContext,
+        CheckPoint checkPoint,
+        CancellationToken cancellationToken)
+    {
+        var currentCheckpoint = await dbContext.Set<CheckPoint>()
+                                               .Where(x => x.ModelName == checkPoint.ModelName)
+                                               .SingleOrDefaultAsync(cancellationToken);
+
+        if (currentCheckpoint == null)
+        {
+            dbContext.Add(checkPoint);
+            return;
+        }
+
+        currentCheckpoint.GlobalEventPosition = checkPoint.GlobalEventPosition;
+        dbContext.Entry(currentCheckpoint)
+                 .Property(nameof(CheckPoint.GlobalEventPosition))
+                 .IsModified = true;
     }
 
     private bool ValidateAndDetectChildEntities()
@@ -748,5 +901,16 @@ public class DataStore<TState, TDataContext>
         }
 
         this.ApplyChildEntityStates(dbContext, entry, visited);
+    }
+
+    private struct PersistBatchTimings
+    {
+        public double InsertMs { get; set; }
+
+        public double UpdateMs { get; set; }
+
+        public double CheckpointMs { get; set; }
+
+        public double CommitMs { get; set; }
     }
 }

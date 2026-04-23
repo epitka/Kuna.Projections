@@ -32,9 +32,58 @@ internal static class ModelStateBatcher
             case PersistenceStrategy.ModelCountBatching:
             default:
                 return Flow.Create<ModelState<TState>>()
-                           .Grouped(Math.Max(1, settings.MaxPendingProjectionsCount))
-                           .Select(ToBatch);
+                           .Select(BatchInput<TState>.ForChange)
+                           .Concat(Source.Single(BatchInput<TState>.Complete()))
+                           .StatefulSelectMany(() => CreateDistinctModelBatcher<TState>(Math.Max(1, settings.MaxPendingProjectionsCount)));
         }
+    }
+
+    private static Func<BatchInput<TState>, IEnumerable<ModelStatesBatch<TState>>> CreateDistinctModelBatcher<TState>(int maxModelCount)
+        where TState : class, IModel, new()
+    {
+        var changesByModel = new Dictionary<Guid, ModelState<TState>>();
+        var lastPosition = default(GlobalEventPosition);
+        var sawInput = false;
+
+        return input =>
+        {
+            if (input.IsComplete)
+            {
+                return !sawInput
+                           ? []
+                           : [Flush(),];
+            }
+
+            var change = input.Change
+                         ?? throw new InvalidOperationException("Batch input must contain a change unless it is complete.");
+
+            sawInput = true;
+
+            if (change is not { IsNew: true, ShouldDelete: true, })
+            {
+                changesByModel[change.Model.Id] = change;
+                lastPosition = change.GlobalEventPosition;
+            }
+
+            return changesByModel.Count >= maxModelCount
+                       ? [Flush(),]
+                       : [];
+
+            ModelStatesBatch<TState> Flush()
+            {
+                var batch = new ModelStatesBatch<TState>
+                {
+                    Changes = changesByModel.Values.ToList(),
+                    GlobalEventPosition = lastPosition,
+                };
+
+                changesByModel.Clear();
+                lastPosition = default;
+                sawInput = false;
+
+                return batch;
+            }
+        };
     }
 
     private static ModelStatesBatch<TState> ToBatch<TState>(IEnumerable<ModelState<TState>> changes)
@@ -59,5 +108,19 @@ internal static class ModelStateBatcher
             Changes = map.Values.ToList(),
             GlobalEventPosition = lastPosition,
         };
+    }
+
+    private readonly record struct BatchInput<TState>(ModelState<TState>? Change, bool IsComplete)
+        where TState : class, IModel, new()
+    {
+        public static BatchInput<TState> ForChange(ModelState<TState> change)
+        {
+            return new BatchInput<TState>(change, false);
+        }
+
+        public static BatchInput<TState> Complete()
+        {
+            return new BatchInput<TState>(default, true);
+        }
     }
 }
