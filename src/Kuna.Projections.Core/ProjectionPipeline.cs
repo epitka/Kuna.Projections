@@ -145,71 +145,69 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                 },
                 timerCts.Token);
 
-            var stream = Source
-                         .From(ReadSourceUntilCancellation)
-                         .Select(
-                             envelope =>
-                             {
-                                 var signal = RawSignal.ForEnvelope(envelope);
+            var runnable = Source
+                           .From(ReadSourceUntilCancellation)
+                           .Select(
+                               envelope =>
+                               {
+                                   var signal = RawSignal.ForEnvelope(envelope);
 
-                                 if (signal.Kind == RawSignalKind.Event)
-                                 {
-                                     TrackBufferedModel(envelope.ModelId);
-                                 }
+                                   if (signal.Kind == RawSignalKind.Event)
+                                   {
+                                       TrackBufferedModel(envelope.ModelId);
+                                   }
 
-                                 return signal;
-                             })
-                         .KeepAlive(flushDelay, static () => RawSignal.Tick())
-                         .Concat(Source.Single(RawSignal.Complete()))
+                                   return signal;
+                               })
+                           .KeepAlive(flushDelay, static () => RawSignal.Tick())
+                           .Concat(Source.Single(RawSignal.Complete()))
 
-                         // Pull from source aggressively while transform and sink advance independently.
-                         .Buffer(sourceBufferSize, OverflowStrategy.Backpressure)
-                         .Async()
-                         .SelectAsync(
-                             parallelism: 1,
-                             async signal =>
-                             {
-                                 try
-                                 {
-                                     switch (signal.Kind)
-                                     {
-                                         case RawSignalKind.Event:
-                                         {
-                                             var envelope = signal.Envelope!;
-                                             seenEvents++;
+                           // Pull from source aggressively while transform and sink advance independently.
+                           .Buffer(sourceBufferSize, OverflowStrategy.Backpressure)
+                           .Async()
+                           .SelectAsync(
+                               parallelism: 1,
+                               async signal =>
+                               {
+                                   try
+                                   {
+                                       switch (signal.Kind)
+                                       {
+                                           case RawSignalKind.Event:
+                                           {
+                                               var envelope = signal.Envelope!;
+                                               seenEvents++;
 
-                                             var change = await this.transformer.Transform(envelope, cancellationToken);
-                                             transformedEvents++;
-                                             lastObservedPosition = envelope.GlobalEventPosition;
+                                               var change = await this.transformer.Transform(envelope, cancellationToken);
+                                               transformedEvents++;
+                                               lastObservedPosition = envelope.GlobalEventPosition;
 
-                                             return PipelineSignal<TState>.Event(
-                                                 envelope.ModelId,
-                                                 envelope.GlobalEventPosition,
-                                                 change == null ? null : CloneModelState(change));
-                                         }
-                                         case RawSignalKind.CaughtUp:
-                                             return PipelineSignal<TState>.CaughtUp();
-                                         case RawSignalKind.Tick:
-                                             return PipelineSignal<TState>.Tick();
-                                         case RawSignalKind.Complete:
-                                             return PipelineSignal<TState>.Complete();
-                                         default:
-                                             throw new ArgumentOutOfRangeException();
-                                     }
-                                 }
-                                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                                 {
-                                     Interlocked.Exchange(ref shutdownRequested, 1);
-                                     return PipelineSignal<TState>.Complete();
-                                 }
-                             })
-                         .Buffer(transformSinkBufferSize, OverflowStrategy.Backpressure)
-                         .Async()
-                         .Via(CreateBatchingFlow())
-                         .SelectAsync(1, PersistFlushAsync);
-
-            var runnable = stream
-                           .ViaMaterialized(KillSwitches.Single<FlushResult>(), Keep.Right)
+                                               return PipelineSignal<TState>.Event(
+                                                   envelope.ModelId,
+                                                   envelope.GlobalEventPosition,
+                                                   change == null ? null : CloneModelState(change));
+                                           }
+                                           case RawSignalKind.CaughtUp:
+                                               return PipelineSignal<TState>.CaughtUp();
+                                           case RawSignalKind.Tick:
+                                               return PipelineSignal<TState>.Tick();
+                                           case RawSignalKind.Complete:
+                                               return PipelineSignal<TState>.Complete();
+                                           default:
+                                               throw new ArgumentOutOfRangeException();
+                                       }
+                                   }
+                                   catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                                   {
+                                       Interlocked.Exchange(ref shutdownRequested, 1);
+                                       return PipelineSignal<TState>.Complete();
+                                   }
+                               })
+                           .Buffer(transformSinkBufferSize, OverflowStrategy.Backpressure)
+                           .Async()
+                           .Via(CreateBatchingFlow())
+                           .ViaMaterialized(KillSwitches.Single<PipelineFlush<TState>>(), Keep.Right)
+                           .SelectAsync(1, PersistFlushAsync)
                            .ToMaterialized(Sink.Ignore<FlushResult>(), Keep.Both);
 
             var (killSwitch, completion) = runnable.Run(materializer);
