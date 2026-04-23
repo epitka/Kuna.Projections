@@ -212,12 +212,14 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                            .ViaMaterialized(KillSwitches.Single<FlushResult>(), Keep.Right)
                            .ToMaterialized(Sink.Ignore<FlushResult>(), Keep.Both);
 
-            var (_, completion) = runnable.Run(materializer);
+            var (killSwitch, completion) = runnable.Run(materializer);
 
             await using var cancellationRegistration = cancellationToken.Register(
                 () =>
                 {
                     Interlocked.Exchange(ref shutdownRequested, 1);
+                    timerCts?.Cancel();
+                    killSwitch.Shutdown();
                 });
 
             await completion.ConfigureAwait(false);
