@@ -3,6 +3,7 @@ using Akka.Streams;
 using Akka.Streams.Dsl;
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
+using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Core.Test.Shared.Models;
 using Shouldly;
 using Xunit;
@@ -21,7 +22,13 @@ public class CreateTests
         };
 
         var batches = await Helpers.RunBatcher(
-                          new TestProjectionSettings { CatchUpPersistenceStrategy = PersistenceStrategy.ImmediateModelFlush, },
+                          new TestProjectionSettings
+                          {
+                              CatchUpFlush = new ProjectionFlushSettings
+                              {
+                                  Strategy = PersistenceStrategy.ImmediateModelFlush,
+                              },
+                          },
                           changes);
 
         batches.Count.ShouldBe(2);
@@ -43,8 +50,11 @@ public class CreateTests
         var batches = await Helpers.RunBatcher(
                           new TestProjectionSettings
                           {
-                              CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-                              MaxPendingProjectionsCount = 10,
+                              CatchUpFlush = new ProjectionFlushSettings
+                              {
+                                  Strategy = PersistenceStrategy.ModelCountBatching,
+                                  ModelCountThreshold = 10,
+                              },
                           },
                           changes);
 
@@ -72,8 +82,11 @@ public class CreateTests
         var batches = await Helpers.RunBatcher(
                           new TestProjectionSettings
                           {
-                              CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-                              MaxPendingProjectionsCount = 2,
+                              CatchUpFlush = new ProjectionFlushSettings
+                              {
+                                  Strategy = PersistenceStrategy.ModelCountBatching,
+                                  ModelCountThreshold = 2,
+                              },
                           },
                           changes);
 
@@ -107,7 +120,14 @@ public class CreateTests
         };
 
         var batches = await Helpers.RunBatcher(
-                          new TestProjectionSettings { CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching, MaxPendingProjectionsCount = 10, },
+                          new TestProjectionSettings
+                          {
+                              CatchUpFlush = new ProjectionFlushSettings
+                              {
+                                  Strategy = PersistenceStrategy.ModelCountBatching,
+                                  ModelCountThreshold = 10,
+                              },
+                          },
                           changes);
 
         batches.Count.ShouldBe(1);
@@ -131,9 +151,12 @@ public class CreateTests
 
         var settings = new TestProjectionSettings
         {
-            CatchUpPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            MaxPendingProjectionsCount = 100,
-            LiveProcessingFlushDelay = 5,
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.TimeBasedBatching,
+                ModelCountThreshold = 100,
+                Delay = 5,
+            },
         };
 
         var result = await Source.From(changes)
@@ -160,13 +183,49 @@ public class CreateTests
         var batches = await Helpers.RunBatcher(
                           new TestProjectionSettings
                           {
-                              CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-                              MaxPendingProjectionsCount = 0,
+                              CatchUpFlush = new ProjectionFlushSettings
+                              {
+                                  Strategy = PersistenceStrategy.ModelCountBatching,
+                                  ModelCountThreshold = 0,
+                              },
                           },
                           changes);
 
         batches.Count.ShouldBe(2);
         batches.All(x => x.Changes.Count == 1).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Create_Should_Not_Flush_TimeBasedBatching_By_Model_Count()
+    {
+        var changes = new[]
+        {
+            Helpers.CreateChange(Guid.NewGuid(), 1),
+            Helpers.CreateChange(Guid.NewGuid(), 2),
+        };
+
+        using var system = ActorSystem.Create("projection-batcher-time-no-count-test");
+        var materializer = ActorMaterializer.Create(system);
+
+        var settings = new TestProjectionSettings
+        {
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.TimeBasedBatching,
+                ModelCountThreshold = 1,
+                Delay = 1000,
+            },
+        };
+
+        var result = await Source.From(changes)
+                                 .Via(ModelStateBatcher.Create<ItemModel>(settings))
+                                 .RunWith(Sink.Seq<ModelStatesBatch<ItemModel>>(), materializer);
+
+        result.Count.ShouldBe(1);
+        result[0].Changes.Count.ShouldBe(2);
+
+        materializer.Shutdown();
+        await system.Terminate();
     }
 
     [Fact]
@@ -183,13 +242,16 @@ public class CreateTests
 
         var settings = new TestProjectionSettings
         {
-            CatchUpPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            MaxPendingProjectionsCount = 0,
-            LiveProcessingFlushDelay = 0,
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.TimeBasedBatching,
+                ModelCountThreshold = 0,
+                Delay = 0,
+            },
         };
 
         var result = await Source.From(changes)
-                                 .Throttle(1, TimeSpan.FromMilliseconds(5), 1, ThrottleMode.Shaping)
+                                 .Throttle(1, TimeSpan.FromMilliseconds(25), 1, ThrottleMode.Shaping)
                                  .Via(ModelStateBatcher.Create<ItemModel>(settings))
                                  .RunWith(Sink.Seq<ModelStatesBatch<ItemModel>>(), materializer);
 
@@ -212,8 +274,11 @@ public class CreateTests
         var batches = await Helpers.RunBatcher(
                           new TestProjectionSettings
                           {
-                              CatchUpPersistenceStrategy = (PersistenceStrategy)int.MaxValue,
-                              MaxPendingProjectionsCount = 10,
+                              CatchUpFlush = new ProjectionFlushSettings
+                              {
+                                  Strategy = (PersistenceStrategy)int.MaxValue,
+                                  ModelCountThreshold = 10,
+                              },
                           },
                           changes);
 
@@ -243,8 +308,11 @@ public class CreateTests
         var batches = await Helpers.RunBatcher(
                           new TestProjectionSettings
                           {
-                              CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-                              MaxPendingProjectionsCount = 10,
+                              CatchUpFlush = new ProjectionFlushSettings
+                              {
+                                  Strategy = PersistenceStrategy.ModelCountBatching,
+                                  ModelCountThreshold = 10,
+                              },
                           },
                           changes);
 
@@ -261,8 +329,11 @@ public class CreateTests
         var batches = await Helpers.RunBatcher(
                           new TestProjectionSettings
                           {
-                              CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-                              MaxPendingProjectionsCount = 10,
+                              CatchUpFlush = new ProjectionFlushSettings
+                              {
+                                  Strategy = PersistenceStrategy.ModelCountBatching,
+                                  ModelCountThreshold = 10,
+                              },
                           },
                           changes);
 

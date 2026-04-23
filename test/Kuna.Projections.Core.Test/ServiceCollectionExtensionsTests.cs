@@ -37,8 +37,9 @@ public class ServiceCollectionExtensionsTests
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
                                 {
-                                    [$"{ProjectionSettingsSection.Name}:CatchUpPersistenceStrategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
-                                    [$"{ProjectionSettingsSection.Name}:MaxPendingProjectionsCount"] = "12",
+                                    [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
+                                    [$"{ProjectionSettingsSection.Name}:CatchUpFlush:ModelCountThreshold"] = "12",
+                                    [$"{ProjectionSettingsSection.Name}:LiveProcessingFlush:ModelCountThreshold"] = "7",
                                 })
                             .Build();
 
@@ -47,15 +48,14 @@ public class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
         var settings = provider.GetRequiredService<IProjectionSettings<CoreServiceTestModel>>();
 
-        settings.MaxPendingProjectionsCount.ShouldBe(12);
-        settings.SourceBufferCapacity.ShouldBe(10000);
-        settings.TransformSinkBufferCapacity.ShouldBe(10000);
-        settings.LiveProcessingFlushDelay.ShouldBe(1000);
-        settings.CatchUpPersistenceStrategy.ShouldBe(PersistenceStrategy.ModelCountBatching);
-        settings.LiveProcessingPersistenceStrategy.ShouldBe(PersistenceStrategy.ImmediateModelFlush);
-        settings.SkipStateNotFoundFailure.ShouldBeFalse();
-        settings.InFlightModelCacheMinEntries.ShouldBe(10000);
-        settings.InFlightModelCacheCapacityMultiplier.ShouldBe(3);
+        settings.CatchUpFlush.ModelCountThreshold.ShouldBe(12);
+        settings.LiveProcessingFlush.ModelCountThreshold.ShouldBe(7);
+        settings.Backpressure.SourceToTransformBufferCapacity.ShouldBe(10000);
+        settings.Backpressure.TransformToSinkBufferCapacity.ShouldBe(10000);
+        settings.LiveProcessingFlush.Delay.ShouldBe(1000);
+        settings.CatchUpFlush.Strategy.ShouldBe(PersistenceStrategy.ModelCountBatching);
+        settings.LiveProcessingFlush.Strategy.ShouldBe(PersistenceStrategy.ImmediateModelFlush);
+        settings.ModelStateCacheCapacity.ShouldBe(10000);
         settings.EventVersionCheckStrategy.ShouldBe(EventVersionCheckStrategy.Consecutive);
     }
 
@@ -69,7 +69,7 @@ public class ServiceCollectionExtensionsTests
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
                                 {
-                                    [$"{ProjectionSettingsSection.Name}:CatchUpPersistenceStrategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
+                                    [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
 
@@ -119,7 +119,7 @@ public class ServiceCollectionExtensionsTests
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
                                 {
-                                    ["OrdersProjection:CatchUpPersistenceStrategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
+                                    ["OrdersProjection:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
 
@@ -130,15 +130,14 @@ public class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
         var settings = provider.GetRequiredService<IProjectionSettings<CoreServiceTestModel>>();
 
-        settings.CatchUpPersistenceStrategy.ShouldBe(PersistenceStrategy.ModelCountBatching);
-        settings.LiveProcessingPersistenceStrategy.ShouldBe(PersistenceStrategy.ImmediateModelFlush);
-        settings.MaxPendingProjectionsCount.ShouldBe(100);
-        settings.SourceBufferCapacity.ShouldBe(10000);
-        settings.TransformSinkBufferCapacity.ShouldBe(10000);
-        settings.LiveProcessingFlushDelay.ShouldBe(1000);
-        settings.SkipStateNotFoundFailure.ShouldBeFalse();
-        settings.InFlightModelCacheMinEntries.ShouldBe(10000);
-        settings.InFlightModelCacheCapacityMultiplier.ShouldBe(3);
+        settings.CatchUpFlush.Strategy.ShouldBe(PersistenceStrategy.ModelCountBatching);
+        settings.LiveProcessingFlush.Strategy.ShouldBe(PersistenceStrategy.ImmediateModelFlush);
+        settings.CatchUpFlush.ModelCountThreshold.ShouldBe(100);
+        settings.LiveProcessingFlush.ModelCountThreshold.ShouldBe(100);
+        settings.Backpressure.SourceToTransformBufferCapacity.ShouldBe(10000);
+        settings.Backpressure.TransformToSinkBufferCapacity.ShouldBe(10000);
+        settings.LiveProcessingFlush.Delay.ShouldBe(1000);
+        settings.ModelStateCacheCapacity.ShouldBe(10000);
         settings.EventVersionCheckStrategy.ShouldBe(EventVersionCheckStrategy.Consecutive);
     }
 
@@ -152,7 +151,7 @@ public class ServiceCollectionExtensionsTests
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
                                 {
-                                    [$"{ProjectionSettingsSection.Name}:CatchUpPersistenceStrategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
+                                    [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
 

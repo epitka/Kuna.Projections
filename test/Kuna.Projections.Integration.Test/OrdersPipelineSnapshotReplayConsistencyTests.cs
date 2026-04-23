@@ -54,10 +54,10 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                 TargetEvents: 5000,
                 MinimumCompleteOrders: 333,
                 ProjectionStartOffsetEvents: 1_000,
-                CatchUpPersistenceStrategy: PersistenceStrategy.ModelCountBatching,
+                CatchUpStrategy: PersistenceStrategy.ModelCountBatching,
                 LivePersistenceStrategy: PersistenceStrategy.ImmediateModelFlush,
                 EventsBoundedCapacity: 50_000,
-                MaxPendingProjections: 1_000,
+                ModelCountFlushThreshold: 1_000,
                 LiveOrdersToAppend: 250,
                 PostStartAppendDelayMs: 3_000,
                 DebugProgressEnabled: true),
@@ -100,8 +100,8 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
             this.kurrentFixture.ConnectionString,
             this.postgresFixture.ConnectionString,
             testCase.EventsBoundedCapacity,
-            testCase.MaxPendingProjections,
-            testCase.CatchUpPersistenceStrategy,
+            testCase.ModelCountFlushThreshold,
+            testCase.CatchUpStrategy,
             testCase.LivePersistenceStrategy);
 
         var pipeline = provider.GetRequiredService<IProjectionPipeline<Order>>();
@@ -609,7 +609,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         string kurrentConnectionString,
         string postgresConnectionString,
         int eventsBoundedCapacity,
-        int maxPendingProjections,
+        int modelCountFlushThreshold,
         PersistenceStrategy catchUpPersistenceStrategy,
         PersistenceStrategy livePersistenceStrategy)
     {
@@ -634,13 +634,13 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         services.AddSingleton<IProjectionSettings<Order>>(
             new ProjectionSettings<Order>
             {
-                ReadBufferCapacity = eventsBoundedCapacity,
                 ModelIdResolutionStrategy = ModelIdResolutionStrategy.PreferAttribute,
             });
 
         services.AddSingleton(
             new KurrentDbSourceSettings
             {
+                SubscriptionBufferCapacity = eventsBoundedCapacity,
                 Filter = new KurrentDbFilterSettings
                 {
                     Kind = KurrentDbFilterKind.StreamPrefix,
@@ -656,13 +656,12 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                      .AddInMemoryCollection(
                          new Dictionary<string, string?>
                          {
-                             ["Projections:CatchUpPersistenceStrategy"] = catchUpPersistenceStrategy.ToString(),
-                             ["Projections:LiveProcessingPersistenceStrategy"] = livePersistenceStrategy.ToString(),
-                             ["Projections:MaxPendingProjectionsCount"] = maxPendingProjections.ToString(CultureInfo.InvariantCulture),
-                             ["Projections:LiveProcessingFlushDelay"] = "25",
-                             ["Projections:SkipStateNotFoundFailure"] = "false",
-                             ["Projections:InFlightModelCacheMinEntries"] = "10000",
-                             ["Projections:InFlightModelCacheCapacityMultiplier"] = "3",
+                             ["Projections:CatchUpFlush:Strategy"] = catchUpPersistenceStrategy.ToString(),
+                             ["Projections:LiveProcessingFlush:Strategy"] = livePersistenceStrategy.ToString(),
+                             ["Projections:CatchUpFlush:ModelCountThreshold"] = modelCountFlushThreshold.ToString(CultureInfo.InvariantCulture),
+                             ["Projections:LiveProcessingFlush:ModelCountThreshold"] = modelCountFlushThreshold.ToString(CultureInfo.InvariantCulture),
+                             ["Projections:LiveProcessingFlush:Delay"] = "25",
+                             ["Projections:ModelStateCacheCapacity"] = "10000",
                              ["Projections:EventVersionCheckStrategy"] = EventVersionCheckStrategy.Consecutive.ToString(),
                          })
                      .Build();
@@ -833,10 +832,10 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         int TargetEvents,
         int MinimumCompleteOrders,
         int ProjectionStartOffsetEvents,
-        PersistenceStrategy CatchUpPersistenceStrategy,
+        PersistenceStrategy CatchUpStrategy,
         PersistenceStrategy LivePersistenceStrategy,
         int EventsBoundedCapacity,
-        int MaxPendingProjections,
+        int ModelCountFlushThreshold,
         int LiveOrdersToAppend,
         int PostStartAppendDelayMs,
         bool DebugProgressEnabled);
