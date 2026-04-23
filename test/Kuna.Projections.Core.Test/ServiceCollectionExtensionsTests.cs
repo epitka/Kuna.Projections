@@ -167,6 +167,76 @@ public class ServiceCollectionExtensionsTests
         ex.Message.ShouldContain("Guid parameter");
     }
 
+    [Fact]
+    public void AddProjectionCore_Should_Register_Default_Projection_Creation_Metadata()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IModelStateStore<CoreServiceTestModel>, DummyStateStore>();
+
+        var configuration = new ConfigurationBuilder()
+                            .AddInMemoryCollection(
+                                new Dictionary<string, string?>
+                                {
+                                    [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
+                                })
+                            .Build();
+
+        services.AddProjection<CoreServiceTestModel>(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var registration = GetProjectionCreationRegistration<CoreServiceTestModel>(provider);
+
+        registration.ShouldNotBeNull();
+        GetInitialEventType(registration).ShouldBeNull();
+    }
+
+    [Fact]
+    public void AddProjectionCore_Should_Allow_Registering_Initial_Event()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IModelStateStore<CoreServiceTestModel>, DummyStateStore>();
+
+        var configuration = new ConfigurationBuilder()
+                            .AddInMemoryCollection(
+                                new Dictionary<string, string?>
+                                {
+                                    [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
+                                })
+                            .Build();
+
+        services.AddProjection<CoreServiceTestModel>(configuration)
+                .WithInitialEvent<TestInitialEvent>();
+
+        using var provider = services.BuildServiceProvider();
+        var registration = GetProjectionCreationRegistration<CoreServiceTestModel>(provider);
+
+        GetInitialEventType(registration).ShouldBe(typeof(TestInitialEvent));
+    }
+
+    [Fact]
+    public void AddProjectionCore_Should_Throw_When_Initial_Event_Is_Registered_Twice()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IModelStateStore<CoreServiceTestModel>, DummyStateStore>();
+
+        var configuration = new ConfigurationBuilder()
+                            .AddInMemoryCollection(
+                                new Dictionary<string, string?>
+                                {
+                                    [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
+                                })
+                            .Build();
+
+        var builder = services.AddProjection<CoreServiceTestModel>(configuration)
+                              .WithInitialEvent<TestInitialEvent>();
+
+        var ex = Should.Throw<InvalidOperationException>(
+            () => builder.WithInitialEvent<AnotherInitialEvent>());
+
+        ex.Message.ShouldContain(typeof(CoreServiceTestModel).FullName!);
+        ex.Message.ShouldContain(typeof(TestInitialEvent).FullName!);
+    }
+
     public sealed class CoreServiceTestModel : Model
     {
     }
@@ -177,6 +247,14 @@ public class ServiceCollectionExtensionsTests
             : base(id)
         {
         }
+    }
+
+    public sealed class TestInitialEvent : Event
+    {
+    }
+
+    public sealed class AnotherInitialEvent : Event
+    {
     }
 
     public sealed class BadCtorModel : Model
@@ -205,5 +283,20 @@ public class ServiceCollectionExtensionsTests
         {
             return Task.FromResult<BadCtorModel?>(null);
         }
+    }
+
+    private static object GetProjectionCreationRegistration<TState>(IServiceProvider provider)
+        where TState : class, IModel, new()
+    {
+        var registrationType = typeof(ServiceCollectionExtensions).Assembly
+                                                                 .GetType("Kuna.Projections.Core.ProjectionCreationRegistration`1")!
+                                                                 .MakeGenericType(typeof(TState));
+
+        return provider.GetRequiredService(registrationType);
+    }
+
+    private static Type? GetInitialEventType(object registration)
+    {
+        return (Type?)registration.GetType().GetProperty("InitialEventType")!.GetValue(registration);
     }
 }

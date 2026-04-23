@@ -5,6 +5,7 @@ using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Core.Utils;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -32,7 +33,7 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddProjection<TState>(
+    public static ProjectionRegistrationBuilder<TState> AddProjection<TState>(
         this IServiceCollection services,
         IConfiguration configuration,
         Action<ProjectionSettings<TState>>? configureProjection = null,
@@ -93,7 +94,8 @@ public static class ServiceCollectionExtensions
         configureProjection?.Invoke(projectionSettings);
 
         services.AddSingleton<IProjectionSettings<TState>>(projectionSettings);
+        services.TryAddSingleton(new ProjectionCreationRegistration<TState>(initialEventType: null));
 
-        return services;
+        return new ProjectionRegistrationBuilder<TState>(services);
     }
 }
