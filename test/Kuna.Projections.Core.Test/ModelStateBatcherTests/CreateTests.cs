@@ -251,7 +251,7 @@ public class CreateTests
         };
 
         var result = await Source.From(changes)
-                                 .Throttle(1, TimeSpan.FromMilliseconds(5), 1, ThrottleMode.Shaping)
+                                 .Throttle(1, TimeSpan.FromMilliseconds(25), 1, ThrottleMode.Shaping)
                                  .Via(ModelStateBatcher.Create<ItemModel>(settings))
                                  .RunWith(Sink.Seq<ModelStatesBatch<ItemModel>>(), materializer);
 
