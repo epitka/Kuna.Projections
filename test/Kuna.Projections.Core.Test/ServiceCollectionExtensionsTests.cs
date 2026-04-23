@@ -249,9 +249,9 @@ public class ServiceCollectionExtensionsTests
         return provider.GetRequiredService(registrationType);
     }
 
-    private static Type? GetInitialEventType(object registration)
+    private static Type GetInitialEventType(object registration)
     {
-        return (Type?)registration.GetType().GetProperty("InitialEventType")!.GetValue(registration);
+        return (Type)registration.GetType().GetProperty("InitialEventType")!.GetValue(registration)!;
     }
 
     public sealed class CoreServiceTestModel : Model

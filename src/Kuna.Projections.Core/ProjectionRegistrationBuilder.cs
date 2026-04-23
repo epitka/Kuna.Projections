@@ -24,7 +24,7 @@ public sealed class ProjectionRegistrationBuilder<TState>
                                        .OfType<ProjectionCreationRegistration<TState>>()
                                        .LastOrDefault();
 
-        if (existingRegistration?.InitialEventType != null)
+        if (existingRegistration != null)
         {
             throw new InvalidOperationException(
                 $"Projection {typeof(TState).FullName} already has initial event {existingRegistration.InitialEventType.FullName} configured.");

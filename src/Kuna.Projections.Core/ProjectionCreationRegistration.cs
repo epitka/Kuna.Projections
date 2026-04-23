@@ -6,10 +6,11 @@ namespace Kuna.Projections.Core;
 public sealed class ProjectionCreationRegistration<TState>
     where TState : class, IModel, new()
 {
-    public ProjectionCreationRegistration(Type? initialEventType)
+    public ProjectionCreationRegistration(Type initialEventType)
     {
-        if (initialEventType != null
-            && !typeof(Event).IsAssignableFrom(initialEventType))
+        ArgumentNullException.ThrowIfNull(initialEventType);
+
+        if (!typeof(Event).IsAssignableFrom(initialEventType))
         {
             throw new ArgumentException($"Initial event type must inherit from {typeof(Event).FullName}.", nameof(initialEventType));
         }
@@ -17,5 +18,5 @@ public sealed class ProjectionCreationRegistration<TState>
         this.InitialEventType = initialEventType;
     }
 
-    public Type? InitialEventType { get; }
+    public Type InitialEventType { get; }
 }
