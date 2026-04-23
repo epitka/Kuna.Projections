@@ -6,6 +6,7 @@ using Kuna.Projections.Sink.EF;
 using Kuna.Projections.Sink.EF.Data;
 using Kuna.Projections.Source.Kurrent;
 using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
+using Kuna.StreamGenerator;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -54,7 +55,8 @@ public static class ServiceCollectionExtensions
         services.AddSqlProjectionsDataStore<Order, OrdersDbContext>(schema: ProjectionSchema);
         services.AddProjection<Order>(
             configuration,
-            settingsSectionName: "OrdersProjection");
+            settingsSectionName: "OrdersProjection")
+                .WithInitialEvent<OrderCreatedEvent>();
 
         services.AddScoped<OrdersReplayConsistencyDiagnostics>();
 

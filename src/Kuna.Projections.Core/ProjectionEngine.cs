@@ -21,7 +21,7 @@ internal sealed class ProjectionEngine<TState>
     private readonly IProjectionFactory<TState> projectionFactory;
     private readonly IProjectionFailureHandler<TState> failureHandler;
     private readonly IModelStateCache<TState> modelStateCache;
-    private readonly ProjectionCreationRegistration<TState>? creationRegistration;
+    private readonly ProjectionCreationRegistration<TState> creationRegistration;
     private readonly IProjectionSettings<TState> settings;
     private readonly ILogger logger;
     private readonly string modelName;
@@ -37,7 +37,7 @@ internal sealed class ProjectionEngine<TState>
         IProjectionFactory<TState> projectionFactory,
         IProjectionFailureHandler<TState> failureHandler,
         IModelStateCache<TState> modelStateCache,
-        ProjectionCreationRegistration<TState>? creationRegistration,
+        ProjectionCreationRegistration<TState> creationRegistration,
         IProjectionSettings<TState> settings,
         ILogger<ProjectionEngine<TState>> logger)
     {
@@ -265,13 +265,6 @@ internal sealed class ProjectionEngine<TState>
 
     private bool ShouldCreateFromInitialEvent(EventEnvelope envelope)
     {
-        var initialEventType = this.creationRegistration?.InitialEventType;
-
-        if (initialEventType != null)
-        {
-            return initialEventType == envelope.Event.GetType();
-        }
-
-        return envelope.EventNumber == 0;
+        return this.creationRegistration.InitialEventType == envelope.Event.GetType();
     }
 }

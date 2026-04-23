@@ -15,6 +15,8 @@ public class ServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<IModelStateStore<CoreServiceTestModel>, DummyStateStore>();
+        services.AddSingleton<IProjectionFailureHandler<CoreServiceTestModel>, DummyFailureHandler>();
+        services.AddLogging();
 
         var configuration = new ConfigurationBuilder()
                             .AddInMemoryCollection(new Dictionary<string, string?>())
@@ -168,10 +170,12 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddProjectionCore_Should_Register_Default_Projection_Creation_Metadata()
+    public void AddProjectionCore_Should_Require_Initial_Event_Registration_For_Runtime_Resolution()
     {
         var services = new ServiceCollection();
         services.AddSingleton<IModelStateStore<CoreServiceTestModel>, DummyStateStore>();
+        services.AddSingleton<IProjectionFailureHandler<CoreServiceTestModel>, DummyFailureHandler>();
+        services.AddLogging();
 
         var configuration = new ConfigurationBuilder()
                             .AddInMemoryCollection(
@@ -184,10 +188,10 @@ public class ServiceCollectionExtensionsTests
         services.AddProjection<CoreServiceTestModel>(configuration);
 
         using var provider = services.BuildServiceProvider();
-        var registration = GetProjectionCreationRegistration<CoreServiceTestModel>(provider);
+        var ex = Should.Throw<InvalidOperationException>(
+            () => provider.GetRequiredService<ProjectionEngine<CoreServiceTestModel>>());
 
-        registration.ShouldNotBeNull();
-        GetInitialEventType(registration).ShouldBeNull();
+        ex.Message.ShouldContain(nameof(ProjectionCreationRegistration<CoreServiceTestModel>));
     }
 
     [Fact]
@@ -274,6 +278,14 @@ public class ServiceCollectionExtensionsTests
         public Task<CoreServiceTestModel?> Load(Guid modelId, CancellationToken cancellationToken)
         {
             return Task.FromResult<CoreServiceTestModel?>(null);
+        }
+    }
+
+    private sealed class DummyFailureHandler : IProjectionFailureHandler<CoreServiceTestModel>
+    {
+        public Task Handle(ProjectionFailure failure, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
         }
     }
 

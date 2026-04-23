@@ -94,7 +94,6 @@ public static class ServiceCollectionExtensions
         configureProjection?.Invoke(projectionSettings);
 
         services.AddSingleton<IProjectionSettings<TState>>(projectionSettings);
-        services.TryAddSingleton(new ProjectionCreationRegistration<TState>(initialEventType: null));
 
         return new ProjectionRegistrationBuilder<TState>(services);
     }
