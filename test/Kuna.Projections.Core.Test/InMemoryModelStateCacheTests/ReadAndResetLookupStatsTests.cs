@@ -42,7 +42,7 @@ public class ReadAndResetLookupStatsTests
         {
             CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
             LiveProcessingPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            MaxPendingProjectionsCount = 100,
+            CatchUpModelCountFlushThreshold = 100,
             LiveProcessingFlushDelay = 1000,
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,

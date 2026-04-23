@@ -22,7 +22,7 @@ public class TransformTests
         {
             CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
             LiveProcessingPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            MaxPendingProjectionsCount = 100,
+            CatchUpModelCountFlushThreshold = 100,
             LiveProcessingFlushDelay = 1000,
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = 10000,
@@ -373,7 +373,7 @@ public class TransformTests
         {
             CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
             LiveProcessingPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            MaxPendingProjectionsCount = 100,
+            CatchUpModelCountFlushThreshold = 100,
             LiveProcessingFlushDelay = 1000,
             SkipStateNotFoundFailure = skipStateNotFoundFailure,
             InFlightModelCacheMinEntries = 10000,

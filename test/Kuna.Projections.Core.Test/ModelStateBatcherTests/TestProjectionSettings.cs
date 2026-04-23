@@ -10,7 +10,9 @@ internal sealed class TestProjectionSettings : IProjectionSettings<ItemModel>
 
     public PersistenceStrategy LiveProcessingPersistenceStrategy { get; set; } = PersistenceStrategy.TimeBasedBatching;
 
-    public int MaxPendingProjectionsCount { get; set; }
+    public int CatchUpModelCountFlushThreshold { get; set; }
+
+    public int LiveProcessingModelCountFlushThreshold { get; set; }
 
     public int SourceBufferCapacity { get; set; }
 

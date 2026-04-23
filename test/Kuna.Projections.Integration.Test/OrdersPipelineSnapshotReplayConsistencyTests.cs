@@ -57,7 +57,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                 CatchUpPersistenceStrategy: PersistenceStrategy.ModelCountBatching,
                 LivePersistenceStrategy: PersistenceStrategy.ImmediateModelFlush,
                 EventsBoundedCapacity: 50_000,
-                MaxPendingProjections: 1_000,
+                ModelCountFlushThreshold: 1_000,
                 LiveOrdersToAppend: 250,
                 PostStartAppendDelayMs: 3_000,
                 DebugProgressEnabled: true),
@@ -100,7 +100,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
             this.kurrentFixture.ConnectionString,
             this.postgresFixture.ConnectionString,
             testCase.EventsBoundedCapacity,
-            testCase.MaxPendingProjections,
+            testCase.ModelCountFlushThreshold,
             testCase.CatchUpPersistenceStrategy,
             testCase.LivePersistenceStrategy);
 
@@ -609,7 +609,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         string kurrentConnectionString,
         string postgresConnectionString,
         int eventsBoundedCapacity,
-        int maxPendingProjections,
+        int modelCountFlushThreshold,
         PersistenceStrategy catchUpPersistenceStrategy,
         PersistenceStrategy livePersistenceStrategy)
     {
@@ -658,7 +658,8 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                          {
                              ["Projections:CatchUpPersistenceStrategy"] = catchUpPersistenceStrategy.ToString(),
                              ["Projections:LiveProcessingPersistenceStrategy"] = livePersistenceStrategy.ToString(),
-                             ["Projections:MaxPendingProjectionsCount"] = maxPendingProjections.ToString(CultureInfo.InvariantCulture),
+                             ["Projections:CatchUpModelCountFlushThreshold"] = modelCountFlushThreshold.ToString(CultureInfo.InvariantCulture),
+                             ["Projections:LiveProcessingModelCountFlushThreshold"] = modelCountFlushThreshold.ToString(CultureInfo.InvariantCulture),
                              ["Projections:LiveProcessingFlushDelay"] = "25",
                              ["Projections:SkipStateNotFoundFailure"] = "false",
                              ["Projections:InFlightModelCacheMinEntries"] = "10000",
@@ -836,7 +837,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         PersistenceStrategy CatchUpPersistenceStrategy,
         PersistenceStrategy LivePersistenceStrategy,
         int EventsBoundedCapacity,
-        int MaxPendingProjections,
+        int ModelCountFlushThreshold,
         int LiveOrdersToAppend,
         int PostStartAppendDelayMs,
         bool DebugProgressEnabled);

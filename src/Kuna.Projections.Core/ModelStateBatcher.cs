@@ -25,7 +25,7 @@ internal static class ModelStateBatcher
             case PersistenceStrategy.TimeBasedBatching:
                 return Flow.Create<ModelState<TState>>()
                            .GroupedWithin(
-                               Math.Max(1, settings.MaxPendingProjectionsCount),
+                               int.MaxValue,
                                TimeSpan.FromMilliseconds(Math.Max(1, settings.LiveProcessingFlushDelay)))
                            .Select(ToBatch);
 
@@ -34,7 +34,7 @@ internal static class ModelStateBatcher
                 return Flow.Create<ModelState<TState>>()
                            .Select(BatchInput<TState>.ForChange)
                            .Concat(Source.Single(BatchInput<TState>.Complete()))
-                           .StatefulSelectMany(() => CreateDistinctModelBatcher<TState>(Math.Max(1, settings.MaxPendingProjectionsCount)));
+                           .StatefulSelectMany(() => CreateDistinctModelBatcher<TState>(Math.Max(1, settings.CatchUpModelCountFlushThreshold)));
         }
     }
 

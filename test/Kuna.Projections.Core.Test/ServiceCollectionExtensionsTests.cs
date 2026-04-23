@@ -38,7 +38,8 @@ public class ServiceCollectionExtensionsTests
                                 new Dictionary<string, string?>
                                 {
                                     [$"{ProjectionSettingsSection.Name}:CatchUpPersistenceStrategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
-                                    [$"{ProjectionSettingsSection.Name}:MaxPendingProjectionsCount"] = "12",
+                                    [$"{ProjectionSettingsSection.Name}:CatchUpModelCountFlushThreshold"] = "12",
+                                    [$"{ProjectionSettingsSection.Name}:LiveProcessingModelCountFlushThreshold"] = "7",
                                 })
                             .Build();
 
@@ -47,7 +48,8 @@ public class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
         var settings = provider.GetRequiredService<IProjectionSettings<CoreServiceTestModel>>();
 
-        settings.MaxPendingProjectionsCount.ShouldBe(12);
+        settings.CatchUpModelCountFlushThreshold.ShouldBe(12);
+        settings.LiveProcessingModelCountFlushThreshold.ShouldBe(7);
         settings.SourceBufferCapacity.ShouldBe(10000);
         settings.TransformSinkBufferCapacity.ShouldBe(10000);
         settings.LiveProcessingFlushDelay.ShouldBe(1000);
@@ -132,7 +134,8 @@ public class ServiceCollectionExtensionsTests
 
         settings.CatchUpPersistenceStrategy.ShouldBe(PersistenceStrategy.ModelCountBatching);
         settings.LiveProcessingPersistenceStrategy.ShouldBe(PersistenceStrategy.ImmediateModelFlush);
-        settings.MaxPendingProjectionsCount.ShouldBe(100);
+        settings.CatchUpModelCountFlushThreshold.ShouldBe(100);
+        settings.LiveProcessingModelCountFlushThreshold.ShouldBe(100);
         settings.SourceBufferCapacity.ShouldBe(10000);
         settings.TransformSinkBufferCapacity.ShouldBe(10000);
         settings.LiveProcessingFlushDelay.ShouldBe(1000);

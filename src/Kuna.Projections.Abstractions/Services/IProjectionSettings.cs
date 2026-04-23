@@ -10,7 +10,9 @@ public interface IProjectionSettings<TState>
 
     Models.PersistenceStrategy LiveProcessingPersistenceStrategy { get; set; }
 
-    int MaxPendingProjectionsCount { get; set; }
+    int CatchUpModelCountFlushThreshold { get; set; }
+
+    int LiveProcessingModelCountFlushThreshold { get; set; }
 
     int SourceBufferCapacity { get; set; }
 
@@ -38,8 +40,8 @@ public interface IProjectionSettings<TState>
     int InFlightModelCacheMinEntries { get; set; }
 
     /// <summary>
-    /// Dynamic capacity multiplier based on MaxPendingProjectionsCount.
-    /// Effective cache size is max(InFlightModelCacheMinEntries, MaxPendingProjectionsCount * multiplier).
+    /// Dynamic capacity multiplier based on model-count flush thresholds.
+    /// Effective cache size is max(InFlightModelCacheMinEntries, max(CatchUpModelCountFlushThreshold, LiveProcessingModelCountFlushThreshold) * multiplier).
     /// </summary>
     int InFlightModelCacheCapacityMultiplier { get; set; }
 
@@ -73,10 +75,16 @@ public class ProjectionSettings<TState> : IProjectionSettings<TState>
     public Models.PersistenceStrategy LiveProcessingPersistenceStrategy { get; set; } = Models.PersistenceStrategy.ImmediateModelFlush;
 
     /// <summary>
-    /// Maximum number of distinct models allowed to accumulate before a count-based flush is triggered.
+    /// Number of distinct models allowed to accumulate during catch-up before a count-based flush is triggered.
     /// Increase this to batch more work per flush at the cost of memory and replay latency.
     /// </summary>
-    public int MaxPendingProjectionsCount { get; set; } = 100;
+    public int CatchUpModelCountFlushThreshold { get; set; } = 100;
+
+    /// <summary>
+    /// Number of distinct models allowed to accumulate during live processing before a count-based flush is triggered.
+    /// Applies when live processing uses model-count batching.
+    /// </summary>
+    public int LiveProcessingModelCountFlushThreshold { get; set; } = 100;
 
     /// <summary>
     /// Number of source envelopes that may be buffered ahead of transformation.
@@ -126,7 +134,7 @@ public class ProjectionSettings<TState> : IProjectionSettings<TState>
     public int InFlightModelCacheMinEntries { get; set; } = 10000;
 
     /// <summary>
-    /// Multiplier used to scale in-flight cache capacity from <see cref="MaxPendingProjectionsCount"/>.
+    /// Multiplier used to scale in-flight cache capacity from configured model-count flush thresholds.
     /// Effective cache size is the greater of this derived value and the configured minimum entry count.
     /// </summary>
     public int InFlightModelCacheCapacityMultiplier { get; set; } = 3;

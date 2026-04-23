@@ -71,7 +71,10 @@ public sealed class InMemoryModelStateCache<TState> : IModelStateCache<TState>
             1,
             Math.Max(
                 settings.InFlightModelCacheMinEntries,
-                Math.Max(1, settings.MaxPendingProjectionsCount) * Math.Max(1, settings.InFlightModelCacheCapacityMultiplier)));
+                Math.Max(
+                    Math.Max(1, settings.CatchUpModelCountFlushThreshold),
+                    Math.Max(1, settings.LiveProcessingModelCountFlushThreshold))
+                * Math.Max(1, settings.InFlightModelCacheCapacityMultiplier)));
 
         this.inFlightCache = new ConcurrentDictionary<Guid, CacheEntry>(Environment.ProcessorCount, this.inFlightCacheCapacity);
         this.evictionQueue = new ConcurrentQueue<EvictionEntry>();

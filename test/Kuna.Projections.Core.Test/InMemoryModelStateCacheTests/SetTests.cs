@@ -48,7 +48,7 @@ public class SetTests
     [Fact]
     public void Set_Should_Evict_Older_Entries_When_Capacity_Is_Exceeded()
     {
-        var cache = new InMemoryModelStateCache<ItemModel>(CreateSettings(minEntries: 1, capacityMultiplier: 1, maxPending: 1));
+        var cache = new InMemoryModelStateCache<ItemModel>(CreateSettings(minEntries: 1, capacityMultiplier: 1, modelCountFlushThreshold: 1));
         var firstModelId = Guid.NewGuid();
         var secondModelId = Guid.NewGuid();
 
@@ -64,7 +64,7 @@ public class SetTests
     [Fact]
     public void Set_Should_Not_Evict_Newer_State_For_Same_Model_When_Older_Eviction_Record_Is_Dequeued()
     {
-        var cache = new InMemoryModelStateCache<ItemModel>(CreateSettings(minEntries: 2, capacityMultiplier: 1, maxPending: 2));
+        var cache = new InMemoryModelStateCache<ItemModel>(CreateSettings(minEntries: 2, capacityMultiplier: 1, modelCountFlushThreshold: 2));
         var modelId = Guid.NewGuid();
         var otherModelId = Guid.NewGuid();
 
@@ -81,13 +81,14 @@ public class SetTests
     private static ProjectionSettings<ItemModel> CreateSettings(
         int minEntries = 10000,
         int capacityMultiplier = 3,
-        int maxPending = 100)
+        int modelCountFlushThreshold = 100)
     {
         return new ProjectionSettings<ItemModel>
         {
             CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
             LiveProcessingPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            MaxPendingProjectionsCount = maxPending,
+            CatchUpModelCountFlushThreshold = modelCountFlushThreshold,
+            LiveProcessingModelCountFlushThreshold = modelCountFlushThreshold,
             LiveProcessingFlushDelay = 1000,
             SkipStateNotFoundFailure = true,
             InFlightModelCacheMinEntries = minEntries,

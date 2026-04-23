@@ -117,12 +117,13 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         try
         {
             this.logger.LogInformation(
-                "Projection pipeline starting for {ModelName}: startPosition={StartPosition}, catchUpStrategy={CatchUpStrategy}, liveStrategy={LiveStrategy}, maxPendingProjections={MaxPendingProjections}, liveFlushDelayMs={LiveFlushDelayMs}",
+                "Projection pipeline starting for {ModelName}: startPosition={StartPosition}, catchUpStrategy={CatchUpStrategy}, liveStrategy={LiveStrategy}, catchUpModelCountFlushThreshold={CatchUpModelCountFlushThreshold}, liveProcessingModelCountFlushThreshold={LiveProcessingModelCountFlushThreshold}, liveFlushDelayMs={LiveFlushDelayMs}",
                 this.modelName,
                 start,
                 this.settings.CatchUpPersistenceStrategy,
                 this.settings.LiveProcessingPersistenceStrategy,
-                this.settings.MaxPendingProjectionsCount,
+                this.settings.CatchUpModelCountFlushThreshold,
+                this.settings.LiveProcessingModelCountFlushThreshold,
                 this.settings.LiveProcessingFlushDelay);
 
             var flushDelay = TimeSpan.FromMilliseconds(Math.Max(1, this.settings.LiveProcessingFlushDelay));
@@ -418,15 +419,19 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                                           ? this.settings.LiveProcessingPersistenceStrategy
                                                           : this.settings.CatchUpPersistenceStrategy;
 
-                                       var maxPending = Math.Max(1, this.settings.MaxPendingProjectionsCount);
+                                       var modelCountFlushThreshold = Math.Max(
+                                           1,
+                                           liveProcessingStarted
+                                               ? this.settings.LiveProcessingModelCountFlushThreshold
+                                               : this.settings.CatchUpModelCountFlushThreshold);
                                        var timerFlushDue = Interlocked.Exchange(ref periodicFlushRequested, 0) == 1;
 
                                        return strategy switch
                                               {
                                                   PersistenceStrategy.ImmediateModelFlush => signalKind == PipelineSignalKind.Event,
                                                   PersistenceStrategy.TimeBasedBatching =>
-                                                      pendingModelIds.Count >= maxPending || signalKind == PipelineSignalKind.Tick || timerFlushDue,
-                                                  _ => pendingModelIds.Count >= maxPending,
+                                                      signalKind == PipelineSignalKind.Tick || timerFlushDue,
+                                                  _ => pendingModelIds.Count >= modelCountFlushThreshold,
                                               };
                                    }
                                };

@@ -150,7 +150,7 @@ public class OnFlushSucceededTests
         {
             CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
             LiveProcessingPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            MaxPendingProjectionsCount = 100,
+            CatchUpModelCountFlushThreshold = 100,
             LiveProcessingFlushDelay = 1000,
             SkipStateNotFoundFailure = skipStateNotFoundFailure,
             InFlightModelCacheMinEntries = 10000,

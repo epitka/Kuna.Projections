@@ -44,7 +44,7 @@ public class CreateTests
                           new TestProjectionSettings
                           {
                               CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-                              MaxPendingProjectionsCount = 10,
+                              CatchUpModelCountFlushThreshold = 10,
                           },
                           changes);
 
@@ -73,7 +73,7 @@ public class CreateTests
                           new TestProjectionSettings
                           {
                               CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-                              MaxPendingProjectionsCount = 2,
+                              CatchUpModelCountFlushThreshold = 2,
                           },
                           changes);
 
@@ -107,7 +107,7 @@ public class CreateTests
         };
 
         var batches = await Helpers.RunBatcher(
-                          new TestProjectionSettings { CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching, MaxPendingProjectionsCount = 10, },
+                          new TestProjectionSettings { CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching, CatchUpModelCountFlushThreshold = 10, },
                           changes);
 
         batches.Count.ShouldBe(1);
@@ -132,7 +132,7 @@ public class CreateTests
         var settings = new TestProjectionSettings
         {
             CatchUpPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            MaxPendingProjectionsCount = 100,
+            CatchUpModelCountFlushThreshold = 100,
             LiveProcessingFlushDelay = 5,
         };
 
@@ -161,12 +161,42 @@ public class CreateTests
                           new TestProjectionSettings
                           {
                               CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-                              MaxPendingProjectionsCount = 0,
+                              CatchUpModelCountFlushThreshold = 0,
                           },
                           changes);
 
         batches.Count.ShouldBe(2);
         batches.All(x => x.Changes.Count == 1).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Create_Should_Not_Flush_TimeBasedBatching_By_Model_Count()
+    {
+        var changes = new[]
+        {
+            Helpers.CreateChange(Guid.NewGuid(), 1),
+            Helpers.CreateChange(Guid.NewGuid(), 2),
+        };
+
+        using var system = ActorSystem.Create("projection-batcher-time-no-count-test");
+        var materializer = ActorMaterializer.Create(system);
+
+        var settings = new TestProjectionSettings
+        {
+            CatchUpPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
+            CatchUpModelCountFlushThreshold = 1,
+            LiveProcessingFlushDelay = 1000,
+        };
+
+        var result = await Source.From(changes)
+                                 .Via(ModelStateBatcher.Create<ItemModel>(settings))
+                                 .RunWith(Sink.Seq<ModelStatesBatch<ItemModel>>(), materializer);
+
+        result.Count.ShouldBe(1);
+        result[0].Changes.Count.ShouldBe(2);
+
+        materializer.Shutdown();
+        await system.Terminate();
     }
 
     [Fact]
@@ -184,7 +214,7 @@ public class CreateTests
         var settings = new TestProjectionSettings
         {
             CatchUpPersistenceStrategy = PersistenceStrategy.TimeBasedBatching,
-            MaxPendingProjectionsCount = 0,
+            CatchUpModelCountFlushThreshold = 0,
             LiveProcessingFlushDelay = 0,
         };
 
@@ -213,7 +243,7 @@ public class CreateTests
                           new TestProjectionSettings
                           {
                               CatchUpPersistenceStrategy = (PersistenceStrategy)int.MaxValue,
-                              MaxPendingProjectionsCount = 10,
+                              CatchUpModelCountFlushThreshold = 10,
                           },
                           changes);
 
@@ -244,7 +274,7 @@ public class CreateTests
                           new TestProjectionSettings
                           {
                               CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-                              MaxPendingProjectionsCount = 10,
+                              CatchUpModelCountFlushThreshold = 10,
                           },
                           changes);
 
@@ -262,7 +292,7 @@ public class CreateTests
                           new TestProjectionSettings
                           {
                               CatchUpPersistenceStrategy = PersistenceStrategy.ModelCountBatching,
-                              MaxPendingProjectionsCount = 10,
+                              CatchUpModelCountFlushThreshold = 10,
                           },
                           changes);
 
