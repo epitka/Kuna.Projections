@@ -72,6 +72,64 @@ public class RunAsyncTests
     }
 
     [Fact]
+    public async Task Should_Stop_Pipeline_On_Cancellation_But_Let_InFlight_Persist_Finish()
+    {
+        var testCancellationToken = TestContext.Current.CancellationToken;
+        var envelopes = CreateEnvelopes(40);
+        var source = new FastSource(envelopes);
+        var runtime = new CountingEngineLike();
+        var sink = new CapturingBlockingSink();
+        var checkpointStore = new InMemoryCheckpointStore();
+        var settings = new ProjectionSettings<ItemModel>
+        {
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ImmediateModelFlush,
+                ModelCountThreshold = 16,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ImmediateModelFlush,
+                Delay = 1000,
+            },
+            ModelStateCacheCapacity = 10000,
+            EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
+        };
+
+        var logger = LoggerFactory.Create(
+                                      builder =>
+                                      {
+                                      })
+                                  .CreateLogger<ProjectionPipeline<EventEnvelope, ItemModel>>();
+
+        var pipeline = new ProjectionPipeline<EventEnvelope, ItemModel>(
+            source,
+            runtime,
+            runtime,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            sink,
+            checkpointStore,
+            settings,
+            logger);
+
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(testCancellationToken);
+        var runTask = pipeline.RunAsync(linkedCts.Token);
+
+        await sink.FirstPersistStarted.Task.WaitAsync(TimeSpan.FromSeconds(5), testCancellationToken);
+
+        linkedCts.Cancel();
+        await Task.Delay(150, testCancellationToken);
+
+        runTask.IsCompleted.ShouldBeFalse();
+        sink.Batches.Count.ShouldBe(1);
+
+        sink.ReleaseFirstPersist();
+        await runTask.WaitAsync(TimeSpan.FromSeconds(10), testCancellationToken);
+
+        sink.Batches.Count.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task EndToEnd_Should_Apply_Real_Projection_And_Persist_Final_State()
     {
         var testCancellationToken = TestContext.Current.CancellationToken;
