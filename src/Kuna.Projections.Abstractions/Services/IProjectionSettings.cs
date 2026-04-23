@@ -17,15 +17,9 @@ public interface IProjectionSettings<TState>
     ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; }
 
     /// <summary>
-    /// Minimum number of in-flight model cache entries retained even when pending batch sizes are small.
+    /// Number of model states retained in memory for fast reloads after runtime projection state is cleared.
     /// </summary>
-    int InFlightModelCacheMinEntries { get; set; }
-
-    /// <summary>
-    /// Dynamic capacity multiplier based on model-count flush thresholds.
-    /// Effective cache size is max(InFlightModelCacheMinEntries, max(CatchUpFlush.ModelCountThreshold, LiveProcessingFlush.ModelCountThreshold) * multiplier).
-    /// </summary>
-    int InFlightModelCacheCapacityMultiplier { get; set; }
+    int ModelStateCacheCapacity { get; set; }
 
     Models.EventVersionCheckStrategy EventVersionCheckStrategy { get; set; }
 }
@@ -120,16 +114,9 @@ public class ProjectionSettings<TState> : IProjectionSettings<TState>
     public ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; } = ModelIdResolutionStrategy.PreferAttribute;
 
     /// <summary>
-    /// Minimum in-flight cache capacity retained even when pending batch sizes are small.
-    /// Raise this if cache churn is high at lower batch counts.
+    /// Number of model states retained in memory for fast reloads after runtime projection state is cleared.
     /// </summary>
-    public int InFlightModelCacheMinEntries { get; set; } = 10000;
-
-    /// <summary>
-    /// Multiplier used to scale in-flight cache capacity from configured model-count flush thresholds.
-    /// Effective cache size is the greater of this derived value and the configured minimum entry count.
-    /// </summary>
-    public int InFlightModelCacheCapacityMultiplier { get; set; } = 3;
+    public int ModelStateCacheCapacity { get; set; } = 10000;
 
     /// <summary>
     /// Controls how strictly event version continuity is enforced while applying events to a model.

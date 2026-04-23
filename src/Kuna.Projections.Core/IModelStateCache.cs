@@ -14,8 +14,8 @@ internal static class ProjectionCacheMessagePackDefaults
 }
 
 /// <summary>
-/// Stores recently flushed model states as a handoff between the pipeline and the
-/// projection engine. After a successful sink flush, the pipeline publishes the
+/// Stores model states as a handoff between the pipeline and the projection
+/// engine. After a successful sink flush, the pipeline publishes the
 /// flushed model states into this cache. When the next event for a model arrives,
 /// the engine checks this cache before loading from the persistent state store.
 /// Primary purpose: correctness across flush boundaries, not just performance.
@@ -49,10 +49,10 @@ public interface IModelStateCache<TState>
 
 /// <summary>
 /// In-memory implementation of <see cref="IModelStateCache{TState}"/> that keeps
-/// a bounded set of recently flushed model states for reuse by the projection
-/// engine. Entries intentionally survive normal flushes so they can bridge store
-/// visibility lag after persistence. The cache is bounded by settings and evicts
-/// older entries when capacity is exceeded.
+/// a bounded set of model states for reuse by the projection engine. Entries
+/// intentionally survive normal flushes so they can bridge store visibility lag
+/// after persistence. The cache is bounded by settings and evicts older entries
+/// when capacity is exceeded.
 /// </summary>
 public sealed class InMemoryModelStateCache<TState> : IModelStateCache<TState>
     where TState : class, IModel, new()
@@ -67,14 +67,7 @@ public sealed class InMemoryModelStateCache<TState> : IModelStateCache<TState>
 
     public InMemoryModelStateCache(IProjectionSettings<TState> settings)
     {
-        this.inFlightCacheCapacity = Math.Max(
-            1,
-            Math.Max(
-                settings.InFlightModelCacheMinEntries,
-                Math.Max(
-                    Math.Max(1, settings.CatchUpFlush.ModelCountThreshold),
-                    Math.Max(1, settings.LiveProcessingFlush.ModelCountThreshold))
-                * Math.Max(1, settings.InFlightModelCacheCapacityMultiplier)));
+        this.inFlightCacheCapacity = Math.Max(0, settings.ModelStateCacheCapacity);
 
         this.inFlightCache = new ConcurrentDictionary<Guid, CacheEntry>(Environment.ProcessorCount, this.inFlightCacheCapacity);
         this.evictionQueue = new ConcurrentQueue<EvictionEntry>();
@@ -82,6 +75,13 @@ public sealed class InMemoryModelStateCache<TState> : IModelStateCache<TState>
 
     public bool TryGet(Guid modelId, out ModelState<TState>? state)
     {
+        if (this.inFlightCacheCapacity < 1)
+        {
+            Interlocked.Increment(ref this.inFlightLookupMisses);
+            state = null;
+            return false;
+        }
+
         if (!this.inFlightCache.TryGetValue(modelId, out var cached))
         {
             Interlocked.Increment(ref this.inFlightLookupMisses);
@@ -96,6 +96,11 @@ public sealed class InMemoryModelStateCache<TState> : IModelStateCache<TState>
 
     public void Set(ModelState<TState> modelState)
     {
+        if (this.inFlightCacheCapacity < 1)
+        {
+            return;
+        }
+
         var cachedState =
             modelState with
             {

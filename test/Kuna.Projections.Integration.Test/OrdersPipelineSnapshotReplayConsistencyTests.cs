@@ -661,8 +661,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                              ["Projections:CatchUpFlush:ModelCountThreshold"] = modelCountFlushThreshold.ToString(CultureInfo.InvariantCulture),
                              ["Projections:LiveProcessingFlush:ModelCountThreshold"] = modelCountFlushThreshold.ToString(CultureInfo.InvariantCulture),
                              ["Projections:LiveProcessingFlush:Delay"] = "25",
-                             ["Projections:InFlightModelCacheMinEntries"] = "10000",
-                             ["Projections:InFlightModelCacheCapacityMultiplier"] = "3",
+                             ["Projections:ModelStateCacheCapacity"] = "10000",
                              ["Projections:EventVersionCheckStrategy"] = EventVersionCheckStrategy.Consecutive.ToString(),
                          })
                      .Build();

@@ -51,8 +51,7 @@ If you omit `settingsSectionName`, the default section name is `Projections`. Th
 | `Backpressure` | `ProjectionBackpressureSettings` | See below | No | Backpressure buffer capacities between projection pipeline stages.      |
 | `Source` | `ProjectionSourceKind` | `KurrentDB` | No | Selects which source implementation the projection uses.                |
 | `ModelIdResolutionStrategy` | `ModelIdResolutionStrategy` | `PreferAttribute` | No | Controls how model ids are derived from events and stream ids.          |
-| `InFlightModelCacheMinEntries` | `int` | `10000` | No | Minimum retained size of the in-memory post-flush cache.                |
-| `InFlightModelCacheCapacityMultiplier` | `int` | `3` | No | Combined with flush model-count thresholds to size that cache.          |
+| `ModelStateCacheCapacity` | `int` | `10000` | No | Number of model states retained in memory.                              |
 | `EventVersionCheckStrategy` | `EventVersionCheckStrategy` | `Consecutive` | No | Controls event ordering validation before `Apply(...)`.                 |
 
 ### `CatchUpFlush`
@@ -284,7 +283,7 @@ Guidance:
 - `RequireStreamId` is a good fit when stream naming is authoritative
 - `RequireMatch` is the strictest option and helps catch mismatches early
 
-### `InFlightModelCacheMinEntries`
+### `ModelStateCacheCapacity`
 
 Type: `int`
 
@@ -292,31 +291,17 @@ Default: `10000`
 
 Meaning:
 
-- minimum capacity of the in-memory cache that keeps recently flushed model state available after persistence succeeds
+- capacity of the in-memory cache that keeps model state available after persistence succeeds
 
 Why this exists:
 
 - it closes the short timing gap between a successful flush and a later reload of the same model
 - that avoids false missing-state or ordering issues immediately after a flush
+- it avoids reloading hot models from the persistent store immediately after their runtime projection state is cleared
 
-### `InFlightModelCacheCapacityMultiplier`
+Runtime behavior:
 
-Type: `int`
-
-Default: `3`
-
-Meaning:
-
-- dynamic cache sizing multiplier tied to the larger of the catch-up and live model-count thresholds
-
-Effective cache capacity:
-
-```text
-max(
-    InFlightModelCacheMinEntries,
-    max(CatchUpFlush.ModelCountThreshold, LiveProcessingFlush.ModelCountThreshold)
-        * InFlightModelCacheCapacityMultiplier)
-```
+- values less than `1` disable the cache
 
 ### `EventVersionCheckStrategy`
 

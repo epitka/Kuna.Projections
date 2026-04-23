@@ -22,9 +22,7 @@ internal sealed class TestProjectionSettings : IProjectionSettings<ItemModel>
 
     public ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; } = ModelIdResolutionStrategy.PreferAttribute;
 
-    public int InFlightModelCacheMinEntries { get; set; } = 10000;
-
-    public int InFlightModelCacheCapacityMultiplier { get; set; } = 3;
+    public int ModelStateCacheCapacity { get; set; } = 10000;
 
     public EventVersionCheckStrategy EventVersionCheckStrategy { get; set; } = EventVersionCheckStrategy.Consecutive;
 }

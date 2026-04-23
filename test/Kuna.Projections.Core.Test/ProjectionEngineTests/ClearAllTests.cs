@@ -55,8 +55,7 @@ public class ClearAllTests
                 Strategy = PersistenceStrategy.TimeBasedBatching,
                 Delay = 1000,
             },
-            InFlightModelCacheMinEntries = 10000,
-            InFlightModelCacheCapacityMultiplier = 3,
+            ModelStateCacheCapacity = 10000,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
     }

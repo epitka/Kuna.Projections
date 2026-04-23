@@ -35,8 +35,7 @@ public class RunAsyncTests
                 Strategy = PersistenceStrategy.ImmediateModelFlush,
                 Delay = 1000,
             },
-            InFlightModelCacheMinEntries = 10000,
-            InFlightModelCacheCapacityMultiplier = 3,
+            ModelStateCacheCapacity = 10000,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
 
@@ -96,8 +95,7 @@ public class RunAsyncTests
                 Strategy = PersistenceStrategy.ModelCountBatching,
                 Delay = 1000,
             },
-            InFlightModelCacheMinEntries = 10000,
-            InFlightModelCacheCapacityMultiplier = 3,
+            ModelStateCacheCapacity = 10000,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
 
@@ -164,8 +162,7 @@ public class RunAsyncTests
                 ModelCountThreshold = 2,
                 Delay = 1000,
             },
-            InFlightModelCacheMinEntries = 10000,
-            InFlightModelCacheCapacityMultiplier = 3,
+            ModelStateCacheCapacity = 10000,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
 
@@ -216,8 +213,7 @@ public class RunAsyncTests
                 SourceToTransformBufferCapacity = 6,
                 TransformToSinkBufferCapacity = 6,
             },
-            InFlightModelCacheMinEntries = 10000,
-            InFlightModelCacheCapacityMultiplier = 3,
+            ModelStateCacheCapacity = 10000,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
 
@@ -285,8 +281,7 @@ public class RunAsyncTests
                 SourceToTransformBufferCapacity = 4,
                 TransformToSinkBufferCapacity = 4,
             },
-            InFlightModelCacheMinEntries = 10000,
-            InFlightModelCacheCapacityMultiplier = 3,
+            ModelStateCacheCapacity = 10000,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
 
@@ -342,8 +337,7 @@ public class RunAsyncTests
                 ModelCountThreshold = 1,
                 Delay = 1000,
             },
-            InFlightModelCacheMinEntries = 10000,
-            InFlightModelCacheCapacityMultiplier = 3,
+            ModelStateCacheCapacity = 10000,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
 
@@ -390,8 +384,7 @@ public class RunAsyncTests
                 Strategy = PersistenceStrategy.ModelCountBatching,
                 Delay = 1000,
             },
-            InFlightModelCacheMinEntries = 10000,
-            InFlightModelCacheCapacityMultiplier = 3,
+            ModelStateCacheCapacity = 10000,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
 
@@ -440,8 +433,7 @@ public class RunAsyncTests
                 Strategy = PersistenceStrategy.ImmediateModelFlush,
                 Delay = 1000,
             },
-            InFlightModelCacheMinEntries = 10000,
-            InFlightModelCacheCapacityMultiplier = 3,
+            ModelStateCacheCapacity = 10000,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
 
@@ -514,8 +506,7 @@ public class RunAsyncTests
                 Strategy = PersistenceStrategy.ImmediateModelFlush,
                 Delay = 1000,
             },
-            InFlightModelCacheMinEntries = 10000,
-            InFlightModelCacheCapacityMultiplier = 3,
+            ModelStateCacheCapacity = 10000,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
 

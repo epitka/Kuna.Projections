@@ -27,7 +27,7 @@ internal sealed class ProjectionEngine<TState>
     private readonly ConcurrentDictionary<Guid, Projection<TState>> projections;
     private readonly ConcurrentDictionary<Guid, byte> failedProjections;
     private long runtimeProjectionHits;
-    private long cacheProjectionRestores;
+    private long modelStateCacheRestores;
     private long storeProjectionLoads;
     private long storeProjectionMisses;
     private long newProjectionCreates;
@@ -173,7 +173,7 @@ internal sealed class ProjectionEngine<TState>
     {
         return new ProjectionRuntimeStats(
             Interlocked.Exchange(ref this.runtimeProjectionHits, 0),
-            Interlocked.Exchange(ref this.cacheProjectionRestores, 0),
+            Interlocked.Exchange(ref this.modelStateCacheRestores, 0),
             Interlocked.Exchange(ref this.storeProjectionLoads, 0),
             Interlocked.Exchange(ref this.storeProjectionMisses, 0),
             Interlocked.Exchange(ref this.newProjectionCreates, 0));
@@ -183,22 +183,23 @@ internal sealed class ProjectionEngine<TState>
         EventEnvelope envelope,
         CancellationToken cancellationToken)
     {
+        var loadModelFromStore = envelope.EventNumber > 0;
+
         if (this.projections.TryGetValue(envelope.ModelId, out var projection))
         {
             Interlocked.Increment(ref this.runtimeProjectionHits);
             return projection;
         }
 
-        if (this.modelStateCache.TryGet(envelope.ModelId, out var cached)
+        if (loadModelFromStore
+            && this.modelStateCache.TryGet(envelope.ModelId, out var cached)
             && cached != null)
         {
-            Interlocked.Increment(ref this.cacheProjectionRestores);
+            Interlocked.Increment(ref this.modelStateCacheRestores);
             projection = this.projectionFactory.CreateFromModel(cached.Model, cached.IsNew);
             this.projections[envelope.ModelId] = projection;
             return projection;
         }
-
-        var loadModelFromStore = envelope.EventNumber > 0;
 
         if (loadModelFromStore)
         {

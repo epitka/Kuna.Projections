@@ -48,7 +48,7 @@ public class SetTests
     [Fact]
     public void Set_Should_Evict_Older_Entries_When_Capacity_Is_Exceeded()
     {
-        var cache = new InMemoryModelStateCache<ItemModel>(CreateSettings(minEntries: 1, capacityMultiplier: 1, modelCountFlushThreshold: 1));
+        var cache = new InMemoryModelStateCache<ItemModel>(CreateSettings(cacheCapacity: 1, modelCountFlushThreshold: 1));
         var firstModelId = Guid.NewGuid();
         var secondModelId = Guid.NewGuid();
 
@@ -62,9 +62,20 @@ public class SetTests
     }
 
     [Fact]
+    public void Set_Should_Not_Cache_Entries_When_Capacity_Is_Zero()
+    {
+        var cache = new InMemoryModelStateCache<ItemModel>(CreateSettings(cacheCapacity: 0));
+        var modelId = Guid.NewGuid();
+
+        cache.Set(CreateState(modelId, eventNumber: 0, globalEventPosition: 1, name: "first"));
+
+        cache.TryGet(modelId, out _).ShouldBeFalse();
+    }
+
+    [Fact]
     public void Set_Should_Not_Evict_Newer_State_For_Same_Model_When_Older_Eviction_Record_Is_Dequeued()
     {
-        var cache = new InMemoryModelStateCache<ItemModel>(CreateSettings(minEntries: 2, capacityMultiplier: 1, modelCountFlushThreshold: 2));
+        var cache = new InMemoryModelStateCache<ItemModel>(CreateSettings(cacheCapacity: 2, modelCountFlushThreshold: 2));
         var modelId = Guid.NewGuid();
         var otherModelId = Guid.NewGuid();
 
@@ -79,8 +90,7 @@ public class SetTests
     }
 
     private static ProjectionSettings<ItemModel> CreateSettings(
-        int minEntries = 10000,
-        int capacityMultiplier = 3,
+        int cacheCapacity = 10000,
         int modelCountFlushThreshold = 100)
     {
         return new ProjectionSettings<ItemModel>
@@ -96,8 +106,7 @@ public class SetTests
                 ModelCountThreshold = modelCountFlushThreshold,
                 Delay = 1000,
             },
-            InFlightModelCacheMinEntries = minEntries,
-            InFlightModelCacheCapacityMultiplier = capacityMultiplier,
+            ModelStateCacheCapacity = cacheCapacity,
             EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
         };
     }
