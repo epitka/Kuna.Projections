@@ -127,7 +127,8 @@ services.AddKurrentDBSource<Account>(
     "AccountProjection");
 
 services.AddSqlProjectionsDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
-services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection");
+services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
+        .WithInitialEvent<AccountCreated>();
 ```
 
 Then run the pipeline from your host:
