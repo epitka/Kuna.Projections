@@ -55,6 +55,8 @@ public class OrdersDbContext : SqlProjectionsDbContext
                         sa.Property(sa => sa.State).HasMaxLength(100);
                     });
 
+                order.Navigation(i => i.ShippingAddress).IsRequired();
+
                 order.OwnsOne(
                     i => i.BillingAddress,
                     ba =>
@@ -67,6 +69,8 @@ public class OrdersDbContext : SqlProjectionsDbContext
                         ba.Property(ba => ba.State).HasMaxLength(100);
                     });
 
+                order.Navigation(i => i.BillingAddress).IsRequired();
+
                 order.OwnsOne(
                     i => i.Customer,
                     c =>
@@ -76,6 +80,8 @@ public class OrdersDbContext : SqlProjectionsDbContext
                         c.Property(c => c.PhoneNumber).HasMaxLength(50);
                         c.Property(c => c.Email).HasMaxLength(250);
                     });
+
+                order.Navigation(i => i.Customer).IsRequired();
 
                 order.Property(i => i.FeeReferences).HasMaxLength(200);
                 order.Property(i => i.CaptureReferences).HasMaxLength(200);
