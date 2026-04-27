@@ -221,6 +221,56 @@ public class KurrentDbProjectionSourceIntegrationTests
     }
 
     [Fact]
+    public async Task ReadAll_Should_Not_Create_Additional_Envelopes_Until_Consumer_Requests_Them()
+    {
+        var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
+
+        using var loggerFactory = LoggerFactory.Create(
+            _ =>
+            {
+            });
+
+        var client = CreateClient();
+
+        for (var i = 0; i < 3; i++)
+        {
+            await AppendEvent(
+                client,
+                $"{streamPrefix}{Guid.NewGuid():N}",
+                "SourceIntegrationEvent",
+                new SourceIntegrationEvent
+                {
+                    AggregateId = Guid.NewGuid(),
+                    Name = $"evt-{i}",
+                    CreatedOn = DateTime.UtcNow,
+                    TypeName = nameof(SourceIntegrationEvent),
+                });
+        }
+
+        var createCalls = 0;
+        var source = CreateSource(
+            loggerFactory,
+            client,
+            streamPrefix,
+            envelopeFactoryDecorator: inner => new CountingEnvelopeFactory(inner, () => Interlocked.Increment(ref createCalls)));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        await using var enumerator = source.ReadAll(new GlobalEventPosition(0), cts.Token).GetAsyncEnumerator(cts.Token);
+
+        (await enumerator.MoveNextAsync()).ShouldBeTrue();
+        createCalls.ShouldBe(1);
+
+        await Task.Delay(TimeSpan.FromMilliseconds(500), cts.Token);
+        createCalls.ShouldBe(1);
+
+        (await enumerator.MoveNextAsync()).ShouldBeTrue();
+        createCalls.ShouldBe(2);
+
+        (await enumerator.MoveNextAsync()).ShouldBeTrue();
+        createCalls.ShouldBe(3);
+    }
+
+    [Fact]
     public async Task ReadAll_Should_Fail_After_Retry_Limit_When_EnvelopeFactory_Always_Throws()
     {
         var streamPrefix = $"orders-it-{Guid.NewGuid():N}-";
@@ -868,7 +918,6 @@ public class KurrentDbProjectionSourceIntegrationTests
             envelopeFactory,
             new KurrentDbSourceSettings
             {
-                SubscriptionBufferCapacity = 100,
                 Filter = new KurrentDbFilterSettings
                 {
                     Kind = KurrentDbFilterKind.StreamPrefix,
@@ -962,6 +1011,30 @@ public class KurrentDbProjectionSourceIntegrationTests
                 throw new InvalidOperationException("transient test failure");
             }
 
+            return this.inner.Create(streamId, eventData, eventType, eventNumber, eventPosition, eventTime);
+        }
+    }
+
+    private sealed class CountingEnvelopeFactory : IEventEnvelopeFactory
+    {
+        private readonly IEventEnvelopeFactory inner;
+        private readonly Action onCreate;
+
+        public CountingEnvelopeFactory(IEventEnvelopeFactory inner, Action onCreate)
+        {
+            this.inner = inner;
+            this.onCreate = onCreate;
+        }
+
+        public EventEnvelope? Create(
+            string streamId,
+            byte[] eventData,
+            string eventType,
+            long eventNumber,
+            GlobalEventPosition eventPosition,
+            DateTime eventTime)
+        {
+            this.onCreate();
             return this.inner.Create(streamId, eventData, eventType, eventNumber, eventPosition, eventTime);
         }
     }

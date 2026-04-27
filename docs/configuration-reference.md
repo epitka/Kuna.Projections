@@ -341,30 +341,8 @@ The section is required when the root projection setting `Source` is `KurrentDB`
 
 | Key | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `SubscriptionBufferCapacity` | `int` | `12000` | No | Source-local bounded channel capacity between Kurrent subscription reading and the projection pipeline consumer. |
 | `Filter.Kind` | `KurrentDbFilterKind` | `StreamPrefix` | No | Only `StreamPrefix` is supported in the current implementation. |
 | `Filter.Prefixes` | `string[]` | `[]` | Yes | Must contain exactly one non-empty prefix. |
-
-### `SubscriptionBufferCapacity`
-
-Type: `int`
-
-Default: `12000`
-
-Meaning:
-
-- bounded channel capacity used while the Kurrent subscription feeds envelopes into the async stream consumed by the projection pipeline
-- this is source-specific buffering, not an Akka pipeline backpressure buffer
-
-Runtime behavior:
-
-- Kurrent source registration validates it is greater than or equal to `1`
-- when full, the subscription writer waits
-
-Guidance:
-
-- tune this only when the Kurrent subscription needs to absorb bursts before Akka pipeline demand catches up
-- keep it separate from `Backpressure.SourceToTransformBufferCapacity` and `Backpressure.TransformToSinkBufferCapacity`, which are Akka stream buffers
 
 ### `Filter.Kind`
 

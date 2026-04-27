@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using System.Threading.Channels;
+using System.Runtime.ExceptionServices;
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
@@ -12,14 +12,13 @@ namespace Kuna.Projections.Source.Kurrent;
 /// <summary>
 /// Kurrent-backed <see cref="IEventSource{TEnvelope}"/> that subscribes to the
 /// filtered event stream, converts source events into projection envelopes, and
-/// yields them to the pipeline with retry and bounded buffering.
+/// yields them to the pipeline with retry semantics.
 /// </summary>
 public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
     where TState : class, IModel, new()
 {
     private readonly KurrentDBClient eventStoreClient;
     private readonly IEventEnvelopeFactory envelopeFactory;
-    private readonly KurrentDbSourceSettings sourceSettings;
     private readonly SubscriptionFilterOptions filterOptions;
     private readonly ILogger logger;
 
@@ -35,7 +34,6 @@ public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
     {
         this.eventStoreClient = eventStoreClient;
         this.envelopeFactory = envelopeFactory;
-        this.sourceSettings = sourceSettings;
         this.filterOptions = KurrentDbSubscriptionFilterFactory.Create(sourceSettings.Filter);
         this.logger = logger;
     }
@@ -44,75 +42,78 @@ public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
     /// Reads projection envelopes from the configured Kurrent stream starting at
     /// the provided global position.
     /// </summary>
-    public async IAsyncEnumerable<EventEnvelope> ReadAll(
+    public IAsyncEnumerable<EventEnvelope> ReadAll(
         GlobalEventPosition start,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
-        var channel = Channel.CreateBounded<EventEnvelope>(
-            new BoundedChannelOptions(this.sourceSettings.SubscriptionBufferCapacity)
-            {
-                SingleReader = true,
-                SingleWriter = false,
-                FullMode = BoundedChannelFullMode.Wait,
-            });
-
-        _ = Task.Run(
-            () => this.RunSubscriptionAsync(start, channel.Writer, cancellationToken),
-            cancellationToken);
-
-        await foreach (var item in channel.Reader.ReadAllAsync(cancellationToken))
-        {
-            yield return item;
-        }
+        return this.ReadAllCore(start, cancellationToken);
     }
 
-    private async Task RunSubscriptionAsync(
+    private async IAsyncEnumerable<EventEnvelope> ReadAllCore(
         GlobalEventPosition start,
-        ChannelWriter<EventEnvelope> writer,
-        CancellationToken cancellationToken)
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var attempts = 0;
         var currentStart = start;
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            try
-            {
-                await this.SubscribeOnce(
-                    currentStart,
-                    writer,
-                    position => currentStart = position,
-                    cancellationToken);
+            await using var enumerator = this.SubscribeOnce(
+                                                 currentStart,
+                                                 position => currentStart = position,
+                                                 cancellationToken)
+                                             .GetAsyncEnumerator(cancellationToken);
 
-                writer.TryComplete();
-                return;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            while (true)
             {
-                writer.TryComplete();
-                return;
-            }
-            catch (Exception ex)
-            {
-                attempts++;
-                this.logger.LogWarning(ex, "Subscription dropped, attempt {Attempt}", attempts);
+                EventEnvelope envelope;
 
-                if (attempts >= 10)
+                try
                 {
-                    writer.TryComplete(ex);
-                    return;
+                    if (!await enumerator.MoveNextAsync())
+                    {
+                        yield break;
+                    }
+
+                    envelope = enumerator.Current;
+                }
+                catch (Exception ex)
+                {
+                    if (cancellationToken.IsCancellationRequested
+                        && ex is OperationCanceledException)
+                    {
+                        yield break;
+                    }
+
+                    attempts++;
+                    this.logger.LogWarning(ex, "Subscription dropped, attempt {Attempt}", attempts);
+
+                    if (attempts >= 10)
+                    {
+                        ExceptionDispatchInfo.Capture(ex).Throw();
+                    }
+
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        yield break;
+                    }
+
+                    break;
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                yield return envelope;
             }
         }
     }
 
-    private async Task SubscribeOnce(
+    private async IAsyncEnumerable<EventEnvelope> SubscribeOnce(
         GlobalEventPosition start,
-        ChannelWriter<EventEnvelope> writer,
         Action<GlobalEventPosition> onProgress,
-        CancellationToken cancellationToken)
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var lastObservedPosition = start;
         var position = new CheckPoint
@@ -137,27 +138,27 @@ public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
 
                     var envelope = this.TryCreateEnvelope(evnt);
 
-                    if (envelope.HasValue)
-                    {
-                        await writer.WriteAsync(envelope.Value, cancellationToken);
-                    }
-
                     // Advance retry checkpoint for all observed events, including dropped ones.
                     lastObservedPosition = eventPosition;
                     onProgress(eventPosition);
+
+                    if (envelope.HasValue)
+                    {
+                        yield return envelope.Value;
+                    }
+
                     break;
                 case StreamMessage.CaughtUp:
-                    await writer.WriteAsync(
-                        new EventEnvelope(
-                            eventNumber: -1,
-                            streamPosition: lastObservedPosition,
-                            streamId: "$projection-caught-up",
-                            @event: new ProjectionCaughtUpEvent(),
-                            modelId: Guid.Empty,
-                            createdOn: DateTime.UtcNow),
-                        cancellationToken);
-
                     this.logger.LogInformation("KurrentDB subscription caught up for {ModelName}", ProjectionModelName.For<TState>());
+
+                    yield return new EventEnvelope(
+                        eventNumber: -1,
+                        streamPosition: lastObservedPosition,
+                        streamId: "$projection-caught-up",
+                        @event: new ProjectionCaughtUpEvent(),
+                        modelId: Guid.Empty,
+                        createdOn: DateTime.UtcNow);
+
                     break;
             }
         }

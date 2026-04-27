@@ -38,7 +38,6 @@ public class ServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
         var values = CreateValidSettings();
-        values.Remove("Projections:KurrentDB:SubscriptionBufferCapacity");
         values.Remove("Projections:KurrentDB:Filter:Kind");
         values.Remove("Projections:KurrentDB:Filter:Prefixes:0");
         var configuration = BuildConfiguration(values);
@@ -97,7 +96,6 @@ public class ServiceCollectionExtensionsTests
                 ["ConnectionStrings:KurrentDB"] = "esdb://localhost:2113?tls=false",
                 ["OrdersProjection:Source"] = "KurrentDB",
                 ["OrdersProjection:ModelIdResolutionStrategy"] = "RequireStreamId",
-                ["OrdersProjection:KurrentDB:SubscriptionBufferCapacity"] = "4096",
                 ["OrdersProjection:KurrentDB:Filter:Kind"] = "StreamPrefix",
                 ["OrdersProjection:KurrentDB:Filter:Prefixes:0"] = "order-",
             });
@@ -113,7 +111,6 @@ public class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
 
         var sourceSettings = provider.GetRequiredService<KurrentDbSourceSettings>();
-        sourceSettings.SubscriptionBufferCapacity.ShouldBe(4096);
         sourceSettings.Filter.Kind.ShouldBe(KurrentDbFilterKind.StreamPrefix);
         sourceSettings.Filter.Prefixes.Single().ShouldBe("order-");
         provider.GetRequiredService<IProjectionSettings<TestModel>>().ModelIdResolutionStrategy.ShouldBe(ModelIdResolutionStrategy.RequireStreamId);
@@ -133,7 +130,6 @@ public class ServiceCollectionExtensionsTests
             ["ConnectionStrings:KurrentDB"] = "esdb://localhost:2113?tls=false",
             ["Projections:Source"] = "KurrentDB",
             ["Projections:ModelIdResolutionStrategy"] = "PreferAttribute",
-            ["Projections:KurrentDB:SubscriptionBufferCapacity"] = "12000",
             ["Projections:KurrentDB:Filter:Kind"] = "StreamPrefix",
             ["Projections:KurrentDB:Filter:Prefixes:0"] = "orders-",
         };
