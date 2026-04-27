@@ -164,6 +164,15 @@ Delete semantics are terminal:
 - the runtime does not keep deleted model state in its in-memory handoff cache
 - later events for the same model are assumed to be invalid and will fail because the model no longer exists
 
+Unknown event handling:
+
+- if the source sees an event type that is not mapped to a registered CLR event, it passes `UnknownEvent` into the projection
+- the default `Projection<TState>` behavior is to fail for `UnknownEvent`, which is the right default when every event in the stream should be known to the projection
+- override `Apply(UnknownEvent)` only when the projection intentionally reads from a broader or mixed stream and needs to ignore specific irrelevant event types without failing replay
+- keep that override narrow: explicitly allow only the known event names you want to tolerate, and let all other unknown event types fail fast
+
+The example worker follows this pattern in `OrdersProjection`: it ignores a small explicit set of irrelevant event names so replay can continue on a mixed stream, but it does not treat all unknown events as safe.
+
 ## 6. Create The Projection DbContext
 
 Your relational DbContext should inherit `SqlProjectionsDbContext` so it includes checkpoint and failure tables, then add your model entities.
