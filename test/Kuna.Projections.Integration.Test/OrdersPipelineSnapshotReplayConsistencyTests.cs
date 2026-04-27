@@ -640,7 +640,6 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         services.AddSingleton(
             new KurrentDbSourceSettings
             {
-                SubscriptionBufferCapacity = eventsBoundedCapacity,
                 Filter = new KurrentDbFilterSettings
                 {
                     Kind = KurrentDbFilterKind.StreamPrefix,

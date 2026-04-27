@@ -117,11 +117,6 @@ public static class ServiceCollectionExtensions
         KurrentDbSourceSettings sourceSettings,
         string sectionPath)
     {
-        if (sourceSettings.SubscriptionBufferCapacity < 1)
-        {
-            throw new InvalidOperationException($"{sectionPath}:SubscriptionBufferCapacity must be greater than or equal to 1.");
-        }
-
         ArgumentNullException.ThrowIfNull(sourceSettings.Filter);
 
         if (sourceSettings.Filter.Kind != KurrentDbFilterKind.StreamPrefix)
