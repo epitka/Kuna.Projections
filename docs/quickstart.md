@@ -99,6 +99,12 @@ public sealed class EmailVerified : Event
     [ModelId]
     public Guid AccountId { get; init; }
 }
+
+public sealed class AccountDeleted : Event
+{
+    [ModelId]
+    public Guid AccountId { get; init; }
+}
 ```
 
 Important note:
@@ -134,6 +140,11 @@ public sealed class AccountProjection : Projection<Account>
         // Alternative explicit form:
         // this.ModelState.Verified = true;
     }
+
+    public void Apply(AccountDeleted @event)
+    {
+        this.DeleteModel();
+    }
 }
 ```
 
@@ -145,6 +156,13 @@ Important constraints:
 - the projection constructor must accept a single `Guid`, which is the model id for the projection instance and model state; this is the current shape and is expected to expand later to support other id types
 
 At runtime, the base class updates `EventNumber` and `GlobalEventPosition` after each successful apply.
+
+Delete semantics are terminal:
+
+- call `DeleteModel()` from the handler for the domain delete event
+- the EF sink physically deletes the read-model row on the next flush
+- the runtime does not keep deleted model state in its in-memory handoff cache
+- later events for the same model are assumed to be invalid and will fail because the model no longer exists
 
 ## 6. Create The Projection DbContext
 

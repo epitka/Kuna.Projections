@@ -20,4 +20,9 @@ public class ItemProjection : Projection<ItemModel>
     {
         this.ModelState.Name = @event.Name;
     }
+
+    public void Apply(ItemDeleted @event)
+    {
+        this.DeleteModel();
+    }
 }

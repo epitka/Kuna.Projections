@@ -147,6 +147,7 @@ These are the concepts to understand early:
 - a projection is a stateful class derived from `Projection<TState>`
 - the read model is any `IModel`, usually by inheriting `Model`
 - projection handlers mutate the in-memory model and the runtime updates event metadata after successful applies
+- if a projection handles a terminal delete event, it should call `DeleteModel()`; the sink then physically deletes the row on flush rather than soft-deleting it
 - events are CLR types derived from `Event`
 - the current KurrentDB-backed source implementation discovers event CLR types from the entry assembly
 - `AddProjection<TState>` requires exactly one public `Projection<TState>` for that `TState` in the assembly because discovery uses `Assembly.GetExportedTypes()` and selects with `Single(...)`
@@ -166,6 +167,8 @@ This package defines the shared vocabulary used everywhere else. It is the best 
 ### `Kuna.Projections.Core`
 
 This package is the runtime. It creates projection instances, reloads state, applies events, batches state changes, flushes them to the sink, advances checkpoints, and clears live in-memory state after successful flushes.
+
+Terminal delete behavior is part of that runtime contract. A projection can mark the current model for deletion by calling `DeleteModel()` from an `Apply(...)` handler. The sink deletes the row on flush, and the pipeline intentionally does not republish deleted state into the in-memory model-state cache. The assumption is that later events for the same model are invalid and should fail because the model has been removed.
 
 ### `Kuna.Projections.Source.Kurrent`
 
@@ -242,6 +245,7 @@ Important adopter notes:
 - the core runtime discovers the projection type by scanning exported types and selecting the single type whose base type is `Projection<TState>`
 - the projection constructor must accept a single `Guid`, which is the model id for the projection instance; this is the current shape and is expected to expand later to support other id types
 - the projection base class updates event number and global event position after successful applies
+- `DeleteModel()` is the projection-side API for terminal delete semantics
 - `Apply(UnknownEvent)` and `Apply(DeserializationFailed)` are overridable extension points
 
 ### `Kuna.Projections.Source.Kurrent`

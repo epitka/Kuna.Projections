@@ -108,6 +108,22 @@ public sealed class AccountProjection : Projection<Account>
 }
 ```
 
+Delete semantics are terminal. If your domain has a delete event, handle it in the projection and call `DeleteModel()`:
+
+```csharp
+public sealed class AccountDeleted : Event
+{
+    public Guid AccountId { get; init; }
+}
+
+public void Apply(AccountDeleted @event)
+{
+    this.DeleteModel();
+}
+```
+
+That marks the projection row for physical deletion on the next flush. The runtime does not soft-delete the model and does not keep deleted state in the in-memory handoff cache. The operating assumption is that, after a delete event for a model, later events for that same model are invalid and should fail because the model no longer exists.
+
 ### Register the runtime
 
 ```csharp
