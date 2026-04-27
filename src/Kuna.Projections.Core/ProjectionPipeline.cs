@@ -499,7 +499,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
 
                 phaseStopwatch.Restart();
 
-                foreach (var change in changes)
+                foreach (var change in changes.Where(change => !change.ShouldDelete))
                 {
                     this.modelStateCache.Set(change);
                 }

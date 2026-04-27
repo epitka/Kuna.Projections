@@ -35,7 +35,12 @@ public abstract class Projection<TState>
     /// </summary>
     public bool IsNew { get; set; }
 
-    public bool ShouldDelete { get; protected internal set; }
+    /// <summary>
+    /// Indicates that the current model should be deleted during the next flush.
+    /// Projection authors typically set this by calling <see cref="DeleteModel"/>
+    /// from an <c>Apply(...)</c> handler for a terminal domain event.
+    /// </summary>
+    public bool ShouldDelete { get; private set; }
 
     public TState ModelState { get; private set; }
 
@@ -101,6 +106,17 @@ public abstract class Projection<TState>
     {
         throw new Exception(
             $"Deserialization of event failed. ModelState: {typeof(TState).Name}, modelId: {@event.ModelId}, event number: {@event.EventNumber}");
+    }
+
+    /// <summary>
+    /// Marks the current model for deletion during the next successful flush.
+    /// This is intended for terminal events. Once the delete is flushed, the
+    /// runtime clears live state and later events for the same model are
+    /// expected to fail because the model no longer exists.
+    /// </summary>
+    protected void DeleteModel()
+    {
+        this.ShouldDelete = true;
     }
 
     private bool PreProcess(EventEnvelope msg, EventVersionCheckStrategy versionCheckStrategy)

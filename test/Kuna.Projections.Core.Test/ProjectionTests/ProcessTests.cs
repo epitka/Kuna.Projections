@@ -231,6 +231,34 @@ public class ProcessTests
     }
 
     [Fact]
+    public void Should_Mark_Model_For_Delete_When_Delete_Event_Is_Applied()
+    {
+        var modelId = Guid.NewGuid();
+        var projection = new ItemProjection(modelId);
+        var deleted = new ItemDeleted
+        {
+            Id = modelId,
+            TypeName = nameof(ItemDeleted),
+            CreatedOn = DateTime.UtcNow,
+        };
+
+        var envelope = new EventEnvelope(
+            eventNumber: 0,
+            streamPosition: new GlobalEventPosition(10),
+            streamId: "item-1",
+            modelId: modelId,
+            createdOn: deleted.CreatedOn,
+            @event: deleted);
+
+        var result = projection.Process(envelope);
+
+        result.ShouldBeTrue();
+        projection.ShouldDelete.ShouldBeTrue();
+        projection.ModelState.EventNumber.ShouldBe(0);
+        projection.ModelState.GlobalEventPosition.ShouldBe(new GlobalEventPosition(10));
+    }
+
+    [Fact]
     public void Should_Allow_Any_EventNumber_When_Model_EventNumber_Is_Null()
     {
         var modelId = Guid.NewGuid();

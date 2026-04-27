@@ -249,6 +249,111 @@ public class RunAsyncTests
     }
 
     [Fact]
+    public async Task EndToEnd_Delete_Should_Persist_Delete_But_Not_Publish_Deleted_State_To_Cache()
+    {
+        var testCancellationToken = TestContext.Current.CancellationToken;
+        var modelId = Guid.NewGuid();
+        var createEnvelopes = new EventEnvelope[]
+        {
+            new(
+                eventNumber: 0,
+                streamPosition: new GlobalEventPosition(10),
+                streamId: $"item-{modelId}",
+                modelId: modelId,
+                createdOn: DateTime.UtcNow,
+                @event: new ItemCreated
+                {
+                    Id = modelId,
+                    Name = "first",
+                    TypeName = nameof(ItemCreated),
+                    CreatedOn = DateTime.UtcNow,
+                }),
+        };
+
+        var deleteEnvelopes = new EventEnvelope[]
+        {
+            new(
+                eventNumber: 1,
+                streamPosition: new GlobalEventPosition(11),
+                streamId: $"item-{modelId}",
+                modelId: modelId,
+                createdOn: DateTime.UtcNow,
+                @event: new ItemDeleted
+                {
+                    Id = modelId,
+                    TypeName = nameof(ItemDeleted),
+                    CreatedOn = DateTime.UtcNow,
+                }),
+        };
+
+        var stateStore = new InMemoryStateStoreSink();
+        var projectionFactory = new ProjectionFactory<ItemModel>(
+            id => new ItemProjection(id),
+            stateStore);
+
+        var settings = new ProjectionSettings<ItemModel>
+        {
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                ModelCountThreshold = 100,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                Delay = 1000,
+            },
+            ModelStateCacheCapacity = 10000,
+            EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
+        };
+
+        var loggerFactory = LoggerFactory.Create(
+            builder =>
+            {
+            });
+
+        var engineCache = new InMemoryModelStateCache<ItemModel>(settings);
+        var pipelineCache = new InMemoryModelStateCache<ItemModel>(settings);
+        var engine = new ProjectionEngine<ItemModel>(
+            projectionFactory,
+            new NoOpFailureHandler(),
+            engineCache,
+            new ProjectionCreationRegistration<ItemModel>(typeof(ItemCreated)),
+            settings,
+            loggerFactory.CreateLogger<ProjectionEngine<ItemModel>>());
+
+        var checkpointStore = new InMemoryCheckpointStore();
+        var createPipeline = new ProjectionPipeline<EventEnvelope, ItemModel>(
+            new FastSource(createEnvelopes),
+            engine,
+            engine,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            stateStore,
+            checkpointStore,
+            settings,
+            loggerFactory.CreateLogger<ProjectionPipeline<EventEnvelope, ItemModel>>());
+
+        await createPipeline.RunAsync(testCancellationToken);
+
+        var deletePipeline = new ProjectionPipeline<EventEnvelope, ItemModel>(
+            new FastSource(deleteEnvelopes),
+            engine,
+            engine,
+            pipelineCache,
+            stateStore,
+            checkpointStore,
+            settings,
+            loggerFactory.CreateLogger<ProjectionPipeline<EventEnvelope, ItemModel>>());
+
+        await deletePipeline.RunAsync(testCancellationToken);
+
+        stateStore.Batches.Count.ShouldBe(2);
+        stateStore.Batches[1].Changes.Count.ShouldBe(1);
+        stateStore.Batches[1].Changes[0].ShouldDelete.ShouldBeTrue();
+        pipelineCache.TryGet(modelId, out _).ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task Should_Cap_Sink_Batches_And_Backpressure_Transform_When_Sink_Is_Blocked()
     {
         var testCancellationToken = TestContext.Current.CancellationToken;
