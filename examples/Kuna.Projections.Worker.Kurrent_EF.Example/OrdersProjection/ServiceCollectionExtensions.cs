@@ -5,8 +5,8 @@ using Kuna.Projections.Core;
 using Kuna.Projections.Sink.EF;
 using Kuna.Projections.Sink.EF.Data;
 using Kuna.Projections.Source.Kurrent;
+using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Events;
 using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
-using Kuna.StreamGenerator;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 

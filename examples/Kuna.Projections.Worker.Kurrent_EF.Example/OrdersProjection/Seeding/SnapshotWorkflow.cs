@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using Testcontainers.KurrentDb;
 
-namespace Kuna.StreamGenerator;
+namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Seeding;
 
 public sealed record SnapshotRequest(
     string SnapshotDirectory,
@@ -20,7 +20,7 @@ public sealed record SnapshotResult(
     string SnapshotManifestPath,
     string KurrentImage,
     string ContainerDataPath,
-    SeedGeneratorResult SeedResult);
+    OrderSeedResult SeedResult);
 
 public static class SnapshotWorkflow
 {
@@ -54,8 +54,8 @@ public static class SnapshotWorkflow
         try
         {
             var connectionString = ((KurrentDbContainer)container).GetConnectionString();
-            var seedResult = await GeneratorFacade.GenerateAndWriteAsync(
-                                 new SeedGeneratorRequest(
+            var seedResult = await OrderSeeder.RunAsync(
+                                 new OrderSeedRequest(
                                      ConnectionString: connectionString,
                                      TargetEvents: request.TargetEvents,
                                      MinimumCompleteOrders: request.MinimumCompleteOrders,

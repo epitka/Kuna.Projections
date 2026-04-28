@@ -4,7 +4,7 @@ using Kuna.Projections.Abstractions.Attributes;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
 
-namespace Kuna.StreamGenerator;
+namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Events;
 
 public class OrderCreatedEvent : Event
 {

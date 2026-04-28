@@ -2,18 +2,13 @@ using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Core;
 using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Events;
 using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
-using Kuna.StreamGenerator;
 using Model_Address = Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model.Address;
 
 namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection;
 
 public class OrdersProjection : Projection<Order>
 {
-    private static readonly HashSet<string> IgnoredEvents = new()
-    {
-        "OrderValidationErrorEvent",
-        "MerchantFeeForPaymentPlanAdded",
-    };
+    private static readonly HashSet<string> IgnoredEvents = ["OrderDeclined",];
 
     internal OrdersProjection(Guid modelId)
         : base(modelId)
@@ -105,98 +100,13 @@ public class OrdersProjection : Projection<Order>
         this.ModelState.ShippingAmount = @event.ShippingAmount;
     }
 
-    public void Apply(OrderAbandondedEvent @event)
+    public void Apply(OrderAbandoned @event)
     {
         this.ModelState.OrderStatus = OrderStatus.Abandoned;
     }
 
-    public void Apply(OrderDeclinedEvent @event)
+    public void Apply(OrderFeesCalculated @event)
     {
-        this.ModelState.OrderStatus = OrderStatus.Declined;
-    }
-
-    public void Apply(MerchantPlatformIdAssociatedWithOrder @event)
-    {
-        this.ModelState.MerchantPlatformId = @event.MerchantPlatformId;
-    }
-
-    public void Apply(OrderAmountVoidedEvent @event)
-    {
-        if (this.ModelState.VoidReferences != null
-            && this.ModelState.VoidReferences.Contains(@event.MerchantReference))
-        {
-            return;
-        }
-
-        this.ModelState.VoidReferences += @event.MerchantReference + '|';
-        this.ModelState.TotalFundsVoided += @event.Amount;
-    }
-
-    public void Apply(MerchantOrderRefundProcessed @event)
-    {
-        this.ModelState.OrderRefunds.Add(
-            new Refund
-            {
-                Id = @event.RefundId,
-                Amount = @event.Amount,
-                RefundId = @event.RefundId,
-                MerchantReference = @event.MerchantRefundReference,
-                OrderId = this.ModelState.Id,
-                MerchantId = @event.MerchantId,
-                MerchantRefundFeeRebate = @event.MerchantRefundFeeRebate,
-                MerchantRefundTransactionFee = @event.MerchantRefundTransactionFee,
-                MerchantRefundFeeRebatePercent = @event.MerchantRefundFeeRebatePercent,
-                RefundDateTime = @event.RefundedDateTime,
-            });
-
-        this.ModelState.TotalFundsRefunded += @event.Amount;
-    }
-
-    public void Apply(FundsCapturedOnOrderEvent @event)
-    {
-        if (this.ModelState.CaptureReferences != null
-            && this.ModelState.CaptureReferences.Contains(@event.MerchantReference))
-        {
-            return;
-        }
-
-        this.ModelState.CaptureReferences += @event.MerchantReference + '|';
-        this.ModelState.TotalFundsCaptured += @event.Amount;
-    }
-
-    public void Apply(OrderMerchantFeesCalculatedEvent @event)
-    {
-        // idempotency check - this event will always fire first and set some value initially on this value,
-        // so if it is not null, this event has already happened.
-        if (this.ModelState.MerchantTransactionFeeAmount != null)
-        {
-            return;
-        }
-
-        this.ModelState.MerchantTransactionFeeAmount = @event.MerchantTransactionFeeAmount;
-        this.ModelState.MerchantTransactionFeePercent = @event.MerchantTransactionFeePercent;
-        this.ModelState.MerchantTransactionFeePercentCalculated = @event.MerchantTransactionFeePercentCalculated;
-    }
-
-    public void Apply(MerchantTransactionFeeAddedToOrderEvent @event)
-    {
-        if (this.ModelState.FeeReferences != null
-            && this.ModelState.FeeReferences.Contains(@event.MerchantReference))
-        {
-            return;
-        }
-
-        this.ModelState.FeeReferences += @event.MerchantReference + '|';
-        this.ModelState.MerchantTransactionFeeAmount += @event.MerchantTransactionFeeAmount;
-    }
-
-    public void Apply(OrderCustomerLinkedEvent @event)
-    {
-        this.ModelState.CustomerId = @event.CustomerId;
-    }
-
-    public void Apply(OrderAmountIncreased @event)
-    {
-        this.ModelState.Amount = @event.NewOrderAmount;
+        this.ModelState.MerchantTransactionFeeAmount = @event.FeeAmount;
     }
 }
