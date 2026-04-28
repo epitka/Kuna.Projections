@@ -27,7 +27,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
     private readonly string modelName;
     private readonly IEventSource<TEnvelope> source;
     private readonly IModelStateTransformer<TEnvelope, TState> transformer;
-    private readonly IProjectionLifecycle lifecycle;
+    private readonly IProjectionLifecycle<TState> lifecycle;
     private readonly IModelStateCache<TState> modelStateCache;
     private readonly IModelStateSink<TState> sink;
     private readonly ICheckpointStore checkpointStore;
@@ -37,7 +37,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
     internal ProjectionPipeline(
         IEventSource<TEnvelope> source,
         IModelStateTransformer<TEnvelope, TState> transformer,
-        IProjectionLifecycle lifecycle,
+        IProjectionLifecycle<TState> lifecycle,
         IModelStateCache<TState> modelStateCache,
         IModelStateSink<TState> sink,
         ICheckpointStore checkpointStore,

@@ -86,7 +86,7 @@ public class ServiceCollectionExtensionsTests
 
         services.ShouldContain(
             sd =>
-                sd.ServiceType == typeof(IProjectionLifecycle)
+                sd.ServiceType == typeof(IProjectionLifecycle<CoreServiceTestModel>)
                 && sd.ImplementationFactory != null
                 && sd.Lifetime == ServiceLifetime.Singleton);
 
@@ -239,6 +239,61 @@ public class ServiceCollectionExtensionsTests
         ex.Message.ShouldContain(typeof(TestInitialEvent).FullName!);
     }
 
+    [Fact]
+    public void AddProjectionCore_Should_Isolate_Typed_Source_Lifecycle_And_Checkpoint_Dependencies()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var configuration = new ConfigurationBuilder()
+                            .AddInMemoryCollection(
+                                new Dictionary<string, string?>
+                                {
+                                    ["OrdersProjection:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
+                                    ["InvoicesProjection:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
+                                })
+                            .Build();
+
+        services.AddSingleton<IModelStateStore<CoreServiceTestModel>, DummyStateStore>();
+        services.AddSingleton<IModelStateSink<CoreServiceTestModel>, DummyStateSink>();
+        services.AddSingleton<IProjectionFailureHandler<CoreServiceTestModel>, DummyFailureHandler>();
+        services.AddSingleton<IProjectionEventSource<CoreServiceTestModel>>(new TestProjectionEventSource<CoreServiceTestModel>());
+        services.AddSingleton<IProjectionCheckpointStore<CoreServiceTestModel>>(new TestProjectionCheckpointStore<CoreServiceTestModel>());
+
+        services.AddSingleton<IModelStateStore<SecondaryServiceTestModel>, SecondaryStateStore>();
+        services.AddSingleton<IModelStateSink<SecondaryServiceTestModel>, SecondaryStateSink>();
+        services.AddSingleton<IProjectionFailureHandler<SecondaryServiceTestModel>, SecondaryFailureHandler>();
+        services.AddSingleton<IProjectionEventSource<SecondaryServiceTestModel>>(new TestProjectionEventSource<SecondaryServiceTestModel>());
+        services.AddSingleton<IProjectionCheckpointStore<SecondaryServiceTestModel>>(new TestProjectionCheckpointStore<SecondaryServiceTestModel>());
+
+        services.AddProjection<CoreServiceTestModel>(configuration, settingsSectionName: "OrdersProjection")
+                .WithInitialEvent<TestInitialEvent>();
+
+        services.AddProjection<SecondaryServiceTestModel>(configuration, settingsSectionName: "InvoicesProjection")
+                .WithInitialEvent<SecondaryInitialEvent>();
+
+        using var provider = services.BuildServiceProvider();
+
+        provider.GetServices<IProjectionPipeline>().Count().ShouldBe(2);
+
+        var ordersPipeline = provider.GetRequiredService<IProjectionPipeline<CoreServiceTestModel>>();
+        var invoicesPipeline = provider.GetRequiredService<IProjectionPipeline<SecondaryServiceTestModel>>();
+
+        GetPrivateField<object>(ordersPipeline, "source").ShouldBeSameAs(provider.GetRequiredService<IProjectionEventSource<CoreServiceTestModel>>().Value);
+        GetPrivateField<object>(ordersPipeline, "checkpointStore")
+            .ShouldBeSameAs(provider.GetRequiredService<IProjectionCheckpointStore<CoreServiceTestModel>>().Value);
+
+        GetPrivateField<object>(ordersPipeline, "lifecycle").ShouldBeSameAs(provider.GetRequiredService<IProjectionLifecycle<CoreServiceTestModel>>());
+
+        GetPrivateField<object>(invoicesPipeline, "source")
+            .ShouldBeSameAs(provider.GetRequiredService<IProjectionEventSource<SecondaryServiceTestModel>>().Value);
+
+        GetPrivateField<object>(invoicesPipeline, "checkpointStore")
+            .ShouldBeSameAs(provider.GetRequiredService<IProjectionCheckpointStore<SecondaryServiceTestModel>>().Value);
+
+        GetPrivateField<object>(invoicesPipeline, "lifecycle").ShouldBeSameAs(provider.GetRequiredService<IProjectionLifecycle<SecondaryServiceTestModel>>());
+    }
+
     private static object GetProjectionCreationRegistration<TState>(IServiceProvider provider)
         where TState : class, IModel, new()
     {
@@ -252,6 +307,13 @@ public class ServiceCollectionExtensionsTests
     private static Type GetInitialEventType(object registration)
     {
         return (Type)registration.GetType().GetProperty("InitialEventType")!.GetValue(registration)!;
+    }
+
+    private static TField GetPrivateField<TField>(object target, string fieldName)
+    {
+        return (TField)target.GetType()
+                             .GetField(fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                             .GetValue(target)!;
     }
 
     public sealed class CoreServiceTestModel : Model
@@ -274,7 +336,15 @@ public class ServiceCollectionExtensionsTests
     {
     }
 
+    public sealed class SecondaryInitialEvent : Event
+    {
+    }
+
     public sealed class BadCtorModel : Model
+    {
+    }
+
+    public sealed class SecondaryServiceTestModel : Model
     {
     }
 
@@ -282,6 +352,14 @@ public class ServiceCollectionExtensionsTests
     {
         public BadCtorProjection(string id)
             : base(Guid.Empty)
+        {
+        }
+    }
+
+    public sealed class SecondaryServiceTestProjection : Projection<SecondaryServiceTestModel>
+    {
+        public SecondaryServiceTestProjection(Guid id)
+            : base(id)
         {
         }
     }
@@ -294,9 +372,92 @@ public class ServiceCollectionExtensionsTests
         }
     }
 
+    private sealed class DummyStateSink : IModelStateSink<CoreServiceTestModel>
+    {
+        public Task PersistBatch(ModelStatesBatch<CoreServiceTestModel> batch, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class DummyFailureHandler : IProjectionFailureHandler<CoreServiceTestModel>
     {
         public Task Handle(ProjectionFailure failure, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class SecondaryStateStore : IModelStateStore<SecondaryServiceTestModel>
+    {
+        public Task<SecondaryServiceTestModel?> Load(Guid modelId, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<SecondaryServiceTestModel?>(null);
+        }
+    }
+
+    private sealed class SecondaryStateSink : IModelStateSink<SecondaryServiceTestModel>
+    {
+        public Task PersistBatch(ModelStatesBatch<SecondaryServiceTestModel> batch, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class SecondaryFailureHandler : IProjectionFailureHandler<SecondaryServiceTestModel>
+    {
+        public Task Handle(ProjectionFailure failure, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class TestProjectionEventSource<TState> : IProjectionEventSource<TState>
+        where TState : class, IModel, new()
+    {
+        public TestProjectionEventSource()
+        {
+            this.Value = new DummyEventSource();
+        }
+
+        public IEventSource<EventEnvelope> Value { get; }
+    }
+
+    private sealed class TestProjectionCheckpointStore<TState> : IProjectionCheckpointStore<TState>
+        where TState : class, IModel, new()
+    {
+        public TestProjectionCheckpointStore()
+        {
+            this.Value = new DummyCheckpointStore();
+        }
+
+        public ICheckpointStore Value { get; }
+    }
+
+    private sealed class DummyEventSource : IEventSource<EventEnvelope>
+    {
+        public async IAsyncEnumerable<EventEnvelope> ReadAll(
+            GlobalEventPosition start,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            await Task.CompletedTask;
+            yield break;
+        }
+    }
+
+    private sealed class DummyCheckpointStore : ICheckpointStore
+    {
+        public Task<CheckPoint> GetCheckpoint(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(
+                new CheckPoint
+                {
+                    ModelName = "dummy",
+                    GlobalEventPosition = new GlobalEventPosition(0),
+                });
+        }
+
+        public Task PersistCheckpoint(CheckPoint checkPoint, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
         }

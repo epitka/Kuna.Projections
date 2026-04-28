@@ -6,7 +6,7 @@ namespace Kuna.Projections.Core.Test.ProjectionPipelineTests.Fakes;
 
 internal sealed class CountingEngineLike
     : IModelStateTransformer<EventEnvelope, ItemModel>,
-      IProjectionLifecycle
+      IProjectionLifecycle<ItemModel>
 {
     private readonly List<Guid> clearedModelIds = new();
     private int transformedCount;

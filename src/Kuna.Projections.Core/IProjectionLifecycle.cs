@@ -1,10 +1,13 @@
+using Kuna.Projections.Abstractions.Models;
+
 namespace Kuna.Projections.Core;
 
 /// <summary>
 /// Defines internal lifecycle hooks that let the pipeline notify projection
 /// runtime components about significant processing state transitions.
 /// </summary>
-internal interface IProjectionLifecycle
+internal interface IProjectionLifecycle<TState>
+    where TState : class, IModel, new()
 {
     /// <summary>
     /// Notifies runtime components that a flush completed successfully for the

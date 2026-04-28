@@ -6,12 +6,15 @@ using Kuna.Projections.Source.Kurrent.Extensions;
 using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
 using KurrentDB.Client;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection;
 
 public sealed class OrdersReplayConsistencyDiagnostics
 {
+    private const string SettingsSectionName = "OrdersProjection";
+
     private static readonly JsonSerializerOptions SnapshotJsonOptions = new()
     {
         WriteIndented = false,
@@ -26,14 +29,30 @@ public sealed class OrdersReplayConsistencyDiagnostics
     public OrdersReplayConsistencyDiagnostics(
         OrdersDbContext dbContext,
         KurrentDBClient eventStoreClient,
-        IEventEnvelopeFactory envelopeFactory,
-        KurrentDbSourceSettings sourceSettings,
+        IEventDeserializer eventDeserializer,
+        IProjectionSettings<Order> projectionSettings,
+        IConfiguration configuration,
+        ILogger<EventModelIdResolver> modelIdResolverLogger,
         ILogger<OrdersReplayConsistencyDiagnostics> logger)
     {
         this.dbContext = dbContext;
         this.eventStoreClient = eventStoreClient;
-        this.envelopeFactory = envelopeFactory;
-        this.sourceSettings = sourceSettings;
+        var sectionPath = $"{SettingsSectionName}:{KurrentDbSourceSettings.SectionName}";
+        var section = configuration.GetSection(sectionPath);
+
+        if (!section.Exists())
+        {
+            throw new InvalidOperationException($"Missing required configuration section: {sectionPath}");
+        }
+
+        this.sourceSettings = section.Get<KurrentDbSourceSettings>()
+                              ?? throw new InvalidOperationException($"Missing configuration section: {sectionPath}");
+
+        var modelIdResolver = new EventModelIdResolver(
+            modelIdResolverLogger,
+            projectionSettings.ModelIdResolutionStrategy);
+
+        this.envelopeFactory = new EventEnvelopeFactory(eventDeserializer, modelIdResolver);
         this.logger = logger;
     }
 
