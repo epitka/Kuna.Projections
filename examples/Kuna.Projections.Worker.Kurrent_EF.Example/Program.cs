@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Kuna.Projections.Core;
 using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection;
+using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Seeding;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -12,6 +13,11 @@ Log.Information("Starting up");
 
 try
 {
+    if (OrderSeedingCommand.IsSeedMode(args))
+    {
+        return await OrderSeedingCommand.RunAsync(args, CancellationToken.None);
+    }
+
     var builder = WebApplication.CreateBuilder(args);
 
     // Add services to the container.
@@ -55,11 +61,13 @@ try
             return Results.Ok(result);
         });
 
-    app.Run();
+    await app.RunAsync();
+    return 0;
 }
 catch (Exception ex)
 {
     Log.Fatal(ex, "Unhandled exception");
+    return 1;
 }
 finally
 {

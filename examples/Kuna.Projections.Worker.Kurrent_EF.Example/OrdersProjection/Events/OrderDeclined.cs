@@ -5,16 +5,10 @@ using Kuna.Projections.Abstractions.Models;
 
 namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Events;
 
-public class OrderAmountVoidedEvent : Event
+public class OrderDeclined : Event
 {
     [ModelId]
     public Guid OrderId { get; set; }
 
-    public Guid MerchantId { get; set; }
-
-    public string MerchantReference { get; set; }
-
-    public decimal Amount { get; set; }
-
-    public string CurrencyCode { get; set; }
+    public DateTimeOffset? CompletedDateTime { get; set; }
 }

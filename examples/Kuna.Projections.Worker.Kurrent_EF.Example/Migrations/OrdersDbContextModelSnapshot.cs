@@ -118,7 +118,7 @@ namespace Kuna.Projections.Worker.Kurrent_EF.Example.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<decimal?>("MerchantTransactionFeeAmount")
+                    b.Property<decimal?>("FeeAmount")
                         .HasColumnType("numeric");
 
                     b.Property<decimal?>("MerchantTransactionFeePercent")
