@@ -53,7 +53,25 @@ public static class ServiceCollectionExtensions
 
         services.TryAddSingleton<IProjectionSettings<TState>>(projectionSettings);
 
-        services.AddSingleton(
+        services.TryAddSingleton(
+            provider =>
+            {
+                var connectionString = configuration.GetConnectionString(KurrentDbConnectionStringName);
+
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    throw new InvalidOperationException($"Missing connection string: {KurrentDbConnectionStringName}");
+                }
+
+                var connectionSettings = KurrentDBClientSettings.Create(connectionString);
+
+                return new KurrentDBClient(connectionSettings);
+            });
+
+        services.AddHealthChecks()
+                .AddCheck<KurrentDbHealthCheck>("KurrentDB", HealthStatus.Unhealthy);
+
+        services.AddSingleton<IProjectionEventSource<TState>>(
             provider =>
             {
                 var resolvedProjectionSettings = provider.GetRequiredService<IProjectionSettings<TState>>();
@@ -77,38 +95,22 @@ public static class ServiceCollectionExtensions
 
                 ValidateSourceSettings(sourceSettings, kurrentSectionPath);
 
-                return sourceSettings;
+                var modelIdResolver = new EventModelIdResolver(
+                    provider.GetRequiredService<ILogger<EventModelIdResolver>>(),
+                    resolvedProjectionSettings.ModelIdResolutionStrategy);
+
+                var envelopeFactory = new EventEnvelopeFactory(
+                    provider.GetRequiredService<IEventDeserializer>(),
+                    modelIdResolver);
+
+                var source = new KurrentDbEventSource<TState>(
+                    provider.GetRequiredService<KurrentDBClient>(),
+                    envelopeFactory,
+                    sourceSettings,
+                    provider.GetRequiredService<ILogger<KurrentDbEventSource<TState>>>());
+
+                return new ProjectionEventSource<TState>(source);
             });
-
-        services.AddSingleton(
-            provider =>
-            {
-                var connectionString = configuration.GetConnectionString(KurrentDbConnectionStringName);
-
-                if (string.IsNullOrWhiteSpace(connectionString))
-                {
-                    throw new InvalidOperationException($"Missing connection string: {KurrentDbConnectionStringName}");
-                }
-
-                var connectionSettings = KurrentDBClientSettings.Create(connectionString);
-
-                return new KurrentDBClient(connectionSettings);
-            });
-
-        services.AddHealthChecks()
-                .AddCheck<KurrentDbHealthCheck>("KurrentDB", HealthStatus.Unhealthy);
-
-        services.AddSingleton<IEventModelIdResolver>(
-            provider =>
-            {
-                var projectionSettings = provider.GetRequiredService<IProjectionSettings<TState>>();
-                var logger = provider.GetRequiredService<ILogger<EventModelIdResolver>>();
-                return new EventModelIdResolver(logger, projectionSettings.ModelIdResolutionStrategy);
-            });
-
-        services.AddSingleton<IEventEnvelopeFactory, EventEnvelopeFactory>();
-
-        services.AddSingleton<IEventSource<EventEnvelope>, KurrentDbEventSource<TState>>();
 
         return services;
     }

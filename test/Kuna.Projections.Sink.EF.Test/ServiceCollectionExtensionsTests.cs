@@ -39,6 +39,8 @@ public class ServiceCollectionExtensionsTests
 
         services.ShouldContain(
             sd =>
-                sd.ServiceType == typeof(ICheckpointStore) && sd.ImplementationFactory != null && sd.Lifetime == ServiceLifetime.Singleton);
+                sd.ServiceType == typeof(IProjectionCheckpointStore<TestModel>)
+                && sd.ImplementationFactory != null
+                && sd.Lifetime == ServiceLifetime.Singleton);
     }
 }

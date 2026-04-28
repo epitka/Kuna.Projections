@@ -629,25 +629,41 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                     GetOrderEventTypes(),
                     sp.GetRequiredService<ILogger<EventDeserializer>>()));
 
-        services.AddSingleton<IEventModelIdResolver, EventModelIdResolver>();
-        services.AddSingleton<IEventEnvelopeFactory, EventEnvelopeFactory>();
         services.AddSingleton<IProjectionSettings<Order>>(
             new ProjectionSettings<Order>
             {
                 ModelIdResolutionStrategy = ModelIdResolutionStrategy.PreferAttribute,
             });
 
-        services.AddSingleton(
-            new KurrentDbSourceSettings
+        services.AddSingleton<IProjectionEventSource<Order>>(
+            sp =>
             {
-                Filter = new KurrentDbFilterSettings
+                var projectionSettings = sp.GetRequiredService<IProjectionSettings<Order>>();
+                var sourceSettings = new KurrentDbSourceSettings
                 {
-                    Kind = KurrentDbFilterKind.StreamPrefix,
-                    Prefixes = ["order-",],
-                },
-            });
+                    Filter = new KurrentDbFilterSettings
+                    {
+                        Kind = KurrentDbFilterKind.StreamPrefix,
+                        Prefixes = ["order-",],
+                    },
+                };
 
-        services.AddSingleton<IEventSource<EventEnvelope>, KurrentDbEventSource<Order>>();
+                var modelIdResolver = new EventModelIdResolver(
+                    sp.GetRequiredService<ILogger<EventModelIdResolver>>(),
+                    projectionSettings.ModelIdResolutionStrategy);
+
+                var envelopeFactory = new EventEnvelopeFactory(
+                    sp.GetRequiredService<IEventDeserializer>(),
+                    modelIdResolver);
+
+                var source = new KurrentDbEventSource<Order>(
+                    sp.GetRequiredService<KurrentDBClient>(),
+                    envelopeFactory,
+                    sourceSettings,
+                    sp.GetRequiredService<ILogger<KurrentDbEventSource<Order>>>());
+
+                return new TestProjectionEventSource<Order>(source);
+            });
 
         services.AddSqlProjectionsDataStore<Order, OrdersDbContext>(schema: "dbo");
 
@@ -826,6 +842,17 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         public decimal? MerchantRefundFeeRebatePercent { get; set; }
 
         public DateTimeOffset? RefundDateTime { get; set; }
+    }
+
+    private sealed class TestProjectionEventSource<TState> : IProjectionEventSource<TState>
+        where TState : class, IModel, new()
+    {
+        public TestProjectionEventSource(IEventSource<EventEnvelope> value)
+        {
+            this.Value = value;
+        }
+
+        public IEventSource<EventEnvelope> Value { get; }
     }
 
     public sealed record ReplayConsistencyCase(

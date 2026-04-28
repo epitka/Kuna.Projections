@@ -51,7 +51,7 @@ public class ServiceCollectionExtensionsTests
 
         using var provider = services.BuildServiceProvider();
 
-        var ex = Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<KurrentDbSourceSettings>());
+        var ex = Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<IProjectionEventSource<TestModel>>());
         ex.Message.ShouldContain("Projections:KurrentDB");
     }
 
@@ -75,13 +75,8 @@ public class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
 
         provider.GetRequiredService<IEventDeserializer>().ShouldNotBeNull();
-        provider.GetRequiredService<IEventModelIdResolver>().ShouldNotBeNull();
-        provider.GetRequiredService<IEventEnvelopeFactory>().ShouldNotBeNull();
-        provider.GetRequiredService<IEventSource<EventEnvelope>>().ShouldNotBeNull();
-
-        var sourceSettings = provider.GetRequiredService<KurrentDbSourceSettings>();
-        sourceSettings.Filter.Kind.ShouldBe(KurrentDbFilterKind.StreamPrefix);
-        sourceSettings.Filter.Prefixes.Single().ShouldBe("orders-");
+        provider.GetRequiredService<IProjectionEventSource<TestModel>>().ShouldNotBeNull();
+        provider.GetRequiredService<IProjectionSettings<TestModel>>().Source.ShouldBe(ProjectionSourceKind.KurrentDB);
     }
 
     [Fact]
@@ -110,9 +105,7 @@ public class ServiceCollectionExtensionsTests
 
         using var provider = services.BuildServiceProvider();
 
-        var sourceSettings = provider.GetRequiredService<KurrentDbSourceSettings>();
-        sourceSettings.Filter.Kind.ShouldBe(KurrentDbFilterKind.StreamPrefix);
-        sourceSettings.Filter.Prefixes.Single().ShouldBe("order-");
+        provider.GetRequiredService<IProjectionEventSource<TestModel>>().ShouldNotBeNull();
         provider.GetRequiredService<IProjectionSettings<TestModel>>().ModelIdResolutionStrategy.ShouldBe(ModelIdResolutionStrategy.RequireStreamId);
     }
 

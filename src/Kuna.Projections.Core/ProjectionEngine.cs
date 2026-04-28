@@ -15,7 +15,7 @@ namespace Kuna.Projections.Core;
 internal sealed class ProjectionEngine<TState>
     : IModelStateTransformer<EventEnvelope, TState>,
       IProjectionRuntimeStats,
-      IProjectionLifecycle
+      IProjectionLifecycle<TState>
     where TState : class, IModel, new()
 {
     private readonly IProjectionFactory<TState> projectionFactory;

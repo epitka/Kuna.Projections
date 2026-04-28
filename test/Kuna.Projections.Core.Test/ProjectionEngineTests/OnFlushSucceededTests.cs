@@ -55,7 +55,7 @@ public class OnFlushSucceededTests
             settings,
             logger);
 
-        IProjectionLifecycle lifecycle = transformer;
+        IProjectionLifecycle<ItemModel> lifecycle = transformer;
 
         await transformer.Transform(
             CreateEnvelope(modelId, 0, new ItemCreated { Id = modelId, Name = "first", TypeName = nameof(ItemCreated), }),
@@ -99,7 +99,7 @@ public class OnFlushSucceededTests
             settings,
             logger);
 
-        IProjectionLifecycle lifecycle = transformer;
+        IProjectionLifecycle<ItemModel> lifecycle = transformer;
 
         await transformer.Transform(CreateEnvelope(modelId, 1, new TestEvent { TypeName = nameof(TestEvent), }), CancellationToken.None);
         await transformer.Transform(CreateEnvelope(modelId, 2, new TestEvent { TypeName = nameof(TestEvent), }), CancellationToken.None);
@@ -144,7 +144,7 @@ public class OnFlushSucceededTests
             settings,
             logger);
 
-        IProjectionLifecycle lifecycle = transformer;
+        IProjectionLifecycle<ItemModel> lifecycle = transformer;
 
         await transformer.Transform(
             CreateEnvelope(modelId, 0, new ItemCreated { Id = modelId, Name = "first", TypeName = nameof(ItemCreated), }),
