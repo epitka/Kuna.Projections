@@ -42,6 +42,7 @@ public static class ServiceCollectionExtensions
                     configuration,
                     settingsSectionName: "OrdersProjection")
                 .WithInitialEvent<OrderCreatedEvent>();
+        services.AddScoped<OrdersReplayConsistencyDiagnostics>();
 
         return services;
     }
