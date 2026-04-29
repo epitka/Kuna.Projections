@@ -7,35 +7,27 @@ namespace Kuna.Projections.Sink.MongoDB;
 internal sealed class MongoIndexesInitializer<TState> : IProjectionStartupTask
     where TState : class, IModel, new()
 {
-    private readonly IMongoCollection<TState> modelCollection;
-    private readonly IMongoCollection<ProjectionCheckpointDocument> checkpointCollection;
+    private readonly IMongoDatabase database;
+    private readonly string modelCollectionName;
+    private readonly string checkpointCollectionName;
+    private readonly string failureCollectionName;
     private readonly IMongoCollection<ProjectionFailureDocument> failureCollection;
 
     public MongoIndexesInitializer(MongoProjectionContext<TState> context)
     {
         MongoModelClassMapRegistry.EnsureInitialized<TState>();
-        this.modelCollection = context.Database.GetCollection<TState>(context.CollectionNamer.GetModelCollectionName<TState>());
-        this.checkpointCollection = context.Database.GetCollection<ProjectionCheckpointDocument>(context.CollectionNamer.GetCheckpointCollectionName());
-        this.failureCollection = context.Database.GetCollection<ProjectionFailureDocument>(context.CollectionNamer.GetFailureCollectionName());
+        this.database = context.Database;
+        this.modelCollectionName = context.CollectionNamer.GetModelCollectionName<TState>();
+        this.checkpointCollectionName = context.CollectionNamer.GetCheckpointCollectionName();
+        this.failureCollectionName = context.CollectionNamer.GetFailureCollectionName();
+        this.failureCollection = context.Database.GetCollection<ProjectionFailureDocument>(this.failureCollectionName);
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        CreateIndexModel<TState> modelIdIndex = new(
-            Builders<TState>.IndexKeys.Ascending(x => x.Id),
-            new CreateIndexOptions
-            {
-                Name = "ux_projection_model_id",
-                Unique = true,
-            });
-
-        CreateIndexModel<ProjectionCheckpointDocument> checkpointModelNameIndex = new(
-            Builders<ProjectionCheckpointDocument>.IndexKeys.Ascending(x => x.ModelName),
-            new CreateIndexOptions
-            {
-                Name = "ux_projection_checkpoint_model_name",
-                Unique = true,
-            });
+        await this.EnsureCollectionExists(this.modelCollectionName, cancellationToken);
+        await this.EnsureCollectionExists(this.checkpointCollectionName, cancellationToken);
+        await this.EnsureCollectionExists(this.failureCollectionName, cancellationToken);
 
         CreateIndexModel<ProjectionFailureDocument> failureModelIndex = new(
             Builders<ProjectionFailureDocument>.IndexKeys
@@ -47,8 +39,18 @@ internal sealed class MongoIndexesInitializer<TState> : IProjectionStartupTask
                 Unique = true,
             });
 
-        await this.modelCollection.Indexes.CreateOneAsync(modelIdIndex, cancellationToken: cancellationToken);
-        await this.checkpointCollection.Indexes.CreateOneAsync(checkpointModelNameIndex, cancellationToken: cancellationToken);
         await this.failureCollection.Indexes.CreateOneAsync(failureModelIndex, cancellationToken: cancellationToken);
+    }
+
+    private async Task EnsureCollectionExists(string collectionName, CancellationToken cancellationToken)
+    {
+        using IAsyncCursor<string> collectionNames = await this.database.ListCollectionNamesAsync(cancellationToken: cancellationToken);
+        IReadOnlyCollection<string> existingCollectionNames = await collectionNames.ToListAsync(cancellationToken);
+        bool collectionExists = existingCollectionNames.Contains(collectionName, StringComparer.Ordinal);
+
+        if (!collectionExists)
+        {
+            await this.database.CreateCollectionAsync(collectionName, cancellationToken: cancellationToken);
+        }
     }
 }

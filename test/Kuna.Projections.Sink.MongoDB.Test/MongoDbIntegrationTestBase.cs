@@ -85,6 +85,13 @@ public abstract class MongoDbIntegrationTestBase
         return await collection.CountDocumentsAsync(x => x["_id"] == modelId.ToString("D"));
     }
 
+    protected async Task<IReadOnlyList<BsonDocument>> GetIndexes(string collectionName)
+    {
+        IMongoDatabase database = this.CreateDatabase();
+        IAsyncCursor<BsonDocument> cursor = await database.GetCollection<BsonDocument>(collectionName).Indexes.ListAsync();
+        return await cursor.ToListAsync();
+    }
+
     private IMongoDatabase CreateDatabase()
     {
         return new MongoClient(this.Fixture.ConnectionString).GetDatabase(this.DatabaseName);
