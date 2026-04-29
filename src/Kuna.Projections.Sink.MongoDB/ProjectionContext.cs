@@ -3,10 +3,10 @@ using MongoDB.Driver;
 
 namespace Kuna.Projections.Sink.MongoDB;
 
-internal sealed class MongoProjectionContext<TState>
+internal sealed class ProjectionContext<TState>
     where TState : class, IModel, new()
 {
-    public MongoProjectionContext(MongoProjectionOptions options)
+    public ProjectionContext(ProjectionOptions options)
     {
         this.Options = options;
         this.CollectionNamer = new CollectionNamer(options);
@@ -14,7 +14,7 @@ internal sealed class MongoProjectionContext<TState>
         this.Database = this.Client.GetDatabase(options.DatabaseName);
     }
 
-    public MongoProjectionOptions Options { get; }
+    public ProjectionOptions Options { get; }
 
     public CollectionNamer CollectionNamer { get; }
 

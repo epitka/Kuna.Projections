@@ -1,6 +1,6 @@
 namespace Kuna.Projections.Sink.MongoDB;
 
-public sealed class MongoProjectionOptions
+public sealed class ProjectionOptions
 {
     public string ConnectionString { get; set; } = string.Empty;
 

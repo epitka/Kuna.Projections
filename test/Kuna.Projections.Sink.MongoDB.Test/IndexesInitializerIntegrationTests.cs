@@ -5,9 +5,9 @@ using Xunit;
 namespace Kuna.Projections.Sink.MongoDB.Test;
 
 [Collection(MongoDbCollection.Name)]
-public sealed class MongoIndexesInitializerIntegrationTests : MongoDbIntegrationTestBase
+public sealed class IndexesInitializerIntegrationTests : MongoDbIntegrationTestBase
 {
-    public MongoIndexesInitializerIntegrationTests(MongoDbContainerFixture fixture)
+    public IndexesInitializerIntegrationTests(MongoDbContainerFixture fixture)
         : base(fixture)
     {
     }

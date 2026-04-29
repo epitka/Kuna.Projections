@@ -23,7 +23,7 @@ public abstract class MongoDbIntegrationTestBase
         return this.CreateProvider(_ => { });
     }
 
-    protected ServiceProvider CreateProvider(Action<Kuna.Projections.Sink.MongoDB.MongoProjectionOptions> configure)
+    protected ServiceProvider CreateProvider(Action<Kuna.Projections.Sink.MongoDB.ProjectionOptions> configure)
     {
         var services = new ServiceCollection();
         services.AddMongoProjectionsDataStore<TestModel>(

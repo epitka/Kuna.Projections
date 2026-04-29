@@ -15,23 +15,23 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddMongoProjectionsDataStore<TState>(
         this IServiceCollection services,
-        Action<MongoProjectionOptions> configure)
+        Action<ProjectionOptions> configure)
         where TState : class, IModel, new()
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
 
-        MongoProjectionOptions options = new();
+        ProjectionOptions options = new();
         configure(options);
-        MongoProjectionOptionsValidator.Validate(options);
+        ProjectionOptionsValidator.Validate(options);
         MongoSerializationRegistry.EnsureInitialized();
 
-        services.AddSingleton(new MongoProjectionContext<TState>(options));
+        services.AddSingleton(new ProjectionContext<TState>(options));
         services.AddSingleton<ModelDataStore<TState>>();
         services.AddSingleton<ProjectionCheckpointStore<TState>>();
-        services.AddSingleton<MongoIndexesInitializer<TState>>();
+        services.AddSingleton<IndexesInitializer<TState>>();
         services.AddSingleton<ICheckpointStore>(sp => sp.GetRequiredService<ProjectionCheckpointStore<TState>>());
-        services.AddSingleton<IProjectionStartupTask>(sp => sp.GetRequiredService<MongoIndexesInitializer<TState>>());
+        services.AddSingleton<IProjectionStartupTask>(sp => sp.GetRequiredService<IndexesInitializer<TState>>());
         services.AddSingleton<IProjectionFailureHandler<TState>, ProjectionFailureHandler<TState>>();
         services.AddSingleton<IModelStateSink<TState>>(sp => sp.GetRequiredService<ModelDataStore<TState>>());
         services.AddSingleton<IModelStateStore<TState>>(sp => sp.GetRequiredService<ModelDataStore<TState>>());

@@ -4,7 +4,7 @@ using MongoDB.Driver;
 
 namespace Kuna.Projections.Sink.MongoDB;
 
-internal sealed class MongoIndexesInitializer<TState> : IProjectionStartupTask
+internal sealed class IndexesInitializer<TState> : IProjectionStartupTask
     where TState : class, IModel, new()
 {
     private readonly IMongoDatabase database;
@@ -13,7 +13,7 @@ internal sealed class MongoIndexesInitializer<TState> : IProjectionStartupTask
     private readonly string failureCollectionName;
     private readonly IMongoCollection<ProjectionFailureDocument> failureCollection;
 
-    public MongoIndexesInitializer(MongoProjectionContext<TState> context)
+    public IndexesInitializer(ProjectionContext<TState> context)
     {
         MongoModelClassMapRegistry.EnsureInitialized<TState>();
         this.database = context.Database;

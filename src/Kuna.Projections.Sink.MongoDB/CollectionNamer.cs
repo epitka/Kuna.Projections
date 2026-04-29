@@ -4,9 +4,9 @@ namespace Kuna.Projections.Sink.MongoDB;
 
 internal sealed class CollectionNamer
 {
-    private readonly MongoProjectionOptions options;
+    private readonly ProjectionOptions options;
 
-    public CollectionNamer(MongoProjectionOptions options)
+    public CollectionNamer(ProjectionOptions options)
     {
         this.options = options;
     }

@@ -1,8 +1,8 @@
 namespace Kuna.Projections.Sink.MongoDB;
 
-internal static class MongoProjectionOptionsValidator
+internal static class ProjectionOptionsValidator
 {
-    public static void Validate(MongoProjectionOptions options)
+    public static void Validate(ProjectionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentException.ThrowIfNullOrWhiteSpace(options.ConnectionString);

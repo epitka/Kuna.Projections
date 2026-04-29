@@ -10,7 +10,7 @@ internal sealed class ProjectionCheckpointStore<TState> : ICheckpointStore
     private readonly IMongoCollection<ProjectionCheckpointDocument> collection;
     private readonly string modelName;
 
-    public ProjectionCheckpointStore(MongoProjectionContext<TState> context)
+    public ProjectionCheckpointStore(ProjectionContext<TState> context)
     {
         this.collection = context.Database.GetCollection<ProjectionCheckpointDocument>(context.CollectionNamer.GetCheckpointCollectionName());
         this.modelName = ProjectionModelName.For<TState>();
