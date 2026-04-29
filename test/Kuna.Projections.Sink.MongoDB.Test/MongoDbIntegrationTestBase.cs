@@ -20,6 +20,11 @@ public abstract class MongoDbIntegrationTestBase
 
     protected ServiceProvider CreateProvider()
     {
+        return this.CreateProvider(_ => { });
+    }
+
+    protected ServiceProvider CreateProvider(Action<Kuna.Projections.Sink.MongoDB.MongoProjectionOptions> configure)
+    {
         var services = new ServiceCollection();
         services.AddMongoProjectionsDataStore<TestModel>(
             options =>
@@ -27,6 +32,7 @@ public abstract class MongoDbIntegrationTestBase
                 options.ConnectionString = this.Fixture.ConnectionString;
                 options.DatabaseName = this.DatabaseName;
                 options.CollectionPrefix = "projection";
+                configure(options);
             });
 
         return services.BuildServiceProvider();
@@ -89,6 +95,13 @@ public abstract class MongoDbIntegrationTestBase
     {
         IMongoDatabase database = this.CreateDatabase();
         IAsyncCursor<BsonDocument> cursor = await database.GetCollection<BsonDocument>(collectionName).Indexes.ListAsync();
+        return await cursor.ToListAsync();
+    }
+
+    protected async Task<IReadOnlyList<string>> GetCollectionNames()
+    {
+        IMongoDatabase database = this.CreateDatabase();
+        IAsyncCursor<string> cursor = await database.ListCollectionNamesAsync();
         return await cursor.ToListAsync();
     }
 
