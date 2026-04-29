@@ -1,6 +1,6 @@
 using KurrentDB.Client;
 
-namespace Kuna.Projections.Source.Kurrent;
+namespace Kuna.Projections.Source.KurrentDB;
 
 public static class KurrentDbSubscriptionFilterFactory
 {

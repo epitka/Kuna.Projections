@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 This repository contains a .NET 10 solution for event-sourcing projections.
 
-- Core pipeline libraries: `Kuna.Projections.Abstractions`, `Kuna.Projections.Core`, `Kuna.Projections.Sink.EF`, `Kuna.Projections.Source.Kurrent`
+- Core pipeline libraries: `Kuna.Projections.Abstractions`, `Kuna.Projections.Core`, `Kuna.Projections.Sink.EF`, `Kuna.Projections.Source.KurrentDB`
 - Example runnable worker: `examples/Kuna.Projections.Worker.Kurrent_EF.Example`
 - Tests: `test/` (new pipeline)
 - Benchmarks: `benchmarks/Kuna.Projections.Benchmarks`
@@ -24,7 +24,7 @@ Observed outcomes in this environment:
 - Targeted filtered project test runs may still work and are useful when broader `dotnet test` is blocked.
 
 The last targeted `dotnet test` verification command that completed successfully in this environment was:
-- `dotnet test -c Release --no-restore -p:UseSharedCompilation=false test/Kuna.Projections.Source.Kurrent.Test/Kuna.Projections.Source.Kurrent.Test.csproj --filter ServiceCollectionExtensionsTests`
+- `dotnet test -c Release --no-restore -p:UseSharedCompilation=false test/Kuna.Projections.Source.KurrentDB.Test/Kuna.Projections.Source.KurrentDB.Test.csproj --filter ServiceCollectionExtensionsTests`
 
 - `dotnet restore -p:UseSharedCompilation=false Kuna.Eventsourcing.Projections.sln` - restore packages
 - `dotnet build -c Release -p:UseSharedCompilation=false Kuna.Projections.sln` - build all projects

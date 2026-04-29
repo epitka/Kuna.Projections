@@ -25,7 +25,7 @@ If you want the shortest path to a running worker, start with [quickstart.md](qu
   Contracts and shared types: events, envelopes, models, checkpoints, failures, and pipeline interfaces.
 - `Kuna.Projections.Core`
   The runtime engine and pipeline that load state, apply events, batch changes, and coordinate flushes.
-- `Kuna.Projections.Source.Kurrent`
+- `Kuna.Projections.Source.KurrentDB`
   The current KurrentDB-backed implementation of the source abstraction. It reads events, deserializes them, resolves model ids, and emits envelopes.
 - `Kuna.Projections.Sink.EF`
   The EF Core sink and store that persist read models, checkpoints, and projection failures.
@@ -49,7 +49,7 @@ This is the smallest accurate picture of how the libraries fit together. It omit
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Core;
 using Kuna.Projections.Sink.EF;
-using Kuna.Projections.Source.Kurrent;
+using Kuna.Projections.Source.KurrentDB;
 
 public sealed class Account : Model
 {
@@ -170,7 +170,7 @@ This package is the runtime. It creates projection instances, reloads state, app
 
 Terminal delete behavior is part of that runtime contract. A projection can mark the current model for deletion by calling `DeleteModel()` from an `Apply(...)` handler. The sink deletes the row on flush, and the pipeline intentionally does not republish deleted state into the in-memory model-state cache. The assumption is that later events for the same model are invalid and should fail because the model has been removed.
 
-### `Kuna.Projections.Source.Kurrent`
+### `Kuna.Projections.Source.KurrentDB`
 
 This package provides the current KurrentDB-backed implementation of the source abstraction. It reads raw events, deserializes them into CLR types, resolves the target model id, and produces `EventEnvelope` values for the pipeline.
 
@@ -248,7 +248,7 @@ Important adopter notes:
 - `DeleteModel()` is the projection-side API for terminal delete semantics
 - `Apply(UnknownEvent)` and `Apply(DeserializationFailed)` are overridable extension points
 
-### `Kuna.Projections.Source.Kurrent`
+### `Kuna.Projections.Source.KurrentDB`
 
 Source-facing types:
 

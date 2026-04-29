@@ -1,14 +1,14 @@
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
-using Kuna.Projections.Source.Kurrent;
+using Kuna.Projections.Source.KurrentDB;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Shouldly;
 using Xunit;
 
-namespace Kuna.Projections.Pipeline.Kurrent.Test;
+namespace Kuna.Projections.Source.KurrentDB.Test;
 
 public class ServiceCollectionExtensionsTests
 {
@@ -29,7 +29,7 @@ public class ServiceCollectionExtensionsTests
 
         using var provider = services.BuildServiceProvider();
 
-        var ex = Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<KurrentDB.Client.KurrentDBClient>());
+        var ex = Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<global::KurrentDB.Client.KurrentDBClient>());
         ex.Message.ShouldContain("KurrentDB");
     }
 

@@ -1,4 +1,4 @@
-namespace Kuna.Projections.Source.Kurrent;
+namespace Kuna.Projections.Source.KurrentDB;
 
 /// <summary>
 /// Declares the application-owned JSON shape that is translated into native

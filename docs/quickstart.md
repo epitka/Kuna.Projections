@@ -5,7 +5,7 @@ This guide covers the shortest credible path to a running projection: select or 
 The examples use:
 
 - `Kuna.Projections.Core`
-- `Kuna.Projections.Source.Kurrent` (source implementation for KurrentDB)
+- `Kuna.Projections.Source.KurrentDB` (source implementation for KurrentDB)
 - `Kuna.Projections.Sink.EF` (sink implemenation using Entity Framework)
 
 If you want the broader package map first, see [overview.md](overview.md). If you want every configuration knob documented, see [configuration-reference.md](configuration-reference.md).
@@ -51,7 +51,7 @@ Add the projection packages your worker needs:
 
 ```bash
 dotnet add package Kuna.Projections.Core
-dotnet add package Kuna.Projections.Source.Kurrent
+dotnet add package Kuna.Projections.Source.KurrentDB
 dotnet add package Kuna.Projections.Sink.EF
 ```
 
@@ -267,7 +267,7 @@ Important: `WithInitialEvent<TEvent>()` is required here. Without it, the runtim
 
 ```csharp
 using Kuna.Projections.Core;
-using Kuna.Projections.Source.Kurrent;
+using Kuna.Projections.Source.KurrentDB;
 using Kuna.Projections.Sink.EF;
 using Microsoft.EntityFrameworkCore;
 

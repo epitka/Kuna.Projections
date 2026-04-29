@@ -2,7 +2,7 @@ using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
 
-namespace Kuna.Projections.Source.Kurrent;
+namespace Kuna.Projections.Source.KurrentDB;
 
 internal sealed class ProjectionEventSource<TState> : IProjectionEventSource<TState>
     where TState : class, IModel, new()

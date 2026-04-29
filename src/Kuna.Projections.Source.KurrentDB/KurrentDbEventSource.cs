@@ -3,11 +3,11 @@ using System.Runtime.ExceptionServices;
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
-using Kuna.Projections.Source.Kurrent.Extensions;
+using Kuna.Projections.Source.KurrentDB.Extensions;
 using KurrentDB.Client;
 using Microsoft.Extensions.Logging;
 
-namespace Kuna.Projections.Source.Kurrent;
+namespace Kuna.Projections.Source.KurrentDB;
 
 /// <summary>
 /// Kurrent-backed <see cref="IEventSource{TEnvelope}"/> that subscribes to the

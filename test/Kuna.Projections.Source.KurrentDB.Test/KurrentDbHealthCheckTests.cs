@@ -1,10 +1,10 @@
-using Kuna.Projections.Source.Kurrent;
+using Kuna.Projections.Source.KurrentDB;
 using KurrentDB.Client;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Shouldly;
 using Xunit;
 
-namespace Kuna.Projections.Pipeline.Kurrent.Test;
+namespace Kuna.Projections.Source.KurrentDB.Test;
 
 public class KurrentDbHealthCheckTests
 {

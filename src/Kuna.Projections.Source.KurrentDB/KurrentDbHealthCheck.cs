@@ -1,7 +1,7 @@
 using KurrentDB.Client;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace Kuna.Projections.Source.Kurrent;
+namespace Kuna.Projections.Source.KurrentDB;
 
 /// <summary>
 /// Health check that verifies basic connectivity to the configured Kurrent

@@ -1,7 +1,7 @@
 using Kuna.Projections.Abstractions.Models;
 using KurrentDB.Client;
 
-namespace Kuna.Projections.Source.Kurrent.Extensions;
+namespace Kuna.Projections.Source.KurrentDB.Extensions;
 
 /// <summary>
 /// Converts projection checkpoint values into Kurrent position types.

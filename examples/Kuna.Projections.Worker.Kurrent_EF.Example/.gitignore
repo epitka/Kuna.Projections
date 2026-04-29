@@ -2,3 +2,6 @@ kurrent-snapshot/
 
 # Local or generated seeding reports.
 seed-report/
+
+# Local projection runtime log output.
+projection-run.log

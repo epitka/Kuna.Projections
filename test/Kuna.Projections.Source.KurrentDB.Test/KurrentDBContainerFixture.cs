@@ -2,7 +2,7 @@ using DotNet.Testcontainers.Containers;
 using Testcontainers.KurrentDb;
 using Xunit;
 
-namespace Kuna.Projections.Pipeline.Kurrent.Test;
+namespace Kuna.Projections.Source.KurrentDB.Test;
 
 public class KurrentDBContainerFixture
     : TestContainerFixture,

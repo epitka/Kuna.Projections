@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace Kuna.Projections.Pipeline.Kurrent.Test;
+namespace Kuna.Projections.Source.KurrentDB.Test;
 
 [CollectionDefinition(Name)]
 public class KurrentDbCollection : ICollectionFixture<KurrentDBContainerFixture>

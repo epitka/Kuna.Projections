@@ -1,4 +1,4 @@
-namespace Kuna.Projections.Source.Kurrent;
+namespace Kuna.Projections.Source.KurrentDB;
 
 /// <summary>
 /// Selects which native KurrentDB filter shape should be built.
