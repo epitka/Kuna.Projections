@@ -25,6 +25,7 @@ public static class ServiceCollectionExtensions
         MongoProjectionOptions options = new();
         configure(options);
         MongoProjectionOptionsValidator.Validate(options);
+        MongoSerializationRegistry.EnsureInitialized();
 
         services.AddSingleton(options);
         services.AddSingleton<CollectionNamer>();
