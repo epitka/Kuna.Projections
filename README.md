@@ -205,4 +205,15 @@ Example:
 }
 ```
 
+`KurrentDB:Filter` maps onto the Kurrent .NET subscription filter model:
+
+- `Kind` selects the filter shape.
+- Use `Prefixes` for prefix-based kinds.
+- Use `Regex` for regex-based kinds.
+
+Supported `Kind` values are `StreamPrefix`, `StreamRegex`, `EventTypePrefix`, and `EventTypeRegex`.
+
+For the full Kurrent .NET filtering model and semantics, see the official documentation:
+https://docs.kurrent.io/clients/dotnet/v1.0/subscriptions.html
+
 Full configuration details live in [docs/configuration-reference.md](docs/configuration-reference.md).
