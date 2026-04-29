@@ -33,8 +33,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(sp => sp.GetRequiredService<IMongoClient>().GetDatabase(options.DatabaseName));
         services.AddSingleton<ModelDataStore<TState>>();
         services.AddSingleton<ProjectionCheckpointStore<TState>>();
+        services.AddSingleton<MongoIndexesInitializer<TState>>();
         services.AddSingleton<ICheckpointStore>(sp => sp.GetRequiredService<ProjectionCheckpointStore<TState>>());
-        services.AddSingleton<IProjectionStartupTask, MongoIndexesInitializer>();
+        services.AddSingleton<IProjectionStartupTask>(sp => sp.GetRequiredService<MongoIndexesInitializer<TState>>());
         services.AddSingleton<IProjectionFailureHandler<TState>, ProjectionFailureHandler<TState>>();
         services.AddSingleton<IModelStateSink<TState>>(sp => sp.GetRequiredService<ModelDataStore<TState>>());
         services.AddSingleton<IModelStateStore<TState>>(sp => sp.GetRequiredService<ModelDataStore<TState>>());
