@@ -121,11 +121,6 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(sourceSettings.Filter);
 
-        if (sourceSettings.Filter.Kind != KurrentDbFilterKind.StreamPrefix)
-        {
-            throw new InvalidOperationException($"{sectionPath}:Filter:Kind supports only '{KurrentDbFilterKind.StreamPrefix}' in the current implementation.");
-        }
-
         _ = KurrentDbSubscriptionFilterFactory.Create(sourceSettings.Filter);
     }
 }
