@@ -13,4 +13,10 @@ public sealed class MongoProjectionOptions
     public string FailureCollectionName { get; set; } = "projection_failures";
 
     public IDictionary<Type, string> ModelCollectionNames { get; } = new Dictionary<Type, string>();
+
+    public void SetModelCollectionName<TState>(string collectionName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(collectionName);
+        this.ModelCollectionNames[typeof(TState)] = collectionName;
+    }
 }

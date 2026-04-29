@@ -1,6 +1,7 @@
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Driver;
 
 namespace Kuna.Projections.Sink.MongoDB;
 
@@ -23,9 +24,12 @@ public static class ServiceCollectionExtensions
 
         MongoProjectionOptions options = new();
         configure(options);
+        MongoProjectionOptionsValidator.Validate(options);
 
         services.AddSingleton(options);
         services.AddSingleton<CollectionNamer>();
+        services.AddSingleton<IMongoClient>(_ => new MongoClient(options.ConnectionString));
+        services.AddSingleton(sp => sp.GetRequiredService<IMongoClient>().GetDatabase(options.DatabaseName));
         services.AddSingleton<ModelDataStore<TState>>();
         services.AddSingleton<ICheckpointStore, ProjectionCheckpointStore>();
         services.AddSingleton<IProjectionStartupTask, MongoIndexesInitializer>();
