@@ -15,7 +15,7 @@ public sealed class IndexesInitializerIntegrationTests : MongoDbIntegrationTestB
     [Fact]
     public async Task RunStartupTasks_Should_Create_Required_Indexes()
     {
-        await using ServiceProvider provider = this.CreateProvider();
+        await using var provider = this.CreateProvider();
 
         await this.RunStartupTasks(provider);
 

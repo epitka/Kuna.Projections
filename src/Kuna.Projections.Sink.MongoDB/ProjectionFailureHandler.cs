@@ -51,7 +51,7 @@ internal sealed class ProjectionFailureHandler<TState> : IProjectionFailureHandl
     private static string Truncate(string value)
     {
         return value.Length <= MaxExceptionLength
-            ? value
-            : value[..MaxExceptionLength];
+                   ? value
+                   : value[..MaxExceptionLength];
     }
 }

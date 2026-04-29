@@ -13,7 +13,7 @@ public sealed class ServiceCollectionExtensionsTests
     {
         ServiceCollection services = new();
 
-        IServiceCollection returned = services.AddMongoProjectionsDataStore<TestModel>(
+        var returned = services.AddMongoProjectionsDataStore<TestModel>(
             options =>
             {
                 options.ConnectionString = "mongodb://localhost:27017";
@@ -68,7 +68,7 @@ public sealed class ServiceCollectionExtensionsTests
                 options.CollectionPrefix = "invoices";
             });
 
-        using ServiceProvider provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         provider.GetRequiredService<IModelStateStore<TestModel>>().ShouldNotBeNull();
         provider.GetRequiredService<IModelStateStore<SecondaryTestModel>>().ShouldNotBeNull();
@@ -76,8 +76,10 @@ public sealed class ServiceCollectionExtensionsTests
         provider.GetRequiredService<IProjectionFailureHandler<SecondaryTestModel>>().ShouldNotBeNull();
         provider.GetRequiredService<IProjectionCheckpointStore<TestModel>>().ShouldNotBeNull();
         provider.GetRequiredService<IProjectionCheckpointStore<SecondaryTestModel>>().ShouldNotBeNull();
-        provider.GetRequiredService<IProjectionCheckpointStore<TestModel>>().Value
+        provider.GetRequiredService<IProjectionCheckpointStore<TestModel>>()
+                .Value
                 .ShouldNotBeSameAs(provider.GetRequiredService<IProjectionCheckpointStore<SecondaryTestModel>>().Value);
+
         provider.GetServices<IProjectionStartupTask>().Count().ShouldBe(2);
     }
 }

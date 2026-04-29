@@ -23,9 +23,15 @@ internal sealed class CollectionNamer
         return $"{this.options.CollectionPrefix}_{normalizedTypeName}";
     }
 
-    public string GetCheckpointCollectionName() => this.options.CheckpointCollectionName;
+    public string GetCheckpointCollectionName()
+    {
+        return this.options.CheckpointCollectionName;
+    }
 
-    public string GetFailureCollectionName() => this.options.FailureCollectionName;
+    public string GetFailureCollectionName()
+    {
+        return this.options.FailureCollectionName;
+    }
 
     private static string NormalizeTypeName(string typeName)
     {
@@ -36,7 +42,7 @@ internal sealed class CollectionNamer
         return string.Concat(
             normalizedTypeName.Select(
                 (character, index) => index > 0 && char.IsUpper(character)
-                    ? $"_{char.ToLowerInvariant(character)}"
-                    : char.ToLowerInvariant(character).ToString()));
+                                          ? $"_{char.ToLowerInvariant(character)}"
+                                          : char.ToLowerInvariant(character).ToString()));
     }
 }

@@ -17,10 +17,10 @@ public sealed class LoadTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task Load_Should_Return_Null_For_Unknown_Id()
     {
-        await using ServiceProvider provider = this.CreateProvider();
-        IModelStateStore<TestModel> store = provider.GetRequiredService<IModelStateStore<TestModel>>();
+        await using var provider = this.CreateProvider();
+        var store = provider.GetRequiredService<IModelStateStore<TestModel>>();
 
-        TestModel? result = await store.Load(Guid.NewGuid(), CancellationToken.None);
+        var result = await store.Load(Guid.NewGuid(), CancellationToken.None);
 
         result.ShouldBeNull();
     }
@@ -28,13 +28,13 @@ public sealed class LoadTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task Load_Should_Return_Persisted_Model()
     {
-        Guid modelId = Guid.NewGuid();
+        var modelId = Guid.NewGuid();
 
-        await using ServiceProvider provider = this.CreateProvider();
+        await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "alpha", 42, 101);
-        IModelStateStore<TestModel> store = provider.GetRequiredService<IModelStateStore<TestModel>>();
+        var store = provider.GetRequiredService<IModelStateStore<TestModel>>();
 
-        TestModel? result = await store.Load(modelId, CancellationToken.None);
+        var result = await store.Load(modelId, CancellationToken.None);
 
         result.ShouldNotBeNull();
         result.Id.ShouldBe(modelId);

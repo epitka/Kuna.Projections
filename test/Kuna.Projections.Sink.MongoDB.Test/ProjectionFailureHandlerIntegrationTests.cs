@@ -18,7 +18,7 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
     [Fact]
     public async Task Handle_Should_Mark_Model_As_Faulted_And_Persist_Failure()
     {
-        Guid modelId = Guid.NewGuid();
+        var modelId = Guid.NewGuid();
         ProjectionFailure failure = new(
             modelId: modelId,
             eventNumber: 7,
@@ -28,9 +28,9 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
             failureType: nameof(FailureType.Persistence),
             modelName: ProjectionModelName.For<TestModel>());
 
-        await using ServiceProvider provider = this.CreateProvider();
+        await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "fault-target", 7, 42);
-        IProjectionFailureHandler<TestModel> handler = provider.GetRequiredService<IProjectionFailureHandler<TestModel>>();
+        var handler = provider.GetRequiredService<IProjectionFailureHandler<TestModel>>();
 
         await handler.Handle(failure, CancellationToken.None);
 
@@ -52,7 +52,7 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
     [Fact]
     public async Task Handle_Should_Replace_Existing_Failure_Text_And_Metadata()
     {
-        Guid modelId = Guid.NewGuid();
+        var modelId = Guid.NewGuid();
         ProjectionFailure firstFailure = new(
             modelId: modelId,
             eventNumber: 7,
@@ -61,6 +61,7 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
             exception: "first",
             failureType: nameof(FailureType.Persistence),
             modelName: ProjectionModelName.For<TestModel>());
+
         ProjectionFailure secondFailure = new(
             modelId: modelId,
             eventNumber: 8,
@@ -70,9 +71,9 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
             failureType: nameof(FailureType.EventProcessing),
             modelName: ProjectionModelName.For<TestModel>());
 
-        await using ServiceProvider provider = this.CreateProvider();
+        await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "fault-target", 8, 43);
-        IProjectionFailureHandler<TestModel> handler = provider.GetRequiredService<IProjectionFailureHandler<TestModel>>();
+        var handler = provider.GetRequiredService<IProjectionFailureHandler<TestModel>>();
 
         await handler.Handle(firstFailure, CancellationToken.None);
         await handler.Handle(secondFailure, CancellationToken.None);
@@ -89,8 +90,8 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
     [Fact]
     public async Task Handle_Should_Truncate_Exception_Text_To_500_Characters()
     {
-        Guid modelId = Guid.NewGuid();
-        string exceptionText = new string('x', 600);
+        var modelId = Guid.NewGuid();
+        var exceptionText = new string('x', 600);
         ProjectionFailure failure = new(
             modelId: modelId,
             eventNumber: 7,
@@ -100,9 +101,9 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
             failureType: nameof(FailureType.Persistence),
             modelName: ProjectionModelName.For<TestModel>());
 
-        await using ServiceProvider provider = this.CreateProvider();
+        await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "fault-target", 7, 42);
-        IProjectionFailureHandler<TestModel> handler = provider.GetRequiredService<IProjectionFailureHandler<TestModel>>();
+        var handler = provider.GetRequiredService<IProjectionFailureHandler<TestModel>>();
 
         await handler.Handle(failure, CancellationToken.None);
 

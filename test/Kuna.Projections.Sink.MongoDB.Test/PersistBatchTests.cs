@@ -19,10 +19,10 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task PersistBatch_Should_Insert_New_Model()
     {
-        Guid modelId = Guid.NewGuid();
+        var modelId = Guid.NewGuid();
 
-        await using ServiceProvider provider = this.CreateProvider();
-        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        await using var provider = this.CreateProvider();
+        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -56,11 +56,11 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task PersistBatch_Should_Update_Model_When_Expected_Event_Number_Matches()
     {
-        Guid modelId = Guid.NewGuid();
+        var modelId = Guid.NewGuid();
 
-        await using ServiceProvider provider = this.CreateProvider();
+        await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "before", 1, 10);
-        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -94,11 +94,11 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task PersistBatch_Should_Delete_Model_When_Expected_Event_Number_Matches()
     {
-        Guid modelId = Guid.NewGuid();
+        var modelId = Guid.NewGuid();
 
-        await using ServiceProvider provider = this.CreateProvider();
+        await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "to-delete", 2, 10);
-        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -129,11 +129,11 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task PersistBatch_Should_Skip_Duplicate_Insert()
     {
-        Guid modelId = Guid.NewGuid();
+        var modelId = Guid.NewGuid();
 
-        await using ServiceProvider provider = this.CreateProvider();
+        await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "existing", 1, 10);
-        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -157,7 +157,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         await sink.PersistBatch(batch, CancellationToken.None);
 
         var document = await this.GetModelDocument(provider, modelId);
-        long count = await this.GetModelDocumentCount(provider, modelId);
+        var count = await this.GetModelDocumentCount(provider, modelId);
 
         count.ShouldBe(1);
         document.ShouldNotBeNull();
@@ -168,11 +168,11 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task PersistBatch_Should_Skip_Stale_Update()
     {
-        Guid modelId = Guid.NewGuid();
+        var modelId = Guid.NewGuid();
 
-        await using ServiceProvider provider = this.CreateProvider();
+        await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "before", 3, 10);
-        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -205,11 +205,11 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task PersistBatch_Should_Skip_Stale_Delete()
     {
-        Guid modelId = Guid.NewGuid();
+        var modelId = Guid.NewGuid();
 
-        await using ServiceProvider provider = this.CreateProvider();
+        await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "existing", 5, 10);
-        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -242,10 +242,10 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task PersistBatch_Should_Skip_New_And_Deleted_Item_In_Same_Flush()
     {
-        Guid modelId = Guid.NewGuid();
+        var modelId = Guid.NewGuid();
 
-        await using ServiceProvider provider = this.CreateProvider();
-        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        await using var provider = this.CreateProvider();
+        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -276,12 +276,12 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task PersistBatch_Should_Persist_Healthy_Insert_When_Sibling_Insert_Is_Duplicate()
     {
-        Guid existingModelId = Guid.NewGuid();
-        Guid newModelId = Guid.NewGuid();
+        var existingModelId = Guid.NewGuid();
+        var newModelId = Guid.NewGuid();
 
-        await using ServiceProvider provider = this.CreateProvider();
+        await using var provider = this.CreateProvider();
         await this.SeedModel(provider, existingModelId, "existing", 1, 10);
-        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -328,13 +328,13 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task PersistBatch_Should_Persist_Healthy_Update_When_Sibling_Update_Is_Stale()
     {
-        Guid staleModelId = Guid.NewGuid();
-        Guid validModelId = Guid.NewGuid();
+        var staleModelId = Guid.NewGuid();
+        var validModelId = Guid.NewGuid();
 
-        await using ServiceProvider provider = this.CreateProvider();
+        await using var provider = this.CreateProvider();
         await this.SeedModel(provider, staleModelId, "stale-before", 3, 10);
         await this.SeedModel(provider, validModelId, "valid-before", 5, 10);
-        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -382,13 +382,13 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task PersistBatch_Should_Persist_Healthy_Delete_When_Sibling_Delete_Is_Stale()
     {
-        Guid staleModelId = Guid.NewGuid();
-        Guid validModelId = Guid.NewGuid();
+        var staleModelId = Guid.NewGuid();
+        var validModelId = Guid.NewGuid();
 
-        await using ServiceProvider provider = this.CreateProvider();
+        await using var provider = this.CreateProvider();
         await this.SeedModel(provider, staleModelId, "stale-existing", 3, 10);
         await this.SeedModel(provider, validModelId, "valid-existing", 5, 10);
-        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -434,11 +434,11 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task PersistBatch_Should_Record_Failure_And_Persist_Healthy_Insert_When_Sibling_Insert_Is_Too_Large()
     {
-        Guid failedModelId = Guid.NewGuid();
-        Guid validModelId = Guid.NewGuid();
+        var failedModelId = Guid.NewGuid();
+        var validModelId = Guid.NewGuid();
 
-        await using ServiceProvider provider = this.CreateProvider();
-        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        await using var provider = this.CreateProvider();
+        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -488,13 +488,13 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task PersistBatch_Should_Record_Failure_And_Persist_Healthy_Update_When_Sibling_Update_Is_Too_Large()
     {
-        Guid failedModelId = Guid.NewGuid();
-        Guid validModelId = Guid.NewGuid();
+        var failedModelId = Guid.NewGuid();
+        var validModelId = Guid.NewGuid();
 
-        await using ServiceProvider provider = this.CreateProvider();
+        await using var provider = this.CreateProvider();
         await this.SeedModel(provider, failedModelId, "failed-before", 3, 10);
         await this.SeedModel(provider, validModelId, "valid-before", 5, 10);
-        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =

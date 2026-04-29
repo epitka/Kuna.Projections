@@ -15,7 +15,7 @@ public sealed class CollectionNamingIntegrationTests : MongoDbIntegrationTestBas
     [Fact]
     public async Task RunStartupTasks_Should_Use_Custom_Model_Collection_Name()
     {
-        await using ServiceProvider provider = this.CreateProvider(
+        await using var provider = this.CreateProvider(
             options =>
             {
                 options.SetModelCollectionName<Items.TestModel>("read_models_custom_orders");
@@ -23,7 +23,7 @@ public sealed class CollectionNamingIntegrationTests : MongoDbIntegrationTestBas
 
         await this.RunStartupTasks(provider);
 
-        IReadOnlyList<string> collectionNames = await this.GetCollectionNames();
+        var collectionNames = await this.GetCollectionNames();
 
         collectionNames.ShouldContain("read_models_custom_orders");
         collectionNames.ShouldNotContain("projection_test_model");

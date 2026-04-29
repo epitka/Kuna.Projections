@@ -20,7 +20,10 @@ public abstract class MongoDbIntegrationTestBase
 
     protected ServiceProvider CreateProvider()
     {
-        return this.CreateProvider(_ => { });
+        return this.CreateProvider(
+            _ =>
+            {
+            });
     }
 
     protected ServiceProvider CreateProvider(Action<Kuna.Projections.Sink.MongoDB.ProjectionOptions> configure)
@@ -40,7 +43,7 @@ public abstract class MongoDbIntegrationTestBase
 
     protected async Task RunStartupTasks(ServiceProvider provider)
     {
-        foreach (IProjectionStartupTask startupTask in provider.GetServices<IProjectionStartupTask>())
+        foreach (var startupTask in provider.GetServices<IProjectionStartupTask>())
         {
             await startupTask.RunAsync(CancellationToken.None);
         }
@@ -54,8 +57,8 @@ public abstract class MongoDbIntegrationTestBase
         ulong globalEventPosition,
         bool hasStreamProcessingFaulted = false)
     {
-        IMongoDatabase database = this.CreateDatabase();
-        IMongoCollection<BsonDocument> collection = database.GetCollection<BsonDocument>("projection_test_model");
+        var database = this.CreateDatabase();
+        var collection = database.GetCollection<BsonDocument>("projection_test_model");
 
         BsonDocument document =
         [
@@ -71,36 +74,36 @@ public abstract class MongoDbIntegrationTestBase
 
     protected async Task<BsonDocument?> GetModelDocument(ServiceProvider provider, Guid modelId)
     {
-        IMongoDatabase database = this.CreateDatabase();
-        IMongoCollection<BsonDocument> collection = database.GetCollection<BsonDocument>("projection_test_model");
+        var database = this.CreateDatabase();
+        var collection = database.GetCollection<BsonDocument>("projection_test_model");
         return await collection.Find(x => x["_id"] == modelId.ToString("D")).SingleOrDefaultAsync();
     }
 
     protected async Task<BsonDocument?> GetFailureDocument(ServiceProvider provider, Guid modelId)
     {
-        string failureId = $"{typeof(TestModel).FullName}:{modelId:D}";
-        IMongoDatabase database = this.CreateDatabase();
-        IMongoCollection<BsonDocument> collection = database.GetCollection<BsonDocument>("projection_failures");
+        var failureId = $"{typeof(TestModel).FullName}:{modelId:D}";
+        var database = this.CreateDatabase();
+        var collection = database.GetCollection<BsonDocument>("projection_failures");
         return await collection.Find(x => x["_id"] == failureId).SingleOrDefaultAsync();
     }
 
     protected async Task<long> GetModelDocumentCount(ServiceProvider provider, Guid modelId)
     {
-        IMongoDatabase database = this.CreateDatabase();
-        IMongoCollection<BsonDocument> collection = database.GetCollection<BsonDocument>("projection_test_model");
+        var database = this.CreateDatabase();
+        var collection = database.GetCollection<BsonDocument>("projection_test_model");
         return await collection.CountDocumentsAsync(x => x["_id"] == modelId.ToString("D"));
     }
 
     protected async Task<IReadOnlyList<BsonDocument>> GetIndexes(string collectionName)
     {
-        IMongoDatabase database = this.CreateDatabase();
+        var database = this.CreateDatabase();
         IAsyncCursor<BsonDocument> cursor = await database.GetCollection<BsonDocument>(collectionName).Indexes.ListAsync();
         return await cursor.ToListAsync();
     }
 
     protected async Task<IReadOnlyList<string>> GetCollectionNames()
     {
-        IMongoDatabase database = this.CreateDatabase();
+        var database = this.CreateDatabase();
         IAsyncCursor<string> cursor = await database.ListCollectionNamesAsync();
         return await cursor.ToListAsync();
     }

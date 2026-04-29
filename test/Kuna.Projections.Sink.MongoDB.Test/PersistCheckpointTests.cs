@@ -18,8 +18,8 @@ public sealed class PersistCheckpointTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task PersistCheckpoint_Should_Roundtrip_Global_Event_Position()
     {
-        await using ServiceProvider provider = this.CreateProvider();
-        ICheckpointStore store = provider.GetRequiredService<IProjectionCheckpointStore<TestModel>>().Value;
+        await using var provider = this.CreateProvider();
+        var store = provider.GetRequiredService<IProjectionCheckpointStore<TestModel>>().Value;
         CheckPoint checkPoint = new()
         {
             ModelName = ProjectionModelName.For<TestModel>(),
@@ -28,7 +28,7 @@ public sealed class PersistCheckpointTests : MongoDbIntegrationTestBase
 
         await store.PersistCheckpoint(checkPoint, CancellationToken.None);
 
-        CheckPoint result = await store.GetCheckpoint(CancellationToken.None);
+        var result = await store.GetCheckpoint(CancellationToken.None);
 
         result.ModelName.ShouldBe(ProjectionModelName.For<TestModel>());
         result.GlobalEventPosition.Value.ShouldBe(123UL);
@@ -37,10 +37,10 @@ public sealed class PersistCheckpointTests : MongoDbIntegrationTestBase
     [Fact]
     public async Task GetCheckpoint_Should_Return_Default_Checkpoint_When_Not_Persisted()
     {
-        await using ServiceProvider provider = this.CreateProvider();
-        ICheckpointStore store = provider.GetRequiredService<IProjectionCheckpointStore<TestModel>>().Value;
+        await using var provider = this.CreateProvider();
+        var store = provider.GetRequiredService<IProjectionCheckpointStore<TestModel>>().Value;
 
-        CheckPoint result = await store.GetCheckpoint(CancellationToken.None);
+        var result = await store.GetCheckpoint(CancellationToken.None);
 
         result.ModelName.ShouldBe(ProjectionModelName.For<TestModel>());
         result.GlobalEventPosition.Value.ShouldBe(0UL);

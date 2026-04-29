@@ -38,10 +38,12 @@ public static class ServiceCollectionExtensions
                 options.DatabaseName = "orders_projection";
                 options.CollectionPrefix = "orders";
             });
+
         services.AddProjection<Order>(
                     configuration,
                     settingsSectionName: "OrdersProjection")
                 .WithInitialEvent<OrderCreatedEvent>();
+
         services.AddScoped<OrdersReplayConsistencyDiagnostics>();
 
         return services;

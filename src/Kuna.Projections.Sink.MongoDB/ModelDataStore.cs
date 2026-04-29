@@ -5,7 +5,9 @@ using MongoDB.Driver;
 
 namespace Kuna.Projections.Sink.MongoDB;
 
-internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelStateStore<TState>
+internal sealed class ModelDataStore<TState>
+    : IModelStateSink<TState>,
+      IModelStateStore<TState>
     where TState : class, IModel, new()
 {
     private readonly IMongoCollection<TState> collection;
@@ -153,7 +155,8 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
 
         foreach (var writeError in exception.WriteErrors)
         {
-            if (writeError.Index < 0 || writeError.Index >= modelStates.Count)
+            if (writeError.Index < 0
+                || writeError.Index >= modelStates.Count)
             {
                 continue;
             }
@@ -185,7 +188,8 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
 
         foreach (var writeError in exception.WriteErrors)
         {
-            if (writeError.Index < 0 || writeError.Index >= models.Count)
+            if (writeError.Index < 0
+                || writeError.Index >= models.Count)
             {
                 continue;
             }
@@ -257,8 +261,7 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
 
     private WriteModel<TState> CreateWriteModel(ModelState<TState> modelState)
     {
-        FilterDefinition<TState> filter = Builders<TState>.Filter.Where(
-            x => x.Id == modelState.Model.Id && x.EventNumber == modelState.ExpectedEventNumber);
+        var filter = Builders<TState>.Filter.Where(x => x.Id == modelState.Model.Id && x.EventNumber == modelState.ExpectedEventNumber);
 
         if (modelState.ShouldDelete)
         {

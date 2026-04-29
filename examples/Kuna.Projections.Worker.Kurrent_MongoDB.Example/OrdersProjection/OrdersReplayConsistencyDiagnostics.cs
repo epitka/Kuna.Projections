@@ -44,7 +44,7 @@ public sealed class OrdersReplayConsistencyDiagnostics
         }
 
         IMongoClient mongoClient = new MongoClient(mongoDbConnectionString);
-        IMongoDatabase mongoDatabase = mongoClient.GetDatabase(DatabaseName);
+        var mongoDatabase = mongoClient.GetDatabase(DatabaseName);
 
         this.ordersCollection = mongoDatabase.GetCollection<Order>(OrdersCollectionName);
         this.eventStoreClient = eventStoreClient;
@@ -355,9 +355,10 @@ public sealed class OrdersReplayConsistencyDiagnostics
 
     private async Task<List<Order>> LoadOrdersAsync(ReplayConsistencyRequest request, CancellationToken cancellationToken)
     {
-        FilterDefinition<Order> filter = request.OrderId.HasValue
-                                             ? Builders<Order>.Filter.Eq(x => x.Id, request.OrderId.Value)
-                                             : Builders<Order>.Filter.Empty;
+        var filter = request.OrderId.HasValue
+                         ? Builders<Order>.Filter.Eq(x => x.Id, request.OrderId.Value)
+                         : Builders<Order>.Filter.Empty;
+
         IFindFluent<Order, Order> find = this.ordersCollection.Find(filter).SortBy(x => x.Id);
 
         if (request.Limit.HasValue)
