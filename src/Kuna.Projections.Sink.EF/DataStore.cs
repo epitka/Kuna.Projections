@@ -14,7 +14,7 @@ namespace Kuna.Projections.Sink.EF;
 
 /// <summary>
 /// EF Core-backed implementation of model-state persistence, model-state
-/// loading, and checkpoint persistence for the projection pipeline.
+/// loading, and explicit checkpoint persistence for the projection pipeline.
 /// </summary>
 public class DataStore<TState, TDataContext>
     : IModelStateSink<TState>,
@@ -101,8 +101,7 @@ public class DataStore<TState, TDataContext>
     }
 
     /// <summary>
-    /// Persists one batch of model-state changes and then advances the
-    /// checkpoint to the batch's global event position.
+    /// Persists one batch of model-state changes.
     /// </summary>
     public async Task PersistBatch(ModelStatesBatch<TState> batch, CancellationToken cancellationToken)
     {
@@ -119,17 +118,11 @@ public class DataStore<TState, TDataContext>
         var insertCount = toPersist.Count(x => x.IsNew);
         var updateCount = toPersist.Count(x => !x.IsNew);
 
-        var checkpoint = new CheckPoint
-        {
-            ModelName = this.modelName,
-            GlobalEventPosition = batch.GlobalEventPosition,
-        };
-
         PersistBatchTimings sinkTimings;
 
         try
         {
-            sinkTimings = await this.PersistBatchInternal(toPersist, checkpoint, cancellationToken);
+            sinkTimings = await this.PersistBatchInternal(toPersist, cancellationToken);
         }
         catch (Exception ex) when (ex is DbUpdateException or DbUpdateConcurrencyException)
         {
@@ -138,8 +131,7 @@ public class DataStore<TState, TDataContext>
                 "Unified batch persist failed for {Model}, falling back to isolated persistence handling...",
                 this.modelName);
 
-            await this.PersistBatchInternal(toPersist, cancellationToken);
-            await this.PersistCheckpoint(checkpoint, cancellationToken);
+            await this.PersistBatchIsolated(toPersist, cancellationToken);
             sinkTimings = default;
         }
 
@@ -168,7 +160,7 @@ public class DataStore<TState, TDataContext>
         if (this.logger.IsEnabled(LogLevel.Debug))
         {
             this.logger.LogDebug(
-                "Projection EF sink persisted for {Model}: batchChanges={BatchChanges}, persisted={Persisted}, inserted={Inserted}, updated={Updated}, excluded={Excluded}, modelPersistMs={ModelPersistMs:F0}, insertMs={InsertMs:F0}, updateMs={UpdateMs:F0}, checkpointMs={CheckpointMs:F0}, commitMs={CommitMs:F0}, markPersistedGraphMs={MarkPersistedGraphMs:F0}, totalMs={TotalMs:F0}",
+                "Projection EF sink persisted for {Model}: batchChanges={BatchChanges}, persisted={Persisted}, inserted={Inserted}, updated={Updated}, excluded={Excluded}, modelPersistMs={ModelPersistMs:F0}, insertMs={InsertMs:F0}, updateMs={UpdateMs:F0}, commitMs={CommitMs:F0}, markPersistedGraphMs={MarkPersistedGraphMs:F0}, totalMs={TotalMs:F0}",
                 this.modelName,
                 batch.Changes.Count,
                 toPersist.Length,
@@ -178,7 +170,6 @@ public class DataStore<TState, TDataContext>
                 modelPersistMs,
                 sinkTimings.InsertMs,
                 sinkTimings.UpdateMs,
-                sinkTimings.CheckpointMs,
                 sinkTimings.CommitMs,
                 markPersistedGraphMs,
                 persistStopwatch.Elapsed.TotalMilliseconds);
@@ -257,7 +248,6 @@ public class DataStore<TState, TDataContext>
 
     private async Task<PersistBatchTimings> PersistBatchInternal(
         ModelState<TState>[] modelStates,
-        CheckPoint checkPoint,
         CancellationToken cancellationToken)
     {
         var timings = new PersistBatchTimings();
@@ -310,11 +300,6 @@ public class DataStore<TState, TDataContext>
                         }
 
                         phaseStopwatch.Restart();
-                        await this.ApplyCheckpoint(transientContext, checkPoint, cancellationToken);
-                        await transientContext.SaveChangesAsync(cancellationToken);
-                        timings.CheckpointMs = phaseStopwatch.Elapsed.TotalMilliseconds;
-
-                        phaseStopwatch.Restart();
                         await transaction.CommitAsync(cancellationToken);
                         timings.CommitMs = phaseStopwatch.Elapsed.TotalMilliseconds;
                     }
@@ -333,7 +318,7 @@ public class DataStore<TState, TDataContext>
         return timings;
     }
 
-    private async Task PersistBatchInternal(ModelState<TState>[] modelStates, CancellationToken cancellationToken)
+    private async Task PersistBatchIsolated(ModelState<TState>[] modelStates, CancellationToken cancellationToken)
     {
         var toInsert = new List<TState>(modelStates.Length);
         var toUpdate = new List<ModelState<TState>>();
@@ -671,27 +656,6 @@ public class DataStore<TState, TDataContext>
         }
     }
 
-    private async Task ApplyCheckpoint(
-        DbContext dbContext,
-        CheckPoint checkPoint,
-        CancellationToken cancellationToken)
-    {
-        var currentCheckpoint = await dbContext.Set<CheckPoint>()
-                                               .Where(x => x.ModelName == checkPoint.ModelName)
-                                               .SingleOrDefaultAsync(cancellationToken);
-
-        if (currentCheckpoint == null)
-        {
-            dbContext.Add(checkPoint);
-            return;
-        }
-
-        currentCheckpoint.GlobalEventPosition = checkPoint.GlobalEventPosition;
-        dbContext.Entry(currentCheckpoint)
-                 .Property(nameof(CheckPoint.GlobalEventPosition))
-                 .IsModified = true;
-    }
-
     private bool ValidateAndDetectChildEntities()
     {
         using var transientScope = this.serviceProvider.CreateScope();
@@ -908,8 +872,6 @@ public class DataStore<TState, TDataContext>
         public double InsertMs { get; set; }
 
         public double UpdateMs { get; set; }
-
-        public double CheckpointMs { get; set; }
 
         public double CommitMs { get; set; }
     }
