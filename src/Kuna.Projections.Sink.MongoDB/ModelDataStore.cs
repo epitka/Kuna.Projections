@@ -29,18 +29,18 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
 
     public async Task PersistBatch(ModelStatesBatch<TState> batch, CancellationToken cancellationToken)
     {
-        ModelState<TState>[] changesToPersist = batch.Changes
-                                                    .Where(x => !(x.IsNew && x.ShouldDelete))
-                                                    .ToArray();
+        var changesToPersist = batch.Changes
+                                    .Where(x => !(x.IsNew && x.ShouldDelete))
+                                    .ToArray();
 
-        TState[] inserts = changesToPersist
-                           .Where(x => x is { IsNew: true, ShouldDelete: false, })
-                           .Select(x => x.Model)
-                           .ToArray();
+        var inserts = changesToPersist
+                      .Where(x => x is { IsNew: true, ShouldDelete: false, })
+                      .Select(x => x.Model)
+                      .ToArray();
 
-        ModelState<TState>[] updatesAndDeletes = changesToPersist
-                                                 .Where(x => !x.IsNew)
-                                                 .ToArray();
+        var updatesAndDeletes = changesToPersist
+                                .Where(x => !x.IsNew)
+                                .ToArray();
 
         await this.InsertBatch(inserts, cancellationToken);
         await this.PersistUpdatesAndDeletes(updatesAndDeletes, cancellationToken);
@@ -53,25 +53,31 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
             return;
         }
 
+        var modelsArray = models.ToArray();
+
         try
         {
             await this.collection.InsertManyAsync(
-                models,
+                modelsArray,
                 new InsertManyOptions
                 {
                     IsOrdered = false,
                 },
                 cancellationToken);
         }
+        catch (MongoBulkWriteException<TState> ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            await this.HandleBulkInsertFailure(modelsArray, ex, cancellationToken);
+        }
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
-            await this.InsertOneAtATime(models, cancellationToken);
+            await this.InsertOneAtATime(modelsArray, cancellationToken);
         }
     }
 
     private async Task InsertOneAtATime(IEnumerable<TState> models, CancellationToken cancellationToken)
     {
-        foreach (TState model in models)
+        foreach (var model in models)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -81,7 +87,7 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
 
     private async Task PersistUpdatesAndDeletes(IEnumerable<ModelState<TState>> modelStates, CancellationToken cancellationToken)
     {
-        foreach (ModelState<TState> modelState in modelStates)
+        foreach (var modelState in modelStates)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -98,10 +104,47 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
             }
             catch (Exception ex)
             {
-                ProjectionFailure failure = this.CreateFailure(modelState.Model, ex);
+                var failure = this.CreateFailure(modelState.Model, ex);
                 await this.failureHandler.Handle(failure, cancellationToken);
             }
         }
+    }
+
+    private async Task HandleBulkInsertFailure(
+        IReadOnlyList<TState> models,
+        MongoBulkWriteException<TState> exception,
+        CancellationToken cancellationToken)
+    {
+        HashSet<int> failedIndexes = [];
+
+        foreach (var writeError in exception.WriteErrors)
+        {
+            if (writeError.Index < 0 || writeError.Index >= models.Count)
+            {
+                continue;
+            }
+
+            failedIndexes.Add(writeError.Index);
+
+            if (writeError.Category == ServerErrorCategory.DuplicateKey)
+            {
+                continue;
+            }
+
+            var failure = this.CreateFailure(
+                models[writeError.Index],
+                new InvalidOperationException(writeError.Message, exception));
+
+            await this.failureHandler.Handle(failure, cancellationToken);
+        }
+
+        if (exception.WriteConcernError is null)
+        {
+            return;
+        }
+
+        var modelsNeedingFallback = models.Where((_, index) => !failedIndexes.Contains(index));
+        await this.InsertOneAtATime(modelsNeedingFallback, cancellationToken);
     }
 
     private async Task Insert(TState model, CancellationToken cancellationToken)
@@ -118,10 +161,10 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
 
     private async Task Update(ModelState<TState> modelState, CancellationToken cancellationToken)
     {
-        ReplaceOneResult result = await this.collection.ReplaceOneAsync(
-                                      x => x.Id == modelState.Model.Id && x.EventNumber == modelState.ExpectedEventNumber,
-                                      modelState.Model,
-                                      cancellationToken: cancellationToken);
+        var result = await this.collection.ReplaceOneAsync(
+                         x => x.Id == modelState.Model.Id && x.EventNumber == modelState.ExpectedEventNumber,
+                         modelState.Model,
+                         cancellationToken: cancellationToken);
 
         if (result.MatchedCount == 0)
         {
@@ -131,9 +174,9 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
 
     private async Task Delete(ModelState<TState> modelState, CancellationToken cancellationToken)
     {
-        DeleteResult result = await this.collection.DeleteOneAsync(
-                                  x => x.Id == modelState.Model.Id && x.EventNumber == modelState.ExpectedEventNumber,
-                                  cancellationToken);
+        var result = await this.collection.DeleteOneAsync(
+                         x => x.Id == modelState.Model.Id && x.EventNumber == modelState.ExpectedEventNumber,
+                         cancellationToken);
 
         if (result.DeletedCount == 0)
         {
@@ -143,8 +186,8 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
 
     private ProjectionFailure CreateFailure(TState model, Exception exception)
     {
-        long eventNumber = model.EventNumber
-                           ?? throw new InvalidOperationException("Failed projection model must have an event number.");
+        var eventNumber = model.EventNumber
+                          ?? throw new InvalidOperationException("Failed projection model must have an event number.");
 
         return new ProjectionFailure(
             modelId: model.Id,

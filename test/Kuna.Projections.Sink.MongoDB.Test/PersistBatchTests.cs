@@ -430,4 +430,58 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         staleDocument["Name"].AsString.ShouldBe("stale-existing");
         validDocument.ShouldBeNull();
     }
+
+    [Fact]
+    public async Task PersistBatch_Should_Record_Failure_And_Persist_Healthy_Insert_When_Sibling_Insert_Is_Too_Large()
+    {
+        Guid failedModelId = Guid.NewGuid();
+        Guid validModelId = Guid.NewGuid();
+
+        await using ServiceProvider provider = this.CreateProvider();
+        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        ModelStatesBatch<TestModel> batch = new()
+        {
+            Changes =
+            [
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = failedModelId,
+                        Name = new string('x', 17 * 1024 * 1024),
+                        EventNumber = 1,
+                        GlobalEventPosition = new GlobalEventPosition(11),
+                    },
+                    IsNew: true,
+                    ShouldDelete: false,
+                    GlobalEventPosition: new GlobalEventPosition(11),
+                    ExpectedEventNumber: null),
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = validModelId,
+                        Name = "valid",
+                        EventNumber = 1,
+                        GlobalEventPosition = new GlobalEventPosition(11),
+                    },
+                    IsNew: true,
+                    ShouldDelete: false,
+                    GlobalEventPosition: new GlobalEventPosition(11),
+                    ExpectedEventNumber: null),
+            ],
+            GlobalEventPosition = new GlobalEventPosition(11),
+        };
+
+        await sink.PersistBatch(batch, CancellationToken.None);
+
+        var failedDocument = await this.GetModelDocument(provider, failedModelId);
+        var validDocument = await this.GetModelDocument(provider, validModelId);
+        var failureDocument = await this.GetFailureDocument(provider, failedModelId);
+
+        failedDocument.ShouldBeNull();
+        validDocument.ShouldNotBeNull();
+        validDocument["Name"].AsString.ShouldBe("valid");
+        failureDocument.ShouldNotBeNull();
+        failureDocument["ModelId"].AsString.ShouldBe(failedModelId.ToString("D"));
+        failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
+    }
 }
