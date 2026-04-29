@@ -37,6 +37,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuna.Projections.Sink.Mongo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuna.Projections.Source.KurrentDB", "src\Kuna.Projections.Source.KurrentDB\Kuna.Projections.Source.KurrentDB.csproj", "{047161E6-AC46-4797-9E35-C50C9461D960}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuna.Projections.Worker.Kurrent_MongoDB.Example", "examples\Kuna.Projections.Worker.Kurrent_MongoDB.Example\Kuna.Projections.Worker.Kurrent_MongoDB.Example.csproj", "{AE7F35CB-25DC-4762-A2FA-73FC6A883AE6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -203,6 +205,18 @@ Global
 		{047161E6-AC46-4797-9E35-C50C9461D960}.Release|x64.Build.0 = Release|Any CPU
 		{047161E6-AC46-4797-9E35-C50C9461D960}.Release|x86.ActiveCfg = Release|Any CPU
 		{047161E6-AC46-4797-9E35-C50C9461D960}.Release|x86.Build.0 = Release|Any CPU
+		{AE7F35CB-25DC-4762-A2FA-73FC6A883AE6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AE7F35CB-25DC-4762-A2FA-73FC6A883AE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AE7F35CB-25DC-4762-A2FA-73FC6A883AE6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AE7F35CB-25DC-4762-A2FA-73FC6A883AE6}.Debug|x64.Build.0 = Debug|Any CPU
+		{AE7F35CB-25DC-4762-A2FA-73FC6A883AE6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AE7F35CB-25DC-4762-A2FA-73FC6A883AE6}.Debug|x86.Build.0 = Debug|Any CPU
+		{AE7F35CB-25DC-4762-A2FA-73FC6A883AE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AE7F35CB-25DC-4762-A2FA-73FC6A883AE6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AE7F35CB-25DC-4762-A2FA-73FC6A883AE6}.Release|x64.ActiveCfg = Release|Any CPU
+		{AE7F35CB-25DC-4762-A2FA-73FC6A883AE6}.Release|x64.Build.0 = Release|Any CPU
+		{AE7F35CB-25DC-4762-A2FA-73FC6A883AE6}.Release|x86.ActiveCfg = Release|Any CPU
+		{AE7F35CB-25DC-4762-A2FA-73FC6A883AE6}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -221,6 +235,7 @@ Global
 		{5E7A60F6-7692-450A-8BB1-B31A4323D0FC} = {0FE92A1C-A481-4AF5-B673-CAB946A3AA51}
 		{8D45ACDE-1ECC-460A-8BBD-22A61EEF561E} = {0FE92A1C-A481-4AF5-B673-CAB946A3AA51}
 		{047161E6-AC46-4797-9E35-C50C9461D960} = {0FE92A1C-A481-4AF5-B673-CAB946A3AA51}
+		{AE7F35CB-25DC-4762-A2FA-73FC6A883AE6} = {380D4DB8-7167-4D86-83A5-D88907D33823}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {EA646200-29CD-434E-9EA1-061533A1EECA}

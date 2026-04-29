@@ -1,0 +1,24 @@
+services:
+  kurrentdb:
+    image: kurrentplatform/kurrentdb:25.1
+    container_name: kuna-showcase-kurrentdb
+    environment:
+      KURRENTDB_INSECURE: "true"
+      KURRENTDB_ENABLE_ATOM_PUB_OVER_HTTP: "true"
+      KURRENTDB_RUN_PROJECTIONS: "All"
+      KURRENTDB_START_STANDARD_PROJECTIONS: "true"
+    ports:
+      - "2113:2113"
+
+  mongodb:
+    image: mongo:8
+    container_name: kuna-showcase-mongodb
+    environment:
+      MONGO_INITDB_DATABASE: orders_projection
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+
+volumes:
+  mongodb-data:
