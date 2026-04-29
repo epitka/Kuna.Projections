@@ -62,4 +62,19 @@ public abstract class MongoDbIntegrationTestBase
 
         await collection.InsertOneAsync(document);
     }
+
+    protected async Task<BsonDocument?> GetModelDocument(ServiceProvider provider, Guid modelId)
+    {
+        IMongoDatabase database = provider.GetRequiredService<IMongoDatabase>();
+        IMongoCollection<BsonDocument> collection = database.GetCollection<BsonDocument>("projection_test_model");
+        return await collection.Find(x => x["_id"] == modelId.ToString("D")).SingleOrDefaultAsync();
+    }
+
+    protected async Task<BsonDocument?> GetFailureDocument(ServiceProvider provider, Guid modelId)
+    {
+        string failureId = $"{typeof(TestModel).FullName}:{modelId:D}";
+        IMongoDatabase database = provider.GetRequiredService<IMongoDatabase>();
+        IMongoCollection<BsonDocument> collection = database.GetCollection<BsonDocument>("projection_failures");
+        return await collection.Find(x => x["_id"] == failureId).SingleOrDefaultAsync();
+    }
 }
