@@ -77,4 +77,11 @@ public abstract class MongoDbIntegrationTestBase
         IMongoCollection<BsonDocument> collection = database.GetCollection<BsonDocument>("projection_failures");
         return await collection.Find(x => x["_id"] == failureId).SingleOrDefaultAsync();
     }
+
+    protected async Task<long> GetModelDocumentCount(ServiceProvider provider, Guid modelId)
+    {
+        IMongoDatabase database = provider.GetRequiredService<IMongoDatabase>();
+        IMongoCollection<BsonDocument> collection = database.GetCollection<BsonDocument>("projection_test_model");
+        return await collection.CountDocumentsAsync(x => x["_id"] == modelId.ToString("D"));
+    }
 }

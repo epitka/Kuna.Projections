@@ -125,4 +125,151 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         document.ShouldBeNull();
     }
+
+    [Fact]
+    public async Task PersistBatch_Should_Skip_Duplicate_Insert()
+    {
+        Guid modelId = Guid.NewGuid();
+
+        await using ServiceProvider provider = this.CreateProvider();
+        await this.SeedModel(provider, modelId, "existing", 1, 10);
+        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        ModelStatesBatch<TestModel> batch = new()
+        {
+            Changes =
+            [
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = modelId,
+                        Name = "duplicate",
+                        EventNumber = 2,
+                        GlobalEventPosition = new GlobalEventPosition(11),
+                    },
+                    IsNew: true,
+                    ShouldDelete: false,
+                    GlobalEventPosition: new GlobalEventPosition(11),
+                    ExpectedEventNumber: null),
+            ],
+            GlobalEventPosition = new GlobalEventPosition(11),
+        };
+
+        await sink.PersistBatch(batch, CancellationToken.None);
+
+        var document = await this.GetModelDocument(provider, modelId);
+        long count = await this.GetModelDocumentCount(provider, modelId);
+
+        count.ShouldBe(1);
+        document.ShouldNotBeNull();
+        document["Name"].AsString.ShouldBe("existing");
+        document["EventNumber"].AsInt64.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task PersistBatch_Should_Skip_Stale_Update()
+    {
+        Guid modelId = Guid.NewGuid();
+
+        await using ServiceProvider provider = this.CreateProvider();
+        await this.SeedModel(provider, modelId, "before", 3, 10);
+        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        ModelStatesBatch<TestModel> batch = new()
+        {
+            Changes =
+            [
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = modelId,
+                        Name = "after",
+                        EventNumber = 4,
+                        GlobalEventPosition = new GlobalEventPosition(11),
+                    },
+                    IsNew: false,
+                    ShouldDelete: false,
+                    GlobalEventPosition: new GlobalEventPosition(11),
+                    ExpectedEventNumber: 2),
+            ],
+            GlobalEventPosition = new GlobalEventPosition(11),
+        };
+
+        await sink.PersistBatch(batch, CancellationToken.None);
+
+        var document = await this.GetModelDocument(provider, modelId);
+
+        document.ShouldNotBeNull();
+        document["Name"].AsString.ShouldBe("before");
+        document["EventNumber"].AsInt64.ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task PersistBatch_Should_Skip_Stale_Delete()
+    {
+        Guid modelId = Guid.NewGuid();
+
+        await using ServiceProvider provider = this.CreateProvider();
+        await this.SeedModel(provider, modelId, "existing", 5, 10);
+        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        ModelStatesBatch<TestModel> batch = new()
+        {
+            Changes =
+            [
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = modelId,
+                        Name = "existing",
+                        EventNumber = 6,
+                        GlobalEventPosition = new GlobalEventPosition(11),
+                    },
+                    IsNew: false,
+                    ShouldDelete: true,
+                    GlobalEventPosition: new GlobalEventPosition(11),
+                    ExpectedEventNumber: 4),
+            ],
+            GlobalEventPosition = new GlobalEventPosition(11),
+        };
+
+        await sink.PersistBatch(batch, CancellationToken.None);
+
+        var document = await this.GetModelDocument(provider, modelId);
+
+        document.ShouldNotBeNull();
+        document["Name"].AsString.ShouldBe("existing");
+        document["EventNumber"].AsInt64.ShouldBe(5);
+    }
+
+    [Fact]
+    public async Task PersistBatch_Should_Skip_New_And_Deleted_Item_In_Same_Flush()
+    {
+        Guid modelId = Guid.NewGuid();
+
+        await using ServiceProvider provider = this.CreateProvider();
+        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        ModelStatesBatch<TestModel> batch = new()
+        {
+            Changes =
+            [
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = modelId,
+                        Name = "skip-me",
+                        EventNumber = 1,
+                        GlobalEventPosition = new GlobalEventPosition(10),
+                    },
+                    IsNew: true,
+                    ShouldDelete: true,
+                    GlobalEventPosition: new GlobalEventPosition(10),
+                    ExpectedEventNumber: null),
+            ],
+            GlobalEventPosition = new GlobalEventPosition(10),
+        };
+
+        await sink.PersistBatch(batch, CancellationToken.None);
+
+        var document = await this.GetModelDocument(provider, modelId);
+
+        document.ShouldBeNull();
+    }
 }

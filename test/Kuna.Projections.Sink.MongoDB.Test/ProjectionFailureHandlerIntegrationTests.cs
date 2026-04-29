@@ -48,4 +48,67 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
         failureDocument["Exception"].AsString.ShouldBe("boom");
         failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
     }
+
+    [Fact]
+    public async Task Handle_Should_Replace_Existing_Failure_Text_And_Metadata()
+    {
+        Guid modelId = Guid.NewGuid();
+        ProjectionFailure firstFailure = new(
+            modelId: modelId,
+            eventNumber: 7,
+            streamPosition: new GlobalEventPosition(42),
+            failureCreatedOn: new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+            exception: "first",
+            failureType: nameof(FailureType.Persistence),
+            modelName: ProjectionModelName.For<TestModel>());
+        ProjectionFailure secondFailure = new(
+            modelId: modelId,
+            eventNumber: 8,
+            streamPosition: new GlobalEventPosition(43),
+            failureCreatedOn: new DateTime(2026, 1, 2, 3, 5, 5, DateTimeKind.Utc),
+            exception: "second",
+            failureType: nameof(FailureType.EventProcessing),
+            modelName: ProjectionModelName.For<TestModel>());
+
+        await using ServiceProvider provider = this.CreateProvider();
+        await this.SeedModel(provider, modelId, "fault-target", 8, 43);
+        IProjectionFailureHandler<TestModel> handler = provider.GetRequiredService<IProjectionFailureHandler<TestModel>>();
+
+        await handler.Handle(firstFailure, CancellationToken.None);
+        await handler.Handle(secondFailure, CancellationToken.None);
+
+        var failureDocument = await this.GetFailureDocument(provider, modelId);
+
+        failureDocument.ShouldNotBeNull();
+        failureDocument["EventNumber"].AsInt64.ShouldBe(8);
+        failureDocument["GlobalEventPosition"].AsString.ShouldBe("43");
+        failureDocument["Exception"].AsString.ShouldBe("second");
+        failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.EventProcessing));
+    }
+
+    [Fact]
+    public async Task Handle_Should_Truncate_Exception_Text_To_500_Characters()
+    {
+        Guid modelId = Guid.NewGuid();
+        string exceptionText = new string('x', 600);
+        ProjectionFailure failure = new(
+            modelId: modelId,
+            eventNumber: 7,
+            streamPosition: new GlobalEventPosition(42),
+            failureCreatedOn: new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+            exception: exceptionText,
+            failureType: nameof(FailureType.Persistence),
+            modelName: ProjectionModelName.For<TestModel>());
+
+        await using ServiceProvider provider = this.CreateProvider();
+        await this.SeedModel(provider, modelId, "fault-target", 7, 42);
+        IProjectionFailureHandler<TestModel> handler = provider.GetRequiredService<IProjectionFailureHandler<TestModel>>();
+
+        await handler.Handle(failure, CancellationToken.None);
+
+        var failureDocument = await this.GetFailureDocument(provider, modelId);
+
+        failureDocument.ShouldNotBeNull();
+        failureDocument["Exception"].AsString.Length.ShouldBe(500);
+    }
 }
