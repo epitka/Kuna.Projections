@@ -17,7 +17,7 @@ The intended developer experience is straightforward:
 
 That is the value of the library. The application writes projection logic. The library handles event flow, replay, batching, checkpointing, and persistence.
 
-If you want the shortest path to a running worker, start with [quickstart.md](quickstart.md). If you want every runtime setting documented, see [configuration-reference.md](configuration-reference.md).
+If you want the shortest path to a running worker, start with [quickstart.md](quickstart.md). If you want Mongo-specific sink registration details, see [mongodb-sink.md](mongodb-sink.md). If you want every runtime setting documented, see [configuration-reference.md](configuration-reference.md).
 
 ## What The Packages Provide
 
@@ -29,6 +29,8 @@ If you want the shortest path to a running worker, start with [quickstart.md](qu
   The current KurrentDB-backed implementation of the source abstraction. It reads events, deserializes them, resolves model ids, and emits envelopes.
 - `Kuna.Projections.Sink.EF`
   The EF Core sink and store that persist read models, checkpoints, and projection failures.
+- `Kuna.Projections.Sink.MongoDB`
+  The MongoDB sink and store that persist read models, checkpoints, and projection failures.
 
 ## Why It Is Useful
 
@@ -177,6 +179,10 @@ This package provides the current KurrentDB-backed implementation of the source 
 ### `Kuna.Projections.Sink.EF`
 
 This package provides the EF-backed sink and store. It persists model changes, loads existing state when needed for replay, stores checkpoints, and records failures for later inspection.
+
+### `Kuna.Projections.Sink.MongoDB`
+
+This package provides the MongoDB-backed sink and store. It persists model changes as root documents, loads existing state for replay, stores checkpoints separately, records failures, and creates the required collections and failure index during startup.
 
 ## Public API Map
 

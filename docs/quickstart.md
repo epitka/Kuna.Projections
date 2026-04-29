@@ -8,6 +8,8 @@ The examples use:
 - `Kuna.Projections.Source.KurrentDB` (source implementation for KurrentDB)
 - `Kuna.Projections.Sink.EF` (sink implemenation using Entity Framework)
 
+MongoDB-backed persistence is also available through `Kuna.Projections.Sink.MongoDB`. For the Mongo-specific registration and persistence behavior, see [mongodb-sink.md](mongodb-sink.md).
+
 If you want the broader package map first, see [overview.md](overview.md). If you want every configuration knob documented, see [configuration-reference.md](configuration-reference.md).
 
 ## What You Build
@@ -53,6 +55,12 @@ Add the projection packages your worker needs:
 dotnet add package Kuna.Projections.Core
 dotnet add package Kuna.Projections.Source.KurrentDB
 dotnet add package Kuna.Projections.Sink.EF
+```
+
+For MongoDB-backed persistence, replace the sink package with:
+
+```bash
+dotnet add package Kuna.Projections.Sink.MongoDB
 ```
 
 `Kuna.Projections.Abstractions` is brought in transitively by those packages, so you usually do not need to add it explicitly unless you want a direct contracts-only dependency.
@@ -253,6 +261,8 @@ public sealed class AccountProjectionStartupTask : IProjectionStartupTask
 ```
 
 You only need this when your projection has startup work to do.
+
+If you use the MongoDB sink, the package already registers a startup task that creates its collections and failure index. See [mongodb-sink.md](mongodb-sink.md#startup-behavior).
 
 ## 8. Run The Pipeline In A Host
 

@@ -12,9 +12,10 @@ Today, the repository provides:
 - `Kuna.Projections.Core` for the projection runtime and pipeline
 - `Kuna.Projections.Source.KurrentDB` for KurrentDB-backed event ingestion
 - `Kuna.Projections.Sink.EF` for EF Core-backed persistence, checkpoints, and failure storage
+- `Kuna.Projections.Sink.MongoDB` for MongoDB-backed persistence, checkpoints, and failure storage
 - `examples/Kuna.Projections.Worker.Kurrent_EF.Example` as the runnable reference worker
 
-If you want the shortest route to a running worker, start with [docs/quickstart.md](docs/quickstart.md). If you want the full architecture and API map, start with [docs/overview.md](docs/overview.md).
+If you want the shortest route to a running worker, start with [docs/quickstart.md](docs/quickstart.md). If you want Mongo-specific sink registration details, see [docs/mongodb-sink.md](docs/mongodb-sink.md). If you want the full architecture and API map, start with [docs/overview.md](docs/overview.md).
 
 ## Why this exists
 
@@ -56,6 +57,14 @@ The smallest credible setup is:
 dotnet add package Kuna.Projections.Core
 dotnet add package Kuna.Projections.Source.KurrentDB
 dotnet add package Kuna.Projections.Sink.EF
+```
+
+MongoDB-backed workers use:
+
+```bash
+dotnet add package Kuna.Projections.Core
+dotnet add package Kuna.Projections.Source.KurrentDB
+dotnet add package Kuna.Projections.Sink.MongoDB
 ```
 
 ### Define a read model
@@ -143,6 +152,27 @@ services.AddKurrentDBSource<Account>(
     "AccountProjection");
 
 services.AddSqlProjectionsDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
+services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
+        .WithInitialEvent<AccountCreated>();
+```
+
+MongoDB-backed registration uses `AddMongoProjectionsDataStore<TState>(...)` instead of the EF registration:
+
+```csharp
+using Kuna.Projections.Sink.MongoDB;
+
+services.AddKurrentDBSource<Account>(
+    configuration,
+    loggerFactory,
+    "AccountProjection");
+
+services.AddMongoProjectionsDataStore<Account>(
+    options =>
+    {
+        options.ConnectionString = "mongodb://localhost:27017";
+        options.DatabaseName = "account_projection";
+    });
+
 services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
         .WithInitialEvent<AccountCreated>();
 ```

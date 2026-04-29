@@ -7,7 +7,7 @@ This document describes the library-owned configuration surface used by:
 
 It also explains where the library stops and application-specific configuration begins.
 
-For the shortest path to a running worker, see [quickstart.md](quickstart.md). For the broader package and runtime map, see [overview.md](overview.md).
+For the shortest path to a running worker, see [quickstart.md](quickstart.md). For the broader package and runtime map, see [overview.md](overview.md). For MongoDB sink registration and persistence semantics, see [mongodb-sink.md](mongodb-sink.md).
 
 ## Configuration Shape
 
@@ -29,6 +29,12 @@ The library-owned names are:
   Not required by the library itself, but used by the example application when constructing the EF Core `DbContext`.
 
 If `KurrentDB` is missing or empty, `AddKurrentDBSource<TState>(...)` throws during registration.
+
+## MongoDB Sink Options
+
+`Kuna.Projections.Sink.MongoDB` does not bind from the shared application configuration document by default. Its sink-specific settings are supplied in code through `AddMongoProjectionsDataStore<TState>(options => ...)`.
+
+That Mongo-specific options surface is documented in [mongodb-sink.md](mongodb-sink.md).
 
 ## Projection Section
 
