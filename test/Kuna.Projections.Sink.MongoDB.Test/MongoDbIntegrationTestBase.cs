@@ -1,0 +1,65 @@
+using Kuna.Projections.Abstractions.Services;
+using Kuna.Projections.Sink.MongoDB.Test.Items;
+using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Bson;
+using MongoDB.Driver;
+
+namespace Kuna.Projections.Sink.MongoDB.Test;
+
+public abstract class MongoDbIntegrationTestBase
+{
+    protected MongoDbIntegrationTestBase(MongoDbContainerFixture fixture)
+    {
+        this.Fixture = fixture;
+        this.DatabaseName = $"kuna-projections-test-{Guid.NewGuid():N}";
+    }
+
+    protected MongoDbContainerFixture Fixture { get; }
+
+    protected string DatabaseName { get; }
+
+    protected ServiceProvider CreateProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddMongoProjectionsDataStore<TestModel>(
+            options =>
+            {
+                options.ConnectionString = this.Fixture.ConnectionString;
+                options.DatabaseName = this.DatabaseName;
+                options.CollectionPrefix = "projection";
+            });
+
+        return services.BuildServiceProvider();
+    }
+
+    protected async Task RunStartupTasks(ServiceProvider provider)
+    {
+        foreach (IProjectionStartupTask startupTask in provider.GetServices<IProjectionStartupTask>())
+        {
+            await startupTask.RunAsync(CancellationToken.None);
+        }
+    }
+
+    protected async Task SeedModel(
+        ServiceProvider provider,
+        Guid modelId,
+        string name,
+        long eventNumber,
+        ulong globalEventPosition,
+        bool hasStreamProcessingFaulted = false)
+    {
+        IMongoDatabase database = provider.GetRequiredService<IMongoDatabase>();
+        IMongoCollection<BsonDocument> collection = database.GetCollection<BsonDocument>("projection_test_model");
+
+        BsonDocument document =
+        [
+            new BsonElement("_id", modelId.ToString("D")),
+            new BsonElement("Name", name),
+            new BsonElement("EventNumber", eventNumber),
+            new BsonElement("GlobalEventPosition", globalEventPosition.ToString()),
+            new BsonElement("HasStreamProcessingFaulted", hasStreamProcessingFaulted),
+        ];
+
+        await collection.InsertOneAsync(document);
+    }
+}
