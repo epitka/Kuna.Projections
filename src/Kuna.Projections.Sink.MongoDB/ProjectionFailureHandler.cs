@@ -32,7 +32,7 @@ internal sealed class ProjectionFailureHandler<TState> : IProjectionFailureHandl
             ModelName = failure.ModelName,
             ModelId = MongoGuid.Format(failure.ModelId),
             EventNumber = failure.EventNumber,
-            GlobalEventPosition = MongoGlobalEventPosition.Format(failure.GlobalEventPosition),
+            GlobalEventPosition = GlobalEventPositionConverter.Format(failure.GlobalEventPosition),
             FailureCreatedOn = failure.FailureCreatedOn,
             Exception = Truncate(failure.Exception),
             FailureType = failure.FailureType,

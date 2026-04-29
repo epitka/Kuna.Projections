@@ -46,7 +46,7 @@ internal sealed class MongoIndexesInitializer<TState> : IProjectionStartupTask
     {
         using IAsyncCursor<string> collectionNames = await this.database.ListCollectionNamesAsync(cancellationToken: cancellationToken);
         IReadOnlyCollection<string> existingCollectionNames = await collectionNames.ToListAsync(cancellationToken);
-        bool collectionExists = existingCollectionNames.Contains(collectionName, StringComparer.Ordinal);
+        var collectionExists = existingCollectionNames.Contains(collectionName, StringComparer.Ordinal);
 
         if (!collectionExists)
         {

@@ -8,12 +8,12 @@ internal sealed class GlobalEventPositionStringSerializer : StructSerializerBase
 {
     public override GlobalEventPosition Deserialize(BsonDeserializationContext context, BsonDeserializationArgs args)
     {
-        string value = context.Reader.ReadString();
-        return MongoGlobalEventPosition.Parse(value);
+        var value = context.Reader.ReadString();
+        return GlobalEventPositionConverter.Parse(value);
     }
 
     public override void Serialize(BsonSerializationContext context, BsonSerializationArgs args, GlobalEventPosition value)
     {
-        context.Writer.WriteString(MongoGlobalEventPosition.Format(value));
+        context.Writer.WriteString(GlobalEventPositionConverter.Format(value));
     }
 }

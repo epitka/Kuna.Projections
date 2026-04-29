@@ -8,7 +8,7 @@ internal sealed class MongoIdStringSerializer : SerializerBase<Guid>
 {
     public override Guid Deserialize(BsonDeserializationContext context, BsonDeserializationArgs args)
     {
-        string value = context.Reader.ReadString();
+        var value = context.Reader.ReadString();
         return MongoGuid.Parse(value);
     }
 

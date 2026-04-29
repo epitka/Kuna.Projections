@@ -42,7 +42,7 @@ internal static class MongoModelClassMapRegistry
                 classMap.AutoMap();
                 classMap.SetIsRootClass(true);
 
-                BsonMemberMap idMemberMap = classMap.GetMemberMap(nameof(Model.Id));
+                var idMemberMap = classMap.GetMemberMap(nameof(Model.Id));
                 idMemberMap.SetSerializer(new MongoIdStringSerializer());
                 classMap.SetIdMember(idMemberMap);
             });

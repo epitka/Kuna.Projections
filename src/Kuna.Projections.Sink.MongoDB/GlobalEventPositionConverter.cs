@@ -3,7 +3,7 @@ using Kuna.Projections.Abstractions.Models;
 
 namespace Kuna.Projections.Sink.MongoDB;
 
-internal static class MongoGlobalEventPosition
+internal static class GlobalEventPositionConverter
 {
     public static string Format(GlobalEventPosition value)
     {
@@ -14,7 +14,7 @@ internal static class MongoGlobalEventPosition
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
-        if (!ulong.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out ulong parsedValue))
+        if (!ulong.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedValue))
         {
             throw new FormatException($"Could not parse GlobalEventPosition from '{value}'.");
         }

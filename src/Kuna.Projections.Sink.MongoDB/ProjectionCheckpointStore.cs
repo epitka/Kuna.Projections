@@ -18,9 +18,9 @@ internal sealed class ProjectionCheckpointStore<TState> : ICheckpointStore
 
     public async Task<CheckPoint> GetCheckpoint(CancellationToken cancellationToken)
     {
-        ProjectionCheckpointDocument? document = await this.collection
-                                                          .Find(x => x.ModelName == this.modelName)
-                                                          .SingleOrDefaultAsync(cancellationToken);
+        var document = await this.collection
+                                 .Find(x => x.ModelName == this.modelName)
+                                 .SingleOrDefaultAsync(cancellationToken);
 
         if (document is null)
         {
@@ -34,7 +34,7 @@ internal sealed class ProjectionCheckpointStore<TState> : ICheckpointStore
         return new CheckPoint
         {
             ModelName = document.ModelName,
-            GlobalEventPosition = MongoGlobalEventPosition.Parse(document.GlobalEventPosition),
+            GlobalEventPosition = GlobalEventPositionConverter.Parse(document.GlobalEventPosition),
         };
     }
 
@@ -43,7 +43,7 @@ internal sealed class ProjectionCheckpointStore<TState> : ICheckpointStore
         ProjectionCheckpointDocument document = new()
         {
             ModelName = checkPoint.ModelName,
-            GlobalEventPosition = MongoGlobalEventPosition.Format(checkPoint.GlobalEventPosition),
+            GlobalEventPosition = GlobalEventPositionConverter.Format(checkPoint.GlobalEventPosition),
         };
 
         return this.collection.ReplaceOneAsync(

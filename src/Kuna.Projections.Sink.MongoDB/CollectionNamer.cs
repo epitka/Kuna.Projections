@@ -14,12 +14,12 @@ internal sealed class CollectionNamer
     public string GetModelCollectionName<TState>()
         where TState : class, IModel, new()
     {
-        if (this.options.ModelCollectionNames.TryGetValue(typeof(TState), out string? collectionName))
+        if (this.options.ModelCollectionNames.TryGetValue(typeof(TState), out var collectionName))
         {
             return collectionName;
         }
 
-        string normalizedTypeName = NormalizeTypeName(typeof(TState).Name);
+        var normalizedTypeName = NormalizeTypeName(typeof(TState).Name);
         return $"{this.options.CollectionPrefix}_{normalizedTypeName}";
     }
 
@@ -29,9 +29,9 @@ internal sealed class CollectionNamer
 
     private static string NormalizeTypeName(string typeName)
     {
-        string normalizedTypeName = typeName.EndsWith("Projection", StringComparison.Ordinal)
-            ? typeName[..^"Projection".Length]
-            : typeName;
+        var normalizedTypeName = typeName.EndsWith("Projection", StringComparison.Ordinal)
+                                     ? typeName[..^"Projection".Length]
+                                     : typeName;
 
         return string.Concat(
             normalizedTypeName.Select(
