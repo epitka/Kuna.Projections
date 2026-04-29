@@ -157,6 +157,11 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
         {
             // Replay may re-attempt inserts after model persistence has already succeeded.
         }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            var failure = this.CreateFailure(model, ex);
+            await this.failureHandler.Handle(failure, cancellationToken);
+        }
     }
 
     private async Task Update(ModelState<TState> modelState, CancellationToken cancellationToken)
