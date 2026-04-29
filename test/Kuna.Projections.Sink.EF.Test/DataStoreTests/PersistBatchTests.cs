@@ -19,7 +19,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     }
 
     [Fact]
-    public async Task NewModel_Should_Be_Inserted_And_Checkpoint_Should_Be_Persisted()
+    public async Task NewModel_Should_Be_Inserted_Without_Persisting_Checkpoint()
     {
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
@@ -52,12 +52,10 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         using var scope = provider.CreateScope();
         await using var dbContext = scope.ServiceProvider.GetRequiredService<TestProjectionDbContext>();
         var persistedModel = await dbContext.TestModels.FindAsync(new object[] { modelId, }, CancellationToken.None);
-        var checkpoint = await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None);
-
         persistedModel.ShouldNotBeNull();
         persistedModel.Name.ShouldBe("created");
-        checkpoint.ShouldNotBeNull();
-        checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(99));
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+            .ShouldBeNull();
     }
 
     [Fact]
@@ -93,14 +91,12 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         using var scope = provider.CreateScope();
         await using var dbContext = scope.ServiceProvider.GetRequiredService<TestProjectionDbContext>();
         var persistedModel = await dbContext.TestModels.FindAsync(new object[] { modelId, }, CancellationToken.None);
-        var checkpoint = await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None);
-
         persistedModel.ShouldNotBeNull();
         persistedModel.Name.ShouldBe("after");
         persistedModel.EventNumber.ShouldBe(2);
         persistedModel.GlobalEventPosition.ShouldBe(new GlobalEventPosition(22));
-        checkpoint.ShouldNotBeNull();
-        checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(120));
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+            .ShouldBeNull();
     }
 
     [Fact]
@@ -220,15 +216,13 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         using var scope = provider.CreateScope();
         await using var dbContext = scope.ServiceProvider.GetRequiredService<TestProjectionDbContext>();
         var persistedModel = await dbContext.TestModels.FindAsync(new object[] { modelId, }, CancellationToken.None);
-        var checkpoint = await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None);
-
         persistedModel.ShouldBeNull();
-        checkpoint.ShouldNotBeNull();
-        checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(140));
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+            .ShouldBeNull();
     }
 
     [Fact]
-    public async Task InvalidNewAndDeleteChange_Should_Be_Skipped_And_Checkpoint_Should_Be_Persisted()
+    public async Task InvalidNewAndDeleteChange_Should_Be_Skipped_Without_Persisting_Checkpoint()
     {
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
@@ -260,11 +254,9 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         using var scope = provider.CreateScope();
         await using var dbContext = scope.ServiceProvider.GetRequiredService<TestProjectionDbContext>();
         var persistedModel = await dbContext.TestModels.FindAsync(new object[] { modelId, }, CancellationToken.None);
-        var checkpoint = await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None);
-
         persistedModel.ShouldBeNull();
-        checkpoint.ShouldNotBeNull();
-        checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(200));
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+            .ShouldBeNull();
     }
 
     [Fact]
@@ -320,14 +312,12 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                           new object[] { ProjectionModelName.For<TestModel>(), invalidId, },
                           CancellationToken.None);
 
-        var checkpoint = await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None);
-
         validModel.ShouldNotBeNull();
         invalidModel.ShouldBeNull();
         failure.ShouldNotBeNull();
         failure.FailureType.ShouldBe(nameof(FailureType.Persistence));
-        checkpoint.ShouldNotBeNull();
-        checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(201));
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+            .ShouldBeNull();
     }
 
     [Fact]
@@ -385,16 +375,14 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         var failures = await dbContext.ProjectionFailures.ToListAsync(CancellationToken.None);
         var invalid1 = await dbContext.TestModels.FindAsync(new object[] { invalidId1, }, CancellationToken.None);
         var invalid2 = await dbContext.TestModels.FindAsync(new object[] { invalidId2, }, CancellationToken.None);
-        var checkpoint = await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None);
-
         modelCount.ShouldBe(20);
         invalid1.ShouldBeNull();
         invalid2.ShouldBeNull();
         failures.Count.ShouldBe(2);
         failures.ShouldContain(x => x.ModelId == invalidId1 && x.FailureType == nameof(FailureType.Persistence));
         failures.ShouldContain(x => x.ModelId == invalidId2 && x.FailureType == nameof(FailureType.Persistence));
-        checkpoint.ShouldNotBeNull();
-        checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(500));
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+            .ShouldBeNull();
     }
 
     [Fact]
@@ -460,8 +448,6 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                                       .Where(x => x.ModelName == ProjectionModelName.For<TestModel>())
                                       .ToListAsync(CancellationToken.None);
 
-        var checkpoint = await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None);
-
         modelCount.ShouldBe(60);
         failures.Count.ShouldBe(4);
 
@@ -472,8 +458,8 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
             failures.ShouldContain(x => x.ModelId == invalidId && x.FailureType == nameof(FailureType.Persistence));
         }
 
-        checkpoint.ShouldNotBeNull();
-        checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(777));
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+            .ShouldBeNull();
     }
 
     [Fact]
@@ -519,8 +505,6 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                           new object[] { ProjectionModelName.For<TestModel>(), invalidId, },
                           CancellationToken.None);
 
-        var checkpoint = await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None);
-
         persistedValid.ShouldNotBeNull();
         persistedValid.Name.ShouldBe("before-valid");
         persistedValid.EventNumber.ShouldBe(1);
@@ -532,12 +516,12 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
 
         failure.ShouldNotBeNull();
         failure.FailureType.ShouldBe(nameof(FailureType.Persistence));
-        checkpoint.ShouldNotBeNull();
-        checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(300));
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+            .ShouldBeNull();
     }
 
     [Fact]
-    public async Task EmptyChanges_Should_Only_Persist_Checkpoint()
+    public async Task EmptyChanges_Should_Not_Persist_Models_Or_Checkpoint()
     {
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
@@ -554,11 +538,9 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         await using var dbContext = scope.ServiceProvider.GetRequiredService<TestProjectionDbContext>();
         var modelCount = await dbContext.TestModels.CountAsync(CancellationToken.None);
         var failureCount = await dbContext.ProjectionFailures.CountAsync(CancellationToken.None);
-        var checkpoint = await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None);
-
         modelCount.ShouldBe(0);
         failureCount.ShouldBe(0);
-        checkpoint.ShouldNotBeNull();
-        checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(400));
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+            .ShouldBeNull();
     }
 }
