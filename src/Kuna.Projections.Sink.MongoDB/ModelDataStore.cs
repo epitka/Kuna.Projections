@@ -29,9 +29,59 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
 
     public async Task PersistBatch(ModelStatesBatch<TState> batch, CancellationToken cancellationToken)
     {
-        IEnumerable<ModelState<TState>> changesToPersist = batch.Changes.Where(x => !(x.IsNew && x.ShouldDelete));
+        ModelState<TState>[] changesToPersist = batch.Changes
+                                                    .Where(x => !(x.IsNew && x.ShouldDelete))
+                                                    .ToArray();
 
-        foreach (ModelState<TState> modelState in changesToPersist)
+        TState[] inserts = changesToPersist
+                           .Where(x => x is { IsNew: true, ShouldDelete: false, })
+                           .Select(x => x.Model)
+                           .ToArray();
+
+        ModelState<TState>[] updatesAndDeletes = changesToPersist
+                                                 .Where(x => !x.IsNew)
+                                                 .ToArray();
+
+        await this.InsertBatch(inserts, cancellationToken);
+        await this.PersistUpdatesAndDeletes(updatesAndDeletes, cancellationToken);
+    }
+
+    private async Task InsertBatch(IReadOnlyCollection<TState> models, CancellationToken cancellationToken)
+    {
+        if (models.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await this.collection.InsertManyAsync(
+                models,
+                new InsertManyOptions
+                {
+                    IsOrdered = false,
+                },
+                cancellationToken);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            await this.InsertOneAtATime(models, cancellationToken);
+        }
+    }
+
+    private async Task InsertOneAtATime(IEnumerable<TState> models, CancellationToken cancellationToken)
+    {
+        foreach (TState model in models)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            await this.Insert(model, cancellationToken);
+        }
+    }
+
+    private async Task PersistUpdatesAndDeletes(IEnumerable<ModelState<TState>> modelStates, CancellationToken cancellationToken)
+    {
+        foreach (ModelState<TState> modelState in modelStates)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -40,16 +90,11 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
                 if (modelState.ShouldDelete)
                 {
                     await this.Delete(modelState, cancellationToken);
-                    continue;
                 }
-
-                if (modelState.IsNew)
+                else
                 {
-                    await this.Insert(modelState.Model, cancellationToken);
-                    continue;
+                    await this.Update(modelState, cancellationToken);
                 }
-
-                await this.Update(modelState, cancellationToken);
             }
             catch (Exception ex)
             {
