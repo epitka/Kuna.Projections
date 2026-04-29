@@ -76,6 +76,8 @@ public sealed class ServiceCollectionExtensionsTests
         provider.GetRequiredService<IProjectionFailureHandler<SecondaryTestModel>>().ShouldNotBeNull();
         provider.GetRequiredService<IProjectionCheckpointStore<TestModel>>().ShouldNotBeNull();
         provider.GetRequiredService<IProjectionCheckpointStore<SecondaryTestModel>>().ShouldNotBeNull();
+        provider.GetRequiredService<IProjectionCheckpointStore<TestModel>>().Value
+                .ShouldNotBeSameAs(provider.GetRequiredService<IProjectionCheckpointStore<SecondaryTestModel>>().Value);
         provider.GetServices<IProjectionStartupTask>().Count().ShouldBe(2);
     }
 }
