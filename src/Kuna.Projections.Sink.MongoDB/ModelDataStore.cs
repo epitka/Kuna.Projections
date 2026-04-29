@@ -13,12 +13,11 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
     private readonly string modelName;
 
     public ModelDataStore(
-        IMongoDatabase database,
-        CollectionNamer collectionNamer,
+        MongoProjectionContext<TState> context,
         IProjectionFailureHandler<TState> failureHandler)
     {
         MongoModelClassMapRegistry.EnsureInitialized<TState>();
-        this.collection = database.GetCollection<TState>(collectionNamer.GetModelCollectionName<TState>());
+        this.collection = context.Database.GetCollection<TState>(context.CollectionNamer.GetModelCollectionName<TState>());
         this.failureHandler = failureHandler;
         this.modelName = ProjectionModelName.For<TState>();
     }

@@ -11,12 +11,12 @@ internal sealed class MongoIndexesInitializer<TState> : IProjectionStartupTask
     private readonly IMongoCollection<ProjectionCheckpointDocument> checkpointCollection;
     private readonly IMongoCollection<ProjectionFailureDocument> failureCollection;
 
-    public MongoIndexesInitializer(IMongoDatabase database, CollectionNamer collectionNamer)
+    public MongoIndexesInitializer(MongoProjectionContext<TState> context)
     {
         MongoModelClassMapRegistry.EnsureInitialized<TState>();
-        this.modelCollection = database.GetCollection<TState>(collectionNamer.GetModelCollectionName<TState>());
-        this.checkpointCollection = database.GetCollection<ProjectionCheckpointDocument>(collectionNamer.GetCheckpointCollectionName());
-        this.failureCollection = database.GetCollection<ProjectionFailureDocument>(collectionNamer.GetFailureCollectionName());
+        this.modelCollection = context.Database.GetCollection<TState>(context.CollectionNamer.GetModelCollectionName<TState>());
+        this.checkpointCollection = context.Database.GetCollection<ProjectionCheckpointDocument>(context.CollectionNamer.GetCheckpointCollectionName());
+        this.failureCollection = context.Database.GetCollection<ProjectionFailureDocument>(context.CollectionNamer.GetFailureCollectionName());
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)

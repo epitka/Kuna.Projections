@@ -46,4 +46,36 @@ public sealed class ServiceCollectionExtensionsTests
                           && descriptor.ImplementationFactory != null
                           && descriptor.Lifetime == ServiceLifetime.Singleton);
     }
+
+    [Fact]
+    public void AddMongoProjectionsDataStore_Should_Isolate_Typed_Dependencies_For_Multiple_Models()
+    {
+        ServiceCollection services = new();
+
+        services.AddMongoProjectionsDataStore<TestModel>(
+            options =>
+            {
+                options.ConnectionString = "mongodb://localhost:27017";
+                options.DatabaseName = "testdb";
+                options.CollectionPrefix = "orders";
+            });
+
+        services.AddMongoProjectionsDataStore<SecondaryTestModel>(
+            options =>
+            {
+                options.ConnectionString = "mongodb://localhost:27017";
+                options.DatabaseName = "testdb";
+                options.CollectionPrefix = "invoices";
+            });
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        provider.GetRequiredService<IModelStateStore<TestModel>>().ShouldNotBeNull();
+        provider.GetRequiredService<IModelStateStore<SecondaryTestModel>>().ShouldNotBeNull();
+        provider.GetRequiredService<IProjectionFailureHandler<TestModel>>().ShouldNotBeNull();
+        provider.GetRequiredService<IProjectionFailureHandler<SecondaryTestModel>>().ShouldNotBeNull();
+        provider.GetRequiredService<IProjectionCheckpointStore<TestModel>>().ShouldNotBeNull();
+        provider.GetRequiredService<IProjectionCheckpointStore<SecondaryTestModel>>().ShouldNotBeNull();
+        provider.GetServices<IProjectionStartupTask>().Count().ShouldBe(2);
+    }
 }

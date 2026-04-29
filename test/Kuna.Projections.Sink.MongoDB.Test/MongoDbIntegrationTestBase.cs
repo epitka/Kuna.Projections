@@ -48,7 +48,7 @@ public abstract class MongoDbIntegrationTestBase
         ulong globalEventPosition,
         bool hasStreamProcessingFaulted = false)
     {
-        IMongoDatabase database = provider.GetRequiredService<IMongoDatabase>();
+        IMongoDatabase database = this.CreateDatabase();
         IMongoCollection<BsonDocument> collection = database.GetCollection<BsonDocument>("projection_test_model");
 
         BsonDocument document =
@@ -65,7 +65,7 @@ public abstract class MongoDbIntegrationTestBase
 
     protected async Task<BsonDocument?> GetModelDocument(ServiceProvider provider, Guid modelId)
     {
-        IMongoDatabase database = provider.GetRequiredService<IMongoDatabase>();
+        IMongoDatabase database = this.CreateDatabase();
         IMongoCollection<BsonDocument> collection = database.GetCollection<BsonDocument>("projection_test_model");
         return await collection.Find(x => x["_id"] == modelId.ToString("D")).SingleOrDefaultAsync();
     }
@@ -73,15 +73,20 @@ public abstract class MongoDbIntegrationTestBase
     protected async Task<BsonDocument?> GetFailureDocument(ServiceProvider provider, Guid modelId)
     {
         string failureId = $"{typeof(TestModel).FullName}:{modelId:D}";
-        IMongoDatabase database = provider.GetRequiredService<IMongoDatabase>();
+        IMongoDatabase database = this.CreateDatabase();
         IMongoCollection<BsonDocument> collection = database.GetCollection<BsonDocument>("projection_failures");
         return await collection.Find(x => x["_id"] == failureId).SingleOrDefaultAsync();
     }
 
     protected async Task<long> GetModelDocumentCount(ServiceProvider provider, Guid modelId)
     {
-        IMongoDatabase database = provider.GetRequiredService<IMongoDatabase>();
+        IMongoDatabase database = this.CreateDatabase();
         IMongoCollection<BsonDocument> collection = database.GetCollection<BsonDocument>("projection_test_model");
         return await collection.CountDocumentsAsync(x => x["_id"] == modelId.ToString("D"));
+    }
+
+    private IMongoDatabase CreateDatabase()
+    {
+        return new MongoClient(this.Fixture.ConnectionString).GetDatabase(this.DatabaseName);
     }
 }
