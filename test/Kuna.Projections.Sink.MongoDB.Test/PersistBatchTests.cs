@@ -484,4 +484,63 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         failureDocument["ModelId"].AsString.ShouldBe(failedModelId.ToString("D"));
         failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
     }
+
+    [Fact]
+    public async Task PersistBatch_Should_Record_Failure_And_Persist_Healthy_Update_When_Sibling_Update_Is_Too_Large()
+    {
+        Guid failedModelId = Guid.NewGuid();
+        Guid validModelId = Guid.NewGuid();
+
+        await using ServiceProvider provider = this.CreateProvider();
+        await this.SeedModel(provider, failedModelId, "failed-before", 3, 10);
+        await this.SeedModel(provider, validModelId, "valid-before", 5, 10);
+        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        ModelStatesBatch<TestModel> batch = new()
+        {
+            Changes =
+            [
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = failedModelId,
+                        Name = new string('x', 17 * 1024 * 1024),
+                        EventNumber = 4,
+                        GlobalEventPosition = new GlobalEventPosition(11),
+                    },
+                    IsNew: false,
+                    ShouldDelete: false,
+                    GlobalEventPosition: new GlobalEventPosition(11),
+                    ExpectedEventNumber: 3),
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = validModelId,
+                        Name = "valid-after",
+                        EventNumber = 6,
+                        GlobalEventPosition = new GlobalEventPosition(11),
+                    },
+                    IsNew: false,
+                    ShouldDelete: false,
+                    GlobalEventPosition: new GlobalEventPosition(11),
+                    ExpectedEventNumber: 5),
+            ],
+            GlobalEventPosition = new GlobalEventPosition(11),
+        };
+
+        await sink.PersistBatch(batch, CancellationToken.None);
+
+        var failedDocument = await this.GetModelDocument(provider, failedModelId);
+        var validDocument = await this.GetModelDocument(provider, validModelId);
+        var failureDocument = await this.GetFailureDocument(provider, failedModelId);
+
+        failedDocument.ShouldNotBeNull();
+        failedDocument["Name"].AsString.ShouldBe("failed-before");
+        failedDocument["EventNumber"].AsInt64.ShouldBe(3);
+        validDocument.ShouldNotBeNull();
+        validDocument["Name"].AsString.ShouldBe("valid-after");
+        validDocument["EventNumber"].AsInt64.ShouldBe(6);
+        failureDocument.ShouldNotBeNull();
+        failureDocument["ModelId"].AsString.ShouldBe(failedModelId.ToString("D"));
+        failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
+    }
 }

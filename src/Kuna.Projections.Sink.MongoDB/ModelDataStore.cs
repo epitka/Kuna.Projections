@@ -43,7 +43,7 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
                                 .ToArray();
 
         await this.InsertBatch(inserts, cancellationToken);
-        await this.PersistUpdatesAndDeletes(updatesAndDeletes, cancellationToken);
+        await this.PersistUpdatesAndDeletesBatch(updatesAndDeletes, cancellationToken);
     }
 
     private async Task InsertBatch(IReadOnlyCollection<TState> models, CancellationToken cancellationToken)
@@ -85,7 +85,41 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
         }
     }
 
-    private async Task PersistUpdatesAndDeletes(IEnumerable<ModelState<TState>> modelStates, CancellationToken cancellationToken)
+    private async Task PersistUpdatesAndDeletesBatch(
+        IReadOnlyCollection<ModelState<TState>> modelStates,
+        CancellationToken cancellationToken)
+    {
+        if (modelStates.Count == 0)
+        {
+            return;
+        }
+
+        var modelStatesArray = modelStates.ToArray();
+        var writes = modelStatesArray.Select(this.CreateWriteModel).ToArray();
+
+        try
+        {
+            await this.collection.BulkWriteAsync(
+                writes,
+                new BulkWriteOptions
+                {
+                    IsOrdered = false,
+                },
+                cancellationToken);
+        }
+        catch (MongoBulkWriteException<TState> ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            await this.HandleBulkUpdateDeleteFailure(modelStatesArray, ex, cancellationToken);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            await this.PersistUpdatesAndDeletesOneAtATime(modelStatesArray, cancellationToken);
+        }
+    }
+
+    private async Task PersistUpdatesAndDeletesOneAtATime(
+        IEnumerable<ModelState<TState>> modelStates,
+        CancellationToken cancellationToken)
     {
         foreach (var modelState in modelStates)
         {
@@ -108,6 +142,38 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
                 await this.failureHandler.Handle(failure, cancellationToken);
             }
         }
+    }
+
+    private async Task HandleBulkUpdateDeleteFailure(
+        IReadOnlyList<ModelState<TState>> modelStates,
+        MongoBulkWriteException<TState> exception,
+        CancellationToken cancellationToken)
+    {
+        HashSet<int> failedIndexes = [];
+
+        foreach (var writeError in exception.WriteErrors)
+        {
+            if (writeError.Index < 0 || writeError.Index >= modelStates.Count)
+            {
+                continue;
+            }
+
+            failedIndexes.Add(writeError.Index);
+
+            var failure = this.CreateFailure(
+                modelStates[writeError.Index].Model,
+                new InvalidOperationException(writeError.Message, exception));
+
+            await this.failureHandler.Handle(failure, cancellationToken);
+        }
+
+        if (exception.WriteConcernError is null)
+        {
+            return;
+        }
+
+        var modelStatesNeedingFallback = modelStates.Where((_, index) => !failedIndexes.Contains(index));
+        await this.PersistUpdatesAndDeletesOneAtATime(modelStatesNeedingFallback, cancellationToken);
     }
 
     private async Task HandleBulkInsertFailure(
@@ -187,6 +253,19 @@ internal sealed class ModelDataStore<TState> : IModelStateSink<TState>, IModelSt
         {
             return;
         }
+    }
+
+    private WriteModel<TState> CreateWriteModel(ModelState<TState> modelState)
+    {
+        FilterDefinition<TState> filter = Builders<TState>.Filter.Where(
+            x => x.Id == modelState.Model.Id && x.EventNumber == modelState.ExpectedEventNumber);
+
+        if (modelState.ShouldDelete)
+        {
+            return new DeleteOneModel<TState>(filter);
+        }
+
+        return new ReplaceOneModel<TState>(filter, modelState.Model);
     }
 
     private ProjectionFailure CreateFailure(TState model, Exception exception)
