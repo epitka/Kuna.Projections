@@ -61,7 +61,7 @@ public class ServiceCollectionExtensionsTests
         var services = new ServiceCollection();
         services.AddLogging();
         var values = CreateValidSettings();
-        values["Projections:KurrentDB:Filter:Prefixes:0"] = "orders-";
+        values["Projections:KurrentDB:Filter:Prefixes:1"] = "payments-";
 
         var configuration = BuildConfiguration(values);
 
@@ -80,6 +80,54 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
+    public void AddKurrentDBSource_Should_Register_Services_For_Stream_Regex_Filter()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var values = CreateValidSettings();
+        values["Projections:KurrentDB:Filter:Kind"] = "StreamRegex";
+        values.Remove("Projections:KurrentDB:Filter:Prefixes:0");
+        values["Projections:KurrentDB:Filter:Regex"] = "^order|^invoice";
+
+        var configuration = BuildConfiguration(values);
+
+        services.AddKurrentDBSource<TestModel>(
+            configuration,
+            LoggerFactory.Create(
+                _ =>
+                {
+                }));
+
+        using var provider = services.BuildServiceProvider();
+
+        provider.GetRequiredService<IProjectionEventSource<TestModel>>().ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void AddKurrentDBSource_Should_Throw_When_Regex_Filter_Has_No_Regex()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var values = CreateValidSettings();
+        values["Projections:KurrentDB:Filter:Kind"] = "StreamRegex";
+        values.Remove("Projections:KurrentDB:Filter:Prefixes:0");
+        values.Remove("Projections:KurrentDB:Filter:Regex");
+        var configuration = BuildConfiguration(values);
+
+        services.AddKurrentDBSource<TestModel>(
+            configuration,
+            LoggerFactory.Create(
+                _ =>
+                {
+                }));
+
+        using var provider = services.BuildServiceProvider();
+
+        var ex = Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<IProjectionEventSource<TestModel>>());
+        ex.Message.ShouldContain("regular expression");
+    }
+
+    [Fact]
     public void AddKurrentDBSource_Should_Bind_Settings_From_Custom_Section_When_Provided()
     {
         var services = new ServiceCollection();
@@ -91,8 +139,8 @@ public class ServiceCollectionExtensionsTests
                 ["ConnectionStrings:KurrentDB"] = "esdb://localhost:2113?tls=false",
                 ["OrdersProjection:Source"] = "KurrentDB",
                 ["OrdersProjection:ModelIdResolutionStrategy"] = "RequireStreamId",
-                ["OrdersProjection:KurrentDB:Filter:Kind"] = "StreamPrefix",
-                ["OrdersProjection:KurrentDB:Filter:Prefixes:0"] = "order-",
+                ["OrdersProjection:KurrentDB:Filter:Kind"] = "EventTypePrefix",
+                ["OrdersProjection:KurrentDB:Filter:Prefixes:0"] = "Order",
             });
 
         services.AddKurrentDBSource<TestModel>(

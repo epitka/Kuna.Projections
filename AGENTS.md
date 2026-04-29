@@ -52,6 +52,11 @@ The last targeted `dotnet test` verification command that completed successfully
 - Anonymize non-essential properties during test setup/construction, not by transforming the objects later just for assertions.
 - After setup normalization, compare the full objects directly with `ShouldDeepEqual(...)`.
 - Avoid post-construction anonymization helpers, bespoke comparison wrappers, or extra projection layers when direct object comparison is sufficient.
+- Test behavior through public APIs or owned seams only. If code is hard to test cleanly, refactor production code to introduce a small explicit seam instead of inspecting private state.
+- Do not use reflection in tests to access private members, private fields, or non-public properties.
+- Do not make internals visible to tests via `InternalsVisibleTo` just to assert implementation details.
+- Do not assert against the internal object shape of third-party libraries. If a third-party type is too opaque to test directly, assert your own inputs/outputs around it or cover it with an integration test.
+- Do not return `object` from test helpers unless the API being tested genuinely returns `object`. Test helpers should stay strongly typed.
 
 ## Commit & Pull Request Guidelines
 - Use short, imperative commit subjects (seen in history: `benchmarks`, `integration tests passing`, `version check strategy`).

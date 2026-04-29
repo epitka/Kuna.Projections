@@ -9,4 +9,6 @@ public sealed class KurrentDbFilterSettings
     public KurrentDbFilterKind Kind { get; init; } = KurrentDbFilterKind.StreamPrefix;
 
     public string[] Prefixes { get; init; } = [];
+
+    public string Regex { get; init; } = string.Empty;
 }
