@@ -1,7 +1,10 @@
+using MongoDB.Bson.Serialization.Attributes;
+
 namespace Kuna.Projections.Sink.MongoDB;
 
 internal sealed class ProjectionFailureDocument
 {
+    [BsonId]
     public required string Id { get; init; }
 
     public required string ModelName { get; init; }
