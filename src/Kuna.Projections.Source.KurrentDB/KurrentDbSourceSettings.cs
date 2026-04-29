@@ -1,4 +1,4 @@
-namespace Kuna.Projections.Source.Kurrent;
+namespace Kuna.Projections.Source.KurrentDB;
 
 /// <summary>
 /// Source-specific settings for the KurrentDB event source implementation.

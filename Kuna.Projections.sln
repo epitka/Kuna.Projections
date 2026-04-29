@@ -15,7 +15,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuna.Projections.Core.Test"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuna.Projections.Sink.EF.Test", "test\Kuna.Projections.Sink.EF.Test\Kuna.Projections.Sink.EF.Test.csproj", "{8671DD1C-2759-408D-AF06-CF46BF22BAE1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuna.Projections.Source.Kurrent.Test", "test\Kuna.Projections.Source.Kurrent.Test\Kuna.Projections.Source.Kurrent.Test.csproj", "{F5700073-D429-48CC-9503-37B7DDE1BACA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuna.Projections.Source.KurrentDB.Test", "test\Kuna.Projections.Source.KurrentDB.Test\Kuna.Projections.Source.KurrentDB.Test.csproj", "{F5700073-D429-48CC-9503-37B7DDE1BACA}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{07C2787E-EAC7-C090-1BA3-A61EC2A24D84}"
 EndProject
@@ -31,7 +31,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuna.Projections.Core", "sr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuna.Projections.Sink.EF", "src\Kuna.Projections.Sink.EF\Kuna.Projections.Sink.EF.csproj", "{5E7A60F6-7692-450A-8BB1-B31A4323D0FC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuna.Projections.Source.Kurrent", "src\Kuna.Projections.Source.Kurrent\Kuna.Projections.Source.Kurrent.csproj", "{047161E6-AC46-4797-9E35-C50C9461D960}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuna.Projections.Source.KurrentDB", "src\Kuna.Projections.Source.KurrentDB\Kuna.Projections.Source.KurrentDB.csproj", "{047161E6-AC46-4797-9E35-C50C9461D960}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

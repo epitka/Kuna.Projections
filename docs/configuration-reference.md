@@ -3,7 +3,7 @@
 This document describes the library-owned configuration surface used by:
 
 - `Kuna.Projections.Core`
-- `Kuna.Projections.Source.Kurrent`
+- `Kuna.Projections.Source.KurrentDB`
 
 It also explains where the library stops and application-specific configuration begins.
 

@@ -1,11 +1,11 @@
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
-using Kuna.Projections.Source.Kurrent;
+using Kuna.Projections.Source.KurrentDB;
 using Shouldly;
 using Xunit;
 
-namespace Kuna.Projections.Pipeline.Kurrent.Test;
+namespace Kuna.Projections.Source.KurrentDB.Test;
 
 public class EventEnvelopeFactoryTests
 {

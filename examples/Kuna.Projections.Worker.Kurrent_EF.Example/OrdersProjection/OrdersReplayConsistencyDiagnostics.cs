@@ -1,8 +1,8 @@
 using System.Text.Json;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
-using Kuna.Projections.Source.Kurrent;
-using Kuna.Projections.Source.Kurrent.Extensions;
+using Kuna.Projections.Source.KurrentDB;
+using Kuna.Projections.Source.KurrentDB.Extensions;
 using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
 using KurrentDB.Client;
 using Microsoft.EntityFrameworkCore;

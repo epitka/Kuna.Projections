@@ -34,8 +34,8 @@ jobs:
       - name: Run sink EF container tests
         run: dotnet test -c Release --no-build test/Kuna.Projections.Sink.EF.Test/Kuna.Projections.Sink.EF.Test.csproj --logger "trx;LogFileName=Kuna.Projections.Sink.EF.Test.trx" --results-directory artifacts/test-results
 
-      - name: Run source Kurrent container tests
-        run: dotnet test -c Release --no-build test/Kuna.Projections.Source.Kurrent.Test/Kuna.Projections.Source.Kurrent.Test.csproj --logger "trx;LogFileName=Kuna.Projections.Source.Kurrent.Test.trx" --results-directory artifacts/test-results
+      - name: Run source KurrentDB container tests
+        run: dotnet test -c Release --no-build test/Kuna.Projections.Source.KurrentDB.Test/Kuna.Projections.Source.KurrentDB.Test.csproj --logger "trx;LogFileName=Kuna.Projections.Source.KurrentDB.Test.trx" --results-directory artifacts/test-results
 
       - name: Run integration tests
         run: dotnet test -c Release --no-build test/Kuna.Projections.Integration.Test/Kuna.Projections.Integration.Test.csproj --logger "trx;LogFileName=Kuna.Projections.Integration.Test.trx" --results-directory artifacts/test-results

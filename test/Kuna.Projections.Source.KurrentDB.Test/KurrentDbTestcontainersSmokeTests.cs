@@ -1,7 +1,7 @@
 using Shouldly;
 using Xunit;
 
-namespace Kuna.Projections.Pipeline.Kurrent.Test;
+namespace Kuna.Projections.Source.KurrentDB.Test;
 
 [Collection(KurrentDbCollection.Name)]
 public class KurrentDbTestcontainersSmokeTests

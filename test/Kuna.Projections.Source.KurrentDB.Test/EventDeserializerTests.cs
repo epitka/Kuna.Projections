@@ -3,12 +3,12 @@ using System.Text.Json;
 using FakeItEasy;
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
-using Kuna.Projections.Source.Kurrent;
+using Kuna.Projections.Source.KurrentDB;
 using Microsoft.Extensions.Logging;
 using Shouldly;
 using Xunit;
 
-namespace Kuna.Projections.Pipeline.Kurrent.Test;
+namespace Kuna.Projections.Source.KurrentDB.Test;
 
 public class EventDeserializerTests
 {

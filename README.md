@@ -10,7 +10,7 @@ Today, the repository provides:
 
 - `Kuna.Projections.Abstractions` for shared contracts and model types
 - `Kuna.Projections.Core` for the projection runtime and pipeline
-- `Kuna.Projections.Source.Kurrent` for KurrentDB-backed event ingestion
+- `Kuna.Projections.Source.KurrentDB` for KurrentDB-backed event ingestion
 - `Kuna.Projections.Sink.EF` for EF Core-backed persistence, checkpoints, and failure storage
 - `examples/Kuna.Projections.Worker.Kurrent_EF.Example` as the runnable reference worker
 
@@ -54,7 +54,7 @@ The smallest credible setup is:
 
 ```bash
 dotnet add package Kuna.Projections.Core
-dotnet add package Kuna.Projections.Source.Kurrent
+dotnet add package Kuna.Projections.Source.KurrentDB
 dotnet add package Kuna.Projections.Sink.EF
 ```
 
@@ -128,7 +128,7 @@ That marks the projection row for physical deletion on the next flush. The runti
 
 ```csharp
 using Kuna.Projections.Core;
-using Kuna.Projections.Source.Kurrent;
+using Kuna.Projections.Source.KurrentDB;
 using Kuna.Projections.Sink.EF;
 using Microsoft.EntityFrameworkCore;
 
