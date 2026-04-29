@@ -272,4 +272,162 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         document.ShouldBeNull();
     }
+
+    [Fact]
+    public async Task PersistBatch_Should_Persist_Healthy_Insert_When_Sibling_Insert_Is_Duplicate()
+    {
+        Guid existingModelId = Guid.NewGuid();
+        Guid newModelId = Guid.NewGuid();
+
+        await using ServiceProvider provider = this.CreateProvider();
+        await this.SeedModel(provider, existingModelId, "existing", 1, 10);
+        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        ModelStatesBatch<TestModel> batch = new()
+        {
+            Changes =
+            [
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = existingModelId,
+                        Name = "duplicate",
+                        EventNumber = 2,
+                        GlobalEventPosition = new GlobalEventPosition(11),
+                    },
+                    IsNew: true,
+                    ShouldDelete: false,
+                    GlobalEventPosition: new GlobalEventPosition(11),
+                    ExpectedEventNumber: null),
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = newModelId,
+                        Name = "new",
+                        EventNumber = 1,
+                        GlobalEventPosition = new GlobalEventPosition(11),
+                    },
+                    IsNew: true,
+                    ShouldDelete: false,
+                    GlobalEventPosition: new GlobalEventPosition(11),
+                    ExpectedEventNumber: null),
+            ],
+            GlobalEventPosition = new GlobalEventPosition(11),
+        };
+
+        await sink.PersistBatch(batch, CancellationToken.None);
+
+        var existingDocument = await this.GetModelDocument(provider, existingModelId);
+        var newDocument = await this.GetModelDocument(provider, newModelId);
+
+        existingDocument.ShouldNotBeNull();
+        existingDocument["Name"].AsString.ShouldBe("existing");
+        newDocument.ShouldNotBeNull();
+        newDocument["Name"].AsString.ShouldBe("new");
+    }
+
+    [Fact]
+    public async Task PersistBatch_Should_Persist_Healthy_Update_When_Sibling_Update_Is_Stale()
+    {
+        Guid staleModelId = Guid.NewGuid();
+        Guid validModelId = Guid.NewGuid();
+
+        await using ServiceProvider provider = this.CreateProvider();
+        await this.SeedModel(provider, staleModelId, "stale-before", 3, 10);
+        await this.SeedModel(provider, validModelId, "valid-before", 5, 10);
+        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        ModelStatesBatch<TestModel> batch = new()
+        {
+            Changes =
+            [
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = staleModelId,
+                        Name = "stale-after",
+                        EventNumber = 4,
+                        GlobalEventPosition = new GlobalEventPosition(11),
+                    },
+                    IsNew: false,
+                    ShouldDelete: false,
+                    GlobalEventPosition: new GlobalEventPosition(11),
+                    ExpectedEventNumber: 2),
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = validModelId,
+                        Name = "valid-after",
+                        EventNumber = 6,
+                        GlobalEventPosition = new GlobalEventPosition(11),
+                    },
+                    IsNew: false,
+                    ShouldDelete: false,
+                    GlobalEventPosition: new GlobalEventPosition(11),
+                    ExpectedEventNumber: 5),
+            ],
+            GlobalEventPosition = new GlobalEventPosition(11),
+        };
+
+        await sink.PersistBatch(batch, CancellationToken.None);
+
+        var staleDocument = await this.GetModelDocument(provider, staleModelId);
+        var validDocument = await this.GetModelDocument(provider, validModelId);
+
+        staleDocument.ShouldNotBeNull();
+        staleDocument["Name"].AsString.ShouldBe("stale-before");
+        validDocument.ShouldNotBeNull();
+        validDocument["Name"].AsString.ShouldBe("valid-after");
+        validDocument["EventNumber"].AsInt64.ShouldBe(6);
+    }
+
+    [Fact]
+    public async Task PersistBatch_Should_Persist_Healthy_Delete_When_Sibling_Delete_Is_Stale()
+    {
+        Guid staleModelId = Guid.NewGuid();
+        Guid validModelId = Guid.NewGuid();
+
+        await using ServiceProvider provider = this.CreateProvider();
+        await this.SeedModel(provider, staleModelId, "stale-existing", 3, 10);
+        await this.SeedModel(provider, validModelId, "valid-existing", 5, 10);
+        IModelStateSink<TestModel> sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        ModelStatesBatch<TestModel> batch = new()
+        {
+            Changes =
+            [
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = staleModelId,
+                        Name = "stale-existing",
+                        EventNumber = 4,
+                        GlobalEventPosition = new GlobalEventPosition(11),
+                    },
+                    IsNew: false,
+                    ShouldDelete: true,
+                    GlobalEventPosition: new GlobalEventPosition(11),
+                    ExpectedEventNumber: 2),
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = validModelId,
+                        Name = "valid-existing",
+                        EventNumber = 6,
+                        GlobalEventPosition = new GlobalEventPosition(11),
+                    },
+                    IsNew: false,
+                    ShouldDelete: true,
+                    GlobalEventPosition: new GlobalEventPosition(11),
+                    ExpectedEventNumber: 5),
+            ],
+            GlobalEventPosition = new GlobalEventPosition(11),
+        };
+
+        await sink.PersistBatch(batch, CancellationToken.None);
+
+        var staleDocument = await this.GetModelDocument(provider, staleModelId);
+        var validDocument = await this.GetModelDocument(provider, validModelId);
+
+        staleDocument.ShouldNotBeNull();
+        staleDocument["Name"].AsString.ShouldBe("stale-existing");
+        validDocument.ShouldBeNull();
+    }
 }
