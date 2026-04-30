@@ -14,7 +14,6 @@ internal sealed class ProjectionFailureHandler<TState> : IProjectionFailureHandl
 
     public ProjectionFailureHandler(ProjectionContext<TState> context)
     {
-        ClassMapRegistry.EnsureInitialized<TState>();
         this.modelCollection = context.Database.GetCollection<TState>(context.CollectionNamer.GetModelCollectionName<TState>());
         this.failureCollection = context.Database.GetCollection<ProjectionFailureDocument>(context.CollectionNamer.GetFailureCollectionName());
     }

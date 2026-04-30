@@ -203,10 +203,10 @@ using Kuna.Projections.Sink.MongoDB;
 
 services.AddKurrentDBSource<Account>(configuration, loggerFactory, "AccountProjection");
 services.AddMongoProjectionsDataStore<Account>(
+    "mongodb://localhost:27017",
+    "account_projection",
     options =>
     {
-        options.ConnectionString = "mongodb://localhost:27017";
-        options.DatabaseName = "account_projection";
     });
 services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
         .WithInitialEvent<AccountCreated>();
@@ -325,10 +325,10 @@ services.AddProjectionHost(typeof(Program).Assembly);
 
 services.AddKurrentDBSource<Account>(configuration, loggerFactory, "AccountProjection");
 services.AddMongoProjectionsDataStore<Account>(
+    configuration.GetConnectionString("MongoDB"),
+    "account_projection",
     options =>
     {
-        options.ConnectionString = configuration.GetConnectionString("MongoDB");
-        options.DatabaseName = "account_projection";
     });
 services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
         .WithInitialEvent<AccountCreated>();

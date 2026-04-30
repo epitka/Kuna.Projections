@@ -14,10 +14,10 @@ public sealed class ServiceCollectionExtensionsTests
         ServiceCollection services = new();
 
         var returned = services.AddMongoProjectionsDataStore<TestModel>(
+            "mongodb://localhost:27017",
+            "testdb",
             options =>
             {
-                options.ConnectionString = "mongodb://localhost:27017";
-                options.DatabaseName = "testdb";
             });
 
         returned.ShouldBeSameAs(services);
@@ -53,18 +53,18 @@ public sealed class ServiceCollectionExtensionsTests
         ServiceCollection services = new();
 
         services.AddMongoProjectionsDataStore<TestModel>(
+            "mongodb://localhost:27017",
+            "testdb",
             options =>
             {
-                options.ConnectionString = "mongodb://localhost:27017";
-                options.DatabaseName = "testdb";
                 options.CollectionPrefix = "orders";
             });
 
         services.AddMongoProjectionsDataStore<SecondaryTestModel>(
+            "mongodb://localhost:27017",
+            "testdb",
             options =>
             {
-                options.ConnectionString = "mongodb://localhost:27017";
-                options.DatabaseName = "testdb";
                 options.CollectionPrefix = "invoices";
             });
 
@@ -90,10 +90,10 @@ public sealed class ServiceCollectionExtensionsTests
         var factoryCalled = false;
 
         services.AddMongoProjectionsDataStore<TestModel>(
+            "mongodb://localhost:27017",
+            "testdb",
             options =>
             {
-                options.ConnectionString = "mongodb://localhost:27017";
-                options.DatabaseName = "testdb";
             },
             options =>
             {

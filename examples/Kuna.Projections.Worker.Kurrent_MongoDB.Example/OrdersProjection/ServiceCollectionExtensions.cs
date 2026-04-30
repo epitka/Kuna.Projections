@@ -32,10 +32,10 @@ public static class ServiceCollectionExtensions
 
         services.AddKurrentDBSource<Order>(configuration, factory, "OrdersProjection");
         services.AddMongoProjectionsDataStore<Order>(
+            mongoDbConnectionString,
+            "orders_projection",
             options =>
             {
-                options.ConnectionString = mongoDbConnectionString;
-                options.DatabaseName = "orders_projection";
                 options.CollectionPrefix = "orders";
             });
 

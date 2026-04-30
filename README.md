@@ -167,10 +167,10 @@ services.AddKurrentDBSource<Account>(
     "AccountProjection");
 
 services.AddMongoProjectionsDataStore<Account>(
+    "mongodb://localhost:27017",
+    "account_projection",
     options =>
     {
-        options.ConnectionString = "mongodb://localhost:27017";
-        options.DatabaseName = "account_projection";
     });
 
 services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")

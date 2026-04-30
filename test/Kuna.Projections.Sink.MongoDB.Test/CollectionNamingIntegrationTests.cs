@@ -35,10 +35,10 @@ public sealed class CollectionNamingIntegrationTests : MongoDbIntegrationTestBas
         ServiceCollection services = new();
 
         services.AddMongoProjectionsDataStore<Items.TestModel>(
+            this.Fixture.ConnectionString,
+            this.DatabaseName,
             options =>
             {
-                options.ConnectionString = this.Fixture.ConnectionString;
-                options.DatabaseName = this.DatabaseName;
             },
             options => new FixedCollectionNamer(
                 modelCollectionName: "custom_models",

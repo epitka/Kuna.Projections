@@ -14,8 +14,6 @@ internal sealed class ProjectionStartupTask<TState> : IProjectionStartupTask
 
     public ProjectionStartupTask(ProjectionContext<TState> context)
     {
-        ClassMapRegistry.EnsureInitialized<TState>();
-
         this.database = context.Database;
 
         this.modelCollectionName = context.CollectionNamer.GetModelCollectionName<TState>();

@@ -17,8 +17,8 @@ internal static class SerializerRegistry
                 return;
             }
 
-            BsonSerializer.RegisterSerializer<Guid>(new IdSerializer());
-            BsonSerializer.RegisterSerializer<GlobalEventPosition>(new GlobalEventPositionSerializer());
+            BsonSerializer.RegisterSerializer(new IdSerializer());
+            BsonSerializer.RegisterSerializer(new GlobalEventPositionSerializer());
 
             initialized = true;
         }

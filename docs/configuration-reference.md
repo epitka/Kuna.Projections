@@ -32,7 +32,7 @@ If `KurrentDB` is missing or empty, `AddKurrentDBSource<TState>(...)` throws dur
 
 ## MongoDB Sink Options
 
-`Kuna.Projections.Sink.MongoDB` does not bind from the shared application configuration document by default. Its sink-specific settings are supplied in code through `AddMongoProjectionsDataStore<TState>(options => ...)`.
+`Kuna.Projections.Sink.MongoDB` does not bind from the shared application configuration document by default. Its sink-specific settings are supplied in code through `AddMongoProjectionsDataStore<TState>(connectionString, databaseName, options => ...)`.
 
 That Mongo-specific options surface is documented in [mongodb-sink.md](mongodb-sink.md).
 

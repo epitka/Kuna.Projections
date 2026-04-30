@@ -23,10 +23,10 @@ dotnet add package Kuna.Projections.Sink.MongoDB
 using Kuna.Projections.Sink.MongoDB;
 
 services.AddMongoProjectionsDataStore<Account>(
+    "mongodb://localhost:27017",
+    "account_projection",
     options =>
     {
-        options.ConnectionString = "mongodb://localhost:27017";
-        options.DatabaseName = "account_projection";
     });
 ```
 
@@ -34,13 +34,11 @@ Optional overrides:
 
 ```csharp
 services.AddMongoProjectionsDataStore<Account>(
+    "mongodb://localhost:27017",
+    "account_projection",
     options =>
     {
-        options.ConnectionString = "mongodb://localhost:27017";
-        options.DatabaseName = "account_projection";
         options.CollectionPrefix = "accounts";
-        options.CheckpointCollectionName = "accounts_checkpoints";
-        options.FailureCollectionName = "accounts_failures";
         options.SetModelCollectionName<Account>("account_documents");
     });
 ```

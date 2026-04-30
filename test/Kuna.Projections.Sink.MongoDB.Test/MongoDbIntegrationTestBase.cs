@@ -30,10 +30,10 @@ public abstract class MongoDbIntegrationTestBase
     {
         var services = new ServiceCollection();
         services.AddMongoProjectionsDataStore<TestModel>(
+            this.Fixture.ConnectionString,
+            this.DatabaseName,
             options =>
             {
-                options.ConnectionString = this.Fixture.ConnectionString;
-                options.DatabaseName = this.DatabaseName;
                 options.CollectionPrefix = "projection";
                 configure(options);
             });

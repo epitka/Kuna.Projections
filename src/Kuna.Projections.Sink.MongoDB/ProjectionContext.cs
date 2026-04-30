@@ -8,6 +8,8 @@ internal sealed class ProjectionContext<TState>
 {
     public ProjectionContext(ProjectionOptions options, ICollectionNamer collectionNamer)
     {
+        ClassMapRegistry.EnsureInitialized<TState>();
+
         this.Options = options;
         this.CollectionNamer = collectionNamer;
         this.Client = new MongoClient(options.ConnectionString);

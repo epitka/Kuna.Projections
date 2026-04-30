@@ -18,8 +18,6 @@ internal sealed class ModelDataStore<TState>
         ProjectionContext<TState> context,
         IProjectionFailureHandler<TState> failureHandler)
     {
-        ClassMapRegistry.EnsureInitialized<TState>();
-
         this.collection = context.Database.GetCollection<TState>(context.CollectionNamer.GetModelCollectionName<TState>());
         this.failureHandler = failureHandler;
 

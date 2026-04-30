@@ -2,11 +2,30 @@ namespace Kuna.Projections.Sink.MongoDB;
 
 public sealed class ProjectionOptions
 {
-    public string ConnectionString { get; set; } = string.Empty;
+    private string collectionPrefix = "projection";
 
-    public string DatabaseName { get; set; } = string.Empty;
+    public ProjectionOptions(string connectionString, string databaseName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        ArgumentException.ThrowIfNullOrWhiteSpace(databaseName);
 
-    public string CollectionPrefix { get; set; } = "projection";
+        this.ConnectionString = connectionString;
+        this.DatabaseName = databaseName;
+    }
+
+    public string ConnectionString { get; }
+
+    public string DatabaseName { get; }
+
+    public string CollectionPrefix
+    {
+        get => this.collectionPrefix;
+        set
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(value);
+            this.collectionPrefix = value;
+        }
+    }
 
     public string CheckpointCollectionName => "projection_checkpoints";
 
