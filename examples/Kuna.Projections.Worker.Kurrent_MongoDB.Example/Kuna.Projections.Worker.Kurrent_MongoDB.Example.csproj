@@ -27,6 +27,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Kuna.Examples.Events\Kuna.Examples.Events.csproj" />
+      <ProjectReference Include="..\Kuna.Examples.Projections\Kuna.Examples.Projections.csproj" />
       <ProjectReference Include="..\..\src\Kuna.Projections.Core\Kuna.Projections.Core.csproj" />
       <ProjectReference Include="..\..\src\Kuna.Projections.Sink.MongoDB\Kuna.Projections.Sink.MongoDB.csproj" />
       <ProjectReference Include="..\..\src\Kuna.Projections.Source.KurrentDB\Kuna.Projections.Source.KurrentDB.csproj" />

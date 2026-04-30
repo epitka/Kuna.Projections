@@ -1,5 +1,5 @@
 ﻿#nullable disable
-namespace Kuna.Projections.Worker.Kurrent_MongoDB.Example.OrdersProjection.Model;
+namespace Kuna.Examples.Projections.OrdersProjection.Model;
 
 public class Customer
 {

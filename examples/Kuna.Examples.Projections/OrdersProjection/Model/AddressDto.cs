@@ -1,5 +1,5 @@
 ﻿#nullable disable
-namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
+namespace Kuna.Examples.Projections.OrdersProjection.Model;
 
 public class AddressDto
 {

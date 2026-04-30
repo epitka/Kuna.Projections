@@ -1,4 +1,4 @@
-﻿namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
+﻿namespace Kuna.Examples.Projections.OrdersProjection.Model;
 
 public enum OrderStatus
 {

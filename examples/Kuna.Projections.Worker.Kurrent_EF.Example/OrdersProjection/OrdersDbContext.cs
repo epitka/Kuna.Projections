@@ -1,6 +1,6 @@
+using Kuna.Examples.Projections.OrdersProjection.Model;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Sink.EF.Data;
-using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection;

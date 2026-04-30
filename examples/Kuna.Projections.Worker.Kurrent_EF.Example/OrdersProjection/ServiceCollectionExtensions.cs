@@ -1,12 +1,12 @@
 using System.Diagnostics.CodeAnalysis;
 using Kuna.Examples.Events;
+using Kuna.Examples.Projections.OrdersProjection.Model;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Core;
 using Kuna.Projections.Sink.EF;
 using Kuna.Projections.Sink.EF.Data;
 using Kuna.Projections.Source.KurrentDB;
-using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 

@@ -1,16 +1,16 @@
 using Kuna.Examples.Events;
+using Kuna.Examples.Projections.OrdersProjection.Model;
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Core;
-using Kuna.Projections.Worker.Kurrent_MongoDB.Example.OrdersProjection.Model;
-using Model_Address = Kuna.Projections.Worker.Kurrent_MongoDB.Example.OrdersProjection.Model.Address;
+using Model_Address = Kuna.Examples.Projections.OrdersProjection.Model.Address;
 
-namespace Kuna.Projections.Worker.Kurrent_MongoDB.Example.OrdersProjection;
+namespace Kuna.Examples.Projections.OrdersProjection;
 
 public class OrdersProjection : Projection<Order>
 {
     private static readonly HashSet<string> IgnoredEvents = ["OrderDeclined",];
 
-    internal OrdersProjection(Guid modelId)
+    public OrdersProjection(Guid modelId)
         : base(modelId)
     {
     }
@@ -76,7 +76,6 @@ public class OrdersProjection : Projection<Order>
             Email = @event.Email,
         };
 
-        //// this.ModelState.Id = @event.Id;
         this.ModelState.CreatedDateTime = @event.CreatedDateTime;
         this.ModelState.OrderStatus = OrderStatus.Created;
         this.ModelState.OrderNumber = @event.OrderNumber;
