@@ -1,5 +1,4 @@
-using Kuna.Examples.Projections.OrdersProjection.Model;
-using Kuna.Projections.Abstractions.Models;
+using Kuna.Examples.Projections.Orders.Model;
 using Kuna.Projections.Sink.EF.Data;
 using Microsoft.EntityFrameworkCore;
 

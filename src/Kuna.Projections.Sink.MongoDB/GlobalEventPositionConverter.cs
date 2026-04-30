@@ -14,11 +14,8 @@ internal static class GlobalEventPositionConverter
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
-        if (!ulong.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedValue))
-        {
-            throw new FormatException($"Could not parse GlobalEventPosition from '{value}'.");
-        }
-
-        return new GlobalEventPosition(parsedValue);
+        return !ulong.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedValue)
+                   ? throw new FormatException($"Could not parse GlobalEventPosition from '{value}'.")
+                   : new GlobalEventPosition(parsedValue);
     }
 }

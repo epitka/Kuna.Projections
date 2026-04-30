@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Kuna.Examples.Projections.OrdersProjection.Model;
+using Kuna.Examples.Projections.Orders.Model;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Source.KurrentDB;
@@ -373,7 +373,7 @@ public sealed class OrdersReplayConsistencyDiagnostics
     {
         var streamPrefix = this.sourceSettings.Filter.Prefixes.Single();
         var streamName = $"{streamPrefix}{orderId:D}";
-        var projection = new Kuna.Examples.Projections.OrdersProjection.OrdersProjection(orderId);
+        var projection = new Examples.Projections.Orders.OrdersProjection(orderId);
         var hadEvents = false;
 
         await foreach (var resolved in this.eventStoreClient.ReadStreamAsync(

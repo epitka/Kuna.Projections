@@ -1,10 +1,10 @@
 using Kuna.Examples.Events;
-using Kuna.Examples.Projections.OrdersProjection.Model;
+using Kuna.Examples.Projections.Orders.Model;
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Core;
-using Model_Address = Kuna.Examples.Projections.OrdersProjection.Model.Address;
+using Model_Address = Kuna.Examples.Projections.Orders.Model.Address;
 
-namespace Kuna.Examples.Projections.OrdersProjection;
+namespace Kuna.Examples.Projections.Orders;
 
 public class OrdersProjection : Projection<Order>
 {

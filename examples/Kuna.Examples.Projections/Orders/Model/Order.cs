@@ -1,6 +1,6 @@
 #nullable disable
 
-namespace Kuna.Examples.Projections.OrdersProjection.Model;
+namespace Kuna.Examples.Projections.Orders.Model;
 
 public sealed class Order
     : Kuna.Projections.Abstractions.Models.Model

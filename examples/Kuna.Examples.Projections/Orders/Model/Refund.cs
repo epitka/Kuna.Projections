@@ -1,6 +1,6 @@
 using Kuna.Projections.Abstractions.Models;
 
-namespace Kuna.Examples.Projections.OrdersProjection.Model;
+namespace Kuna.Examples.Projections.Orders.Model;
 
 public class Refund : ChildEntity
 {

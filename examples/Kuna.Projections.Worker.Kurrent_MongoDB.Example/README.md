@@ -69,6 +69,12 @@ Check persisted failures:
 db.projection_failures.find().pretty()
 ```
 
+## Restart Projection State Without Reseeding Events
+
+```bash
+./scripts/reset-projection-state.sh
+```
+
 ## Reseed From Scratch
 
 ```bash
@@ -81,6 +87,7 @@ docker compose up -d
 
 - `seed-kurrent-live.sh`: `TARGET_EVENTS`, `MIN_COMPLETE_ORDERS`, `STREAM_PREFIX`, `KURRENT_CONNECTION_STRING`, `REPORT_PATH`
   Uses `Kuna.Examples.EventsSeeder` to scaffold order streams and write them to KurrentDB.
+- `reset-projection-state.sh`: `MONGODB_CONTAINER_NAME`, `MONGODB_DATABASE`, `ORDERS_COLLECTION_NAME`, `CHECKPOINTS_COLLECTION_NAME`, `FAILURES_COLLECTION_NAME`
 
 ## Configuration
 

@@ -1,5 +1,3 @@
-using Kuna.Examples.Projections.OrdersProjection.Model;
-using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
 
 namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection;
