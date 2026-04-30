@@ -17,6 +17,8 @@ docker compose up -d
 ./scripts/seed-kurrent-live.sh
 ```
 
+The script now runs the shared seeder project at `examples/Kuna.Examples.EventsSeeder`.
+
 ## Run The Worker
 
 ```bash
@@ -170,7 +172,7 @@ docker compose up -d
 ## Script Overrides
 
 - `seed-kurrent-live.sh`: `TARGET_EVENTS`, `MIN_COMPLETE_ORDERS`, `STREAM_PREFIX`, `KURRENT_CONNECTION_STRING`, `REPORT_PATH`
-  Uses the example project in `--seed` mode to scaffold order streams and write them to KurrentDB.
+  Uses `Kuna.Examples.EventsSeeder` to scaffold order streams and write them to KurrentDB.
 - `reset-projection-state.sh`: `POSTGRES_CONTAINER_NAME`, `POSTGRES_USER`, `POSTGRES_DB`, `POSTGRES_SCHEMA`
 
 ## Configuration

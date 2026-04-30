@@ -15,9 +15,8 @@ echo "Seeding KurrentDB at: ${CONNECTION_STRING}"
 echo "Target events: ${TARGET_EVENTS}, min complete orders: ${MIN_COMPLETE_ORDERS}"
 
 dotnet run \
-  --project "${REPO_ROOT}/examples/Kuna.Projections.Worker.Kurrent_MongoDB.Example/Kuna.Projections.Worker.Kurrent_MongoDB.Example.csproj" \
+  --project "${REPO_ROOT}/examples/Kuna.Examples.EventsSeeder/Kuna.Examples.EventsSeeder.csproj" \
   -- \
-  --seed \
   --connection-string "${CONNECTION_STRING}" \
   --target-events "${TARGET_EVENTS}" \
   --min-complete-orders "${MIN_COMPLETE_ORDERS}" \

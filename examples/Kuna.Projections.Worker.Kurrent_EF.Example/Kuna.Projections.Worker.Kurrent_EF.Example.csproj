@@ -4,7 +4,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Bogus" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
           <PrivateAssets>all</PrivateAssets>
@@ -15,7 +14,6 @@
         <PackageReference Include="Serilog.Settings.Configuration" />
         <PackageReference Include="Serilog.Sinks.Console" />
         <PackageReference Include="Serilog.Sinks.Debug" />
-        <PackageReference Include="Testcontainers.KurrentDb" />
         <PackageReference Include="StyleCop.Analyzers">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
@@ -32,7 +30,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\tools\Kuna.StreamGenerator\Kuna.StreamGenerator.csproj" />
       <ProjectReference Include="..\..\src\Kuna.Projections.Core\Kuna.Projections.Core.csproj" />
       <ProjectReference Include="..\..\src\Kuna.Projections.Sink.EF\Kuna.Projections.Sink.EF.csproj" />
       <ProjectReference Include="..\..\src\Kuna.Projections.Source.KurrentDB\Kuna.Projections.Source.KurrentDB.csproj" />
