@@ -34,7 +34,7 @@ internal sealed class ProjectionCheckpointStore<TState> : ICheckpointStore
         return new CheckPoint
         {
             ModelName = document.ModelName,
-            GlobalEventPosition = GlobalEventPositionConverter.Parse(document.GlobalEventPosition),
+            GlobalEventPosition = GlobalEventPosition.From(document.GlobalEventPosition),
         };
     }
 
@@ -43,7 +43,7 @@ internal sealed class ProjectionCheckpointStore<TState> : ICheckpointStore
         ProjectionCheckpointDocument document = new()
         {
             ModelName = checkPoint.ModelName,
-            GlobalEventPosition = GlobalEventPositionConverter.Format(checkPoint.GlobalEventPosition),
+            GlobalEventPosition = checkPoint.GlobalEventPosition.ToString(),
         };
 
         return this.collection.ReplaceOneAsync(

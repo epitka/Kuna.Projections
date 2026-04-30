@@ -82,4 +82,25 @@ public sealed class ServiceCollectionExtensionsTests
 
         provider.GetServices<IProjectionStartupTask>().Count().ShouldBe(2);
     }
+
+    [Fact]
+    public void AddMongoProjectionsDataStore_Should_Use_Custom_Collection_Namer_Factory()
+    {
+        ServiceCollection services = new();
+        var factoryCalled = false;
+
+        services.AddMongoProjectionsDataStore<TestModel>(
+            options =>
+            {
+                options.ConnectionString = "mongodb://localhost:27017";
+                options.DatabaseName = "testdb";
+            },
+            options =>
+            {
+                factoryCalled = true;
+                return new CollectionNamer(options);
+            });
+
+        factoryCalled.ShouldBeTrue();
+    }
 }

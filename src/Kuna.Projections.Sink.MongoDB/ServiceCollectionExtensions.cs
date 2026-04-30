@@ -18,20 +18,39 @@ public static class ServiceCollectionExtensions
         Action<ProjectionOptions> configure)
         where TState : class, IModel, new()
     {
+        return services.AddMongoProjectionsDataStore<TState>(
+            configure,
+            options => new CollectionNamer(options));
+    }
+
+    /// <summary>
+    /// Adds the MongoDB projection persistence services for the specified model state type
+    /// using a caller-supplied collection namer implementation.
+    /// </summary>
+    public static IServiceCollection AddMongoProjectionsDataStore<TState>(
+        this IServiceCollection services,
+        Action<ProjectionOptions> configure,
+        Func<ProjectionOptions, ICollectionNamer> collectionNamerFactory)
+        where TState : class, IModel, new()
+    {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
+        ArgumentNullException.ThrowIfNull(collectionNamerFactory);
 
         ProjectionOptions options = new();
         configure(options);
         ProjectionOptionsValidator.Validate(options);
-        MongoSerializationRegistry.EnsureInitialized();
+        SerializerRegistry.EnsureInitialized();
 
-        services.AddSingleton(new ProjectionContext<TState>(options));
+        var collectionNamer = collectionNamerFactory(options);
+        ArgumentNullException.ThrowIfNull(collectionNamer);
+
+        services.AddSingleton(new ProjectionContext<TState>(options, collectionNamer));
         services.AddSingleton<ModelDataStore<TState>>();
         services.AddSingleton<ProjectionCheckpointStore<TState>>();
-        services.AddSingleton<IndexesInitializer<TState>>();
+        services.AddSingleton<ProjectionStartupTask<TState>>();
         services.AddSingleton<ICheckpointStore>(sp => sp.GetRequiredService<ProjectionCheckpointStore<TState>>());
-        services.AddSingleton<IProjectionStartupTask>(sp => sp.GetRequiredService<IndexesInitializer<TState>>());
+        services.AddSingleton<IProjectionStartupTask>(sp => sp.GetRequiredService<ProjectionStartupTask<TState>>());
         services.AddSingleton<IProjectionFailureHandler<TState>, ProjectionFailureHandler<TState>>();
         services.AddSingleton<IModelStateSink<TState>>(sp => sp.GetRequiredService<ModelDataStore<TState>>());
         services.AddSingleton<IModelStateStore<TState>>(sp => sp.GetRequiredService<ModelDataStore<TState>>());

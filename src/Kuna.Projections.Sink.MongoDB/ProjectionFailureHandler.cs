@@ -14,7 +14,7 @@ internal sealed class ProjectionFailureHandler<TState> : IProjectionFailureHandl
 
     public ProjectionFailureHandler(ProjectionContext<TState> context)
     {
-        MongoModelClassMapRegistry.EnsureInitialized<TState>();
+        ClassMapRegistry.EnsureInitialized<TState>();
         this.modelCollection = context.Database.GetCollection<TState>(context.CollectionNamer.GetModelCollectionName<TState>());
         this.failureCollection = context.Database.GetCollection<ProjectionFailureDocument>(context.CollectionNamer.GetFailureCollectionName());
     }
@@ -28,11 +28,11 @@ internal sealed class ProjectionFailureHandler<TState> : IProjectionFailureHandl
 
         ProjectionFailureDocument document = new()
         {
-            Id = $"{failure.ModelName}:{MongoGuid.Format(failure.ModelId)}",
+            Id = $"{failure.ModelName}:{failure.ModelId.ToString()}",
             ModelName = failure.ModelName,
-            ModelId = MongoGuid.Format(failure.ModelId),
+            ModelId = failure.ModelId.ToString(),
             EventNumber = failure.EventNumber,
-            GlobalEventPosition = GlobalEventPositionConverter.Format(failure.GlobalEventPosition),
+            GlobalEventPosition = failure.GlobalEventPosition.ToString(),
             FailureCreatedOn = failure.FailureCreatedOn,
             Exception = Truncate(failure.Exception),
             FailureType = failure.FailureType,

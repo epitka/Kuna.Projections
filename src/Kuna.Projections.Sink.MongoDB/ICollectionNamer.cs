@@ -2,7 +2,17 @@ using Kuna.Projections.Abstractions.Models;
 
 namespace Kuna.Projections.Sink.MongoDB;
 
-internal sealed class CollectionNamer
+public interface ICollectionNamer
+{
+    string GetModelCollectionName<TState>()
+        where TState : class, IModel, new();
+
+    string GetCheckpointCollectionName();
+
+    string GetFailureCollectionName();
+}
+
+public sealed class CollectionNamer : ICollectionNamer
 {
     private readonly ProjectionOptions options;
 

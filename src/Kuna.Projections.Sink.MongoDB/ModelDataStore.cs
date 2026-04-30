@@ -18,9 +18,11 @@ internal sealed class ModelDataStore<TState>
         ProjectionContext<TState> context,
         IProjectionFailureHandler<TState> failureHandler)
     {
-        MongoModelClassMapRegistry.EnsureInitialized<TState>();
+        ClassMapRegistry.EnsureInitialized<TState>();
+
         this.collection = context.Database.GetCollection<TState>(context.CollectionNamer.GetModelCollectionName<TState>());
         this.failureHandler = failureHandler;
+
         this.modelName = ProjectionModelName.For<TState>();
     }
 
@@ -32,30 +34,29 @@ internal sealed class ModelDataStore<TState>
     public async Task PersistBatch(ModelStatesBatch<TState> batch, CancellationToken cancellationToken)
     {
         var changesToPersist = batch.Changes
-                                    .Where(x => !(x.IsNew && x.ShouldDelete))
+                                    .Where(x => x is not { IsNew: true, ShouldDelete: true, })
                                     .ToArray();
 
         var inserts = changesToPersist
                       .Where(x => x is { IsNew: true, ShouldDelete: false, })
-                      .Select(x => x.Model)
-                      .ToArray();
+                      .Select(x => x.Model);
 
         var updatesAndDeletes = changesToPersist
-                                .Where(x => !x.IsNew)
-                                .ToArray();
+            .Where(x => !x.IsNew);
 
-        await this.InsertBatch(inserts, cancellationToken);
-        await this.PersistUpdatesAndDeletesBatch(updatesAndDeletes, cancellationToken);
+        await Task.WhenAll(
+            this.InsertBatch(inserts, cancellationToken),
+            this.PersistUpdatesAndDeletesBatch(updatesAndDeletes, cancellationToken));
     }
 
-    private async Task InsertBatch(IReadOnlyCollection<TState> models, CancellationToken cancellationToken)
+    private async Task InsertBatch(IEnumerable<TState> models, CancellationToken cancellationToken)
     {
-        if (models.Count == 0)
+        var modelsArray = models.ToArray();
+
+        if (modelsArray.Length == 0)
         {
             return;
         }
-
-        var modelsArray = models.ToArray();
 
         try
         {
@@ -88,15 +89,16 @@ internal sealed class ModelDataStore<TState>
     }
 
     private async Task PersistUpdatesAndDeletesBatch(
-        IReadOnlyCollection<ModelState<TState>> modelStates,
+        IEnumerable<ModelState<TState>> modelStates,
         CancellationToken cancellationToken)
     {
-        if (modelStates.Count == 0)
+        var modelStatesArray = modelStates.ToArray();
+
+        if (modelStatesArray.Length == 0)
         {
             return;
         }
 
-        var modelStatesArray = modelStates.ToArray();
         var writes = modelStatesArray.Select(this.CreateWriteModel).ToArray();
 
         try
@@ -236,32 +238,25 @@ internal sealed class ModelDataStore<TState>
 
     private async Task Update(ModelState<TState> modelState, CancellationToken cancellationToken)
     {
-        var result = await this.collection.ReplaceOneAsync(
-                         x => x.Id == modelState.Model.Id && x.EventNumber == modelState.ExpectedEventNumber,
-                         modelState.Model,
-                         cancellationToken: cancellationToken);
-
-        if (result.MatchedCount == 0)
-        {
-            return;
-        }
+        _ = await this.collection.ReplaceOneAsync(
+                x => x.Id == modelState.Model.Id && x.EventNumber == modelState.ExpectedEventNumber,
+                modelState.Model,
+                cancellationToken: cancellationToken);
     }
 
     private async Task Delete(ModelState<TState> modelState, CancellationToken cancellationToken)
     {
-        var result = await this.collection.DeleteOneAsync(
-                         x => x.Id == modelState.Model.Id && x.EventNumber == modelState.ExpectedEventNumber,
-                         cancellationToken);
-
-        if (result.DeletedCount == 0)
-        {
-            return;
-        }
+        _ = await this.collection.DeleteOneAsync(
+                x => x.Id == modelState.Model.Id && x.EventNumber == modelState.ExpectedEventNumber,
+                cancellationToken);
     }
 
     private WriteModel<TState> CreateWriteModel(ModelState<TState> modelState)
     {
-        var filter = Builders<TState>.Filter.Where(x => x.Id == modelState.Model.Id && x.EventNumber == modelState.ExpectedEventNumber);
+        var filter = Builders<TState>.Filter
+                                     .Where(
+                                         x => x.Id == modelState.Model.Id
+                                              && x.EventNumber == modelState.ExpectedEventNumber);
 
         if (modelState.ShouldDelete)
         {

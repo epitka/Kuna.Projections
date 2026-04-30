@@ -3,7 +3,7 @@ using MongoDB.Bson.Serialization;
 
 namespace Kuna.Projections.Sink.MongoDB;
 
-internal static class MongoModelClassMapRegistry
+internal static class ClassMapRegistry
 {
     private static readonly Lock SyncRoot = new();
     private static bool baseModelInitialized;
@@ -43,7 +43,7 @@ internal static class MongoModelClassMapRegistry
                 classMap.SetIsRootClass(true);
 
                 var idMemberMap = classMap.GetMemberMap(nameof(Model.Id));
-                idMemberMap.SetSerializer(new MongoIdStringSerializer());
+                idMemberMap.SetSerializer(new IdSerializer());
                 classMap.SetIdMember(idMemberMap);
             });
 

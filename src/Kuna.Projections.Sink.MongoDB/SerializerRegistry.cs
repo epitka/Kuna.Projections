@@ -3,7 +3,7 @@ using MongoDB.Bson.Serialization;
 
 namespace Kuna.Projections.Sink.MongoDB;
 
-internal static class MongoSerializationRegistry
+internal static class SerializerRegistry
 {
     private static readonly Lock SyncRoot = new();
     private static bool initialized;
@@ -17,8 +17,8 @@ internal static class MongoSerializationRegistry
                 return;
             }
 
-            BsonSerializer.RegisterSerializer<Guid>(new MongoIdStringSerializer());
-            BsonSerializer.RegisterSerializer<GlobalEventPosition>(new GlobalEventPositionStringSerializer());
+            BsonSerializer.RegisterSerializer<Guid>(new IdSerializer());
+            BsonSerializer.RegisterSerializer<GlobalEventPosition>(new GlobalEventPositionSerializer());
 
             initialized = true;
         }

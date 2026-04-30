@@ -8,9 +8,9 @@ public sealed class ProjectionOptions
 
     public string CollectionPrefix { get; set; } = "projection";
 
-    public string CheckpointCollectionName { get; set; } = "projection_checkpoints";
+    public string CheckpointCollectionName => "projection_checkpoints";
 
-    public string FailureCollectionName { get; set; } = "projection_failures";
+    public string FailureCollectionName => "projection_failures";
 
     public IDictionary<Type, string> ModelCollectionNames { get; } = new Dictionary<Type, string>();
 

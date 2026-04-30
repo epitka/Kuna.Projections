@@ -4,16 +4,16 @@ using MongoDB.Bson.Serialization.Serializers;
 
 namespace Kuna.Projections.Sink.MongoDB;
 
-internal sealed class MongoIdStringSerializer : SerializerBase<Guid>
+internal sealed class IdSerializer : SerializerBase<Guid>
 {
     public override Guid Deserialize(BsonDeserializationContext context, BsonDeserializationArgs args)
     {
         var value = context.Reader.ReadString();
-        return MongoGuid.Parse(value);
+        return Guid.Parse(value);
     }
 
     public override void Serialize(BsonSerializationContext context, BsonSerializationArgs args, Guid value)
     {
-        context.Writer.WriteString(MongoGuid.Format(value));
+        context.Writer.WriteString(value.ToString());
     }
 }
