@@ -1,9 +1,9 @@
 using System.Diagnostics.CodeAnalysis;
+using Kuna.Examples.Events;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Core;
 using Kuna.Projections.Sink.MongoDB;
 using Kuna.Projections.Source.KurrentDB;
-using Kuna.Projections.Worker.Kurrent_MongoDB.Example.OrdersProjection.Events;
 using Kuna.Projections.Worker.Kurrent_MongoDB.Example.OrdersProjection.Model;
 using Serilog;
 

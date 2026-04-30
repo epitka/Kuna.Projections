@@ -1,11 +1,11 @@
-﻿#nullable disable
+#nullable disable
 
 using Kuna.Projections.Abstractions.Attributes;
 using Kuna.Projections.Abstractions.Models;
 
-namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Events;
+namespace Kuna.Examples.Events;
 
-public class OrderDeclined : Event
+public class OrderAbandoned : Event
 {
     [ModelId]
     public Guid OrderId { get; set; }

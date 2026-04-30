@@ -1,6 +1,6 @@
+using Kuna.Examples.Events;
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Core;
-using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Events;
 using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
 using Model_Address = Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model.Address;
 

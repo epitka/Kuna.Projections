@@ -1,16 +1,14 @@
-﻿#nullable disable
+#nullable disable
 
 using Kuna.Projections.Abstractions.Attributes;
 using Kuna.Projections.Abstractions.Models;
-using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
 
-namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Events;
+namespace Kuna.Examples.Events;
 
 public class OrderCreatedEvent : Event
 {
     public OrderCreatedEvent()
     {
-        // USD is a default value for events that did not have currency captured.
         this.CurrencyCode = "USD";
     }
 

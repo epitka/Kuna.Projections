@@ -1,6 +1,5 @@
 using Bogus;
-using Kuna.Examples.EventsSeeder.Events;
-using Kuna.Examples.EventsSeeder.Model;
+using Kuna.Examples.Events;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.StreamGenerator;
 

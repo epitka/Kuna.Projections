@@ -1,15 +1,14 @@
-﻿#nullable disable
+#nullable disable
 
 using Kuna.Projections.Abstractions.Attributes;
 using Kuna.Projections.Abstractions.Models;
 
-namespace Kuna.Projections.Worker.Kurrent_MongoDB.Example.OrdersProjection.Events;
+namespace Kuna.Examples.Events;
 
 public class OrderConfirmedEvent : Event
 {
     public OrderConfirmedEvent()
     {
-        // USD is a default value for events that did not have currency captured.
         this.CurrencyCode = "USD";
         this.DownPaymentAmount = 0m;
     }
