@@ -24,6 +24,7 @@ public class ProjectionFailureConfiguration : IEntityTypeConfiguration<Projectio
     public void Configure(EntityTypeBuilder<ProjectionFailure> builder)
     {
         const string tableName = "ProjectionFailures";
+
         if (this.schema == null)
         {
             builder.ToTable(tableName);

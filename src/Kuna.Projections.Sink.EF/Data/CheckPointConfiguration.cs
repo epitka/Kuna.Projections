@@ -23,6 +23,7 @@ public class CheckPointConfiguration : IEntityTypeConfiguration<CheckPoint>
     public void Configure(EntityTypeBuilder<CheckPoint> builder)
     {
         const string tableName = "CheckPoints";
+
         if (this.schema == null)
         {
             builder.ToTable(tableName);
