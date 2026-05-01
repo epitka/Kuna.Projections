@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-POSTGRES_CONTAINER_NAME="${POSTGRES_CONTAINER_NAME:-kuna-showcase-postgres}"
 POSTGRES_USER="${POSTGRES_USER:-postgres}"
 POSTGRES_DB="${POSTGRES_DB:-orders_projection}"
 POSTGRES_SCHEMA="${POSTGRES_SCHEMA:-dbo}"
+POSTGRES_SERVICE_NAME="${POSTGRES_SERVICE_NAME:-postgres}"
 
-echo "Clearing projection tables in container: ${POSTGRES_CONTAINER_NAME}"
+echo "Clearing projection tables in compose service: ${POSTGRES_SERVICE_NAME}"
 echo "Database: ${POSTGRES_DB}, schema: ${POSTGRES_SCHEMA}"
 
-docker exec -i "${POSTGRES_CONTAINER_NAME}" \
+docker compose exec -T "${POSTGRES_SERVICE_NAME}" \
   psql \
   -v ON_ERROR_STOP=1 \
   -U "${POSTGRES_USER}" \
