@@ -16,7 +16,7 @@ public static class ServiceCollectionExtensions
     /// Adds the SQL projection persistence services for the specified model
     /// state and DbContext types.
     /// </summary>
-    public static IServiceCollection AddSqlProjectionsDataStore<TState, TDataContext>(this IServiceCollection services, string schema)
+    public static IServiceCollection AddSqlProjectionsDataStore<TState, TDataContext>(this IServiceCollection services, string? schema = null)
         where TState : class, IModel, new()
         where TDataContext : DbContext, IProjectionDbContext
     {
@@ -26,8 +26,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DataStore<TState, TDataContext>>();
         services.AddSingleton<IModelStateSink<TState>>(sp => sp.GetRequiredService<DataStore<TState, TDataContext>>());
         services.AddSingleton<IModelStateStore<TState>>(sp => sp.GetRequiredService<DataStore<TState, TDataContext>>());
-        services.AddSingleton<IProjectionCheckpointStore<TState>>(
-            sp => new ProjectionCheckpointStore<TState>(sp.GetRequiredService<DataStore<TState, TDataContext>>()));
+        services.AddSingleton<ICheckpointStore>(sp => sp.GetRequiredService<DataStore<TState, TDataContext>>());
 
         services.AddHealthChecks().AddDbContextCheck<TDataContext>();
 

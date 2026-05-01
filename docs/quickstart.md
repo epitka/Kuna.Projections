@@ -225,6 +225,11 @@ You usually do not need a custom projection startup task here because the packag
 Your relational DbContext should inherit `SqlProjectionsDbContext` so it includes checkpoint and failure tables, then add your model entities.
 
 Any relational database supported by an Entity Framework Core provider can be used here, for example PostgreSQL, SQL Server, or MySQL.
+Use the provider-specific adapter package that matches your EF provider:
+
+- PostgreSQL: `Kuna.Projections.Sink.EF.Npgsql`
+- SQL Server: `Kuna.Projections.Sink.EF.SqlServer`
+- MySQL: `Kuna.Projections.Sink.EF.MySql`
 
 ```csharp
 using Kuna.Projections.Sink.EF.Data;
@@ -349,7 +354,7 @@ services.AddDbContext<AccountProjectionDbContext>(
     options => options.UseNpgsql(configuration.GetConnectionString("PostgreSql")));
 
 services.AddKurrentDBSource<Account>(configuration, loggerFactory, "AccountProjection");
-services.AddSqlProjectionsDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
+services.AddNpgsqlProjectionsDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
 services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
         .WithInitialEvent<AccountCreated>();
 ```
@@ -361,6 +366,7 @@ These calls do the heavy lifting:
 - `AddKurrentDBSource<TState>(...)` wires the current KurrentDB-backed implementation of `IEventSource<EventEnvelope>`
 - `AddMongoProjectionsDataStore<TState>(...)` wires MongoDB-backed state loading, persistence, checkpointing, and failure handling
 - `AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)` wires SQL-backed state loading, persistence, checkpointing, and failure handling
+- `AddNpgsqlProjectionsDataStore<TState, TDataContext>(schema: ...)` wires Npgsql-backed state loading, persistence, checkpointing, and failure handling
 - `AddProjection<TState>(...)` wires projection creation, transformation, caching, and the runtime pipeline
 - `WithInitialEvent<TEvent>()` tells the runtime which event creates a new projection instance for that model type; use the event that starts the aggregate or stream, such as `AccountCreated`
 - `AddProjectionHost(...)` runs all registered pipelines and startup tasks

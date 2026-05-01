@@ -290,7 +290,8 @@ Persistence-facing types:
 
 Registration:
 
-- `ServiceCollectionExtensions.AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)`: wires the SQL sink, store, checkpoint store, failure handler, and health check
+- `ServiceCollectionExtensions.AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)`: wires the shared relational sink, store, checkpoint store, failure handler, and health check
+- provider adapter packages add duplicate-key detection and convenience registration for concrete EF providers such as Npgsql, SQL Server, and MySQL
 
 Important adopter notes:
 

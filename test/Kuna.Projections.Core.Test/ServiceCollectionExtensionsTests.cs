@@ -258,13 +258,13 @@ public class ServiceCollectionExtensionsTests
         services.AddSingleton<IModelStateSink<CoreServiceTestModel>, DummyStateSink>();
         services.AddSingleton<IProjectionFailureHandler<CoreServiceTestModel>, DummyFailureHandler>();
         services.AddSingleton<IProjectionEventSource<CoreServiceTestModel>>(new TestProjectionEventSource<CoreServiceTestModel>());
-        services.AddSingleton<IProjectionCheckpointStore<CoreServiceTestModel>>(new TestProjectionCheckpointStore<CoreServiceTestModel>());
+        var checkpointStore = new DummyCheckpointStore();
+        services.AddSingleton<ICheckpointStore>(checkpointStore);
 
         services.AddSingleton<IModelStateStore<SecondaryServiceTestModel>, SecondaryStateStore>();
         services.AddSingleton<IModelStateSink<SecondaryServiceTestModel>, SecondaryStateSink>();
         services.AddSingleton<IProjectionFailureHandler<SecondaryServiceTestModel>, SecondaryFailureHandler>();
         services.AddSingleton<IProjectionEventSource<SecondaryServiceTestModel>>(new TestProjectionEventSource<SecondaryServiceTestModel>());
-        services.AddSingleton<IProjectionCheckpointStore<SecondaryServiceTestModel>>(new TestProjectionCheckpointStore<SecondaryServiceTestModel>());
 
         services.AddProjection<CoreServiceTestModel>(configuration, settingsSectionName: "OrdersProjection")
                 .WithInitialEvent<TestInitialEvent>();
@@ -281,7 +281,7 @@ public class ServiceCollectionExtensionsTests
 
         GetPrivateField<object>(ordersPipeline, "source").ShouldBeSameAs(provider.GetRequiredService<IProjectionEventSource<CoreServiceTestModel>>().Value);
         GetPrivateField<object>(ordersPipeline, "checkpointStore")
-            .ShouldBeSameAs(provider.GetRequiredService<IProjectionCheckpointStore<CoreServiceTestModel>>().Value);
+            .ShouldBeSameAs(checkpointStore);
 
         GetPrivateField<object>(ordersPipeline, "lifecycle").ShouldBeSameAs(provider.GetRequiredService<IProjectionLifecycle<CoreServiceTestModel>>());
 
@@ -289,7 +289,7 @@ public class ServiceCollectionExtensionsTests
             .ShouldBeSameAs(provider.GetRequiredService<IProjectionEventSource<SecondaryServiceTestModel>>().Value);
 
         GetPrivateField<object>(invoicesPipeline, "checkpointStore")
-            .ShouldBeSameAs(provider.GetRequiredService<IProjectionCheckpointStore<SecondaryServiceTestModel>>().Value);
+            .ShouldBeSameAs(checkpointStore);
 
         GetPrivateField<object>(invoicesPipeline, "lifecycle").ShouldBeSameAs(provider.GetRequiredService<IProjectionLifecycle<SecondaryServiceTestModel>>());
     }
@@ -423,17 +423,6 @@ public class ServiceCollectionExtensionsTests
         public IEventSource<EventEnvelope> Value { get; }
     }
 
-    private sealed class TestProjectionCheckpointStore<TState> : IProjectionCheckpointStore<TState>
-        where TState : class, IModel, new()
-    {
-        public TestProjectionCheckpointStore()
-        {
-            this.Value = new DummyCheckpointStore();
-        }
-
-        public ICheckpointStore Value { get; }
-    }
-
     private sealed class DummyEventSource : IEventSource<EventEnvelope>
     {
         public async IAsyncEnumerable<EventEnvelope> ReadAll(
@@ -447,12 +436,12 @@ public class ServiceCollectionExtensionsTests
 
     private sealed class DummyCheckpointStore : ICheckpointStore
     {
-        public Task<CheckPoint> GetCheckpoint(CancellationToken cancellationToken)
+        public Task<CheckPoint> GetCheckpoint(string modelName, CancellationToken cancellationToken)
         {
             return Task.FromResult(
                 new CheckPoint
                 {
-                    ModelName = "dummy",
+                    ModelName = modelName,
                     GlobalEventPosition = new GlobalEventPosition(0),
                 });
         }

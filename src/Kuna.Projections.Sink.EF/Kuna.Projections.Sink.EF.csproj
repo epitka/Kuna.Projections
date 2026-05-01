@@ -14,8 +14,6 @@
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
-    <PackageReference Include="Microsoft.Data.SqlClient" />
-    <PackageReference Include="Npgsql" />
   </ItemGroup>
 
   <ItemGroup>

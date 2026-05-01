@@ -1,4 +1,5 @@
 using Kuna.Projections.Abstractions.Models;
+using Kuna.Projections.Sink.EF;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -9,13 +10,11 @@ namespace Kuna.Projections.Sink.EF.Data;
 /// </summary>
 public class ProjectionFailureConfiguration : IEntityTypeConfiguration<ProjectionFailure>
 {
-    private readonly string schema;
+    private readonly string? schema;
 
-    public ProjectionFailureConfiguration(string schema)
+    public ProjectionFailureConfiguration(string? schema)
     {
-        this.schema = string.IsNullOrWhiteSpace(schema)
-                          ? throw new ArgumentException("Projection schema must be provided.", nameof(schema))
-                          : schema;
+        this.schema = ProjectionNamespaceConvention.Normalize(schema);
     }
 
     /// <summary>
@@ -25,7 +24,15 @@ public class ProjectionFailureConfiguration : IEntityTypeConfiguration<Projectio
     public void Configure(EntityTypeBuilder<ProjectionFailure> builder)
     {
         const string tableName = "ProjectionFailures";
-        builder.ToTable(tableName, this.schema);
+
+        if (this.schema == null)
+        {
+            builder.ToTable(tableName);
+        }
+        else
+        {
+            builder.ToTable(tableName, this.schema);
+        }
 
         builder.HasKey(nameof(ProjectionFailure.ModelName), nameof(ProjectionFailure.ModelId));
         builder.Property(x => x.ModelId).IsRequired();
