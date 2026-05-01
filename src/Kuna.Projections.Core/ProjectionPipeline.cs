@@ -96,7 +96,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         var cumulativeFlushMs = 0d;
         var runtimeStopwatch = Stopwatch.StartNew();
 
-        var checkPoint = await this.checkpointStore.GetCheckpoint(cancellationToken);
+        var checkPoint = await this.checkpointStore.GetCheckpoint(this.modelName, cancellationToken);
         var start = checkPoint.GlobalEventPosition;
         var lastObservedPosition = start;
         var lastFlushedPosition = start;

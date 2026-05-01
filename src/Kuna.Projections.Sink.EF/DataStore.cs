@@ -179,7 +179,7 @@ public class DataStore<TState, TDataContext>
     /// <summary>
     /// Loads the persisted checkpoint for the specified model name.
     /// </summary>
-    public async Task<CheckPoint> GetCheckpoint(CancellationToken cancellationToken)
+    public async Task<CheckPoint> GetCheckpoint(string modelName, CancellationToken cancellationToken)
     {
         using var transientScope = this.serviceProvider.CreateScope();
 
@@ -187,12 +187,12 @@ public class DataStore<TState, TDataContext>
                                            .ServiceProvider
                                            .GetRequiredService<TDataContext>();
 
-        var checkPoint = await transientContext!.CheckPoint.FindAsync([this.modelName,], cancellationToken);
+        var checkPoint = await transientContext!.CheckPoint.FindAsync([modelName,], cancellationToken);
 
         return checkPoint
                ?? new CheckPoint
                {
-                   ModelName = this.modelName,
+                   ModelName = modelName,
                    GlobalEventPosition = new GlobalEventPosition(0),
                };
     }
