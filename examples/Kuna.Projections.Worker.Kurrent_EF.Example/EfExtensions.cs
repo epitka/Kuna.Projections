@@ -14,9 +14,4 @@ public static class EfExtensions
     {
         return builder.HasColumnType($"decimal({18},{2})");
     }
-
-    public static PropertyBuilder<decimal?> HasVatPrecision(this PropertyBuilder<decimal?> builder)
-    {
-        return builder.HasColumnType($"decimal({18},{6})");
-    }
 }

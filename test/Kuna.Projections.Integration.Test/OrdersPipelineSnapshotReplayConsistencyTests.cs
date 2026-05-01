@@ -7,6 +7,7 @@ using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Core;
 using Kuna.Projections.Pipeline.Integration.Test.LocalOrders;
 using Kuna.Projections.Sink.EF;
+using Kuna.Projections.Sink.EF.Npgsql;
 using Kuna.Projections.Source.KurrentDB;
 using Kuna.Projections.Source.KurrentDB.Extensions;
 using KurrentDB.Client;
@@ -665,7 +666,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                 return new TestProjectionEventSource<Order>(source);
             });
 
-        services.AddSqlProjectionsDataStore<Order, OrdersDbContext>(schema: "dbo");
+        services.AddNpgsqlProjectionsDataStore<Order, OrdersDbContext>(schema: "dbo");
 
         var config = new ConfigurationBuilder()
                      .AddInMemoryCollection(

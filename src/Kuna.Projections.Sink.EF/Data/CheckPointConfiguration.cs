@@ -1,4 +1,5 @@
 using Kuna.Projections.Abstractions.Models;
+using Kuna.Projections.Sink.EF;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -9,13 +10,11 @@ namespace Kuna.Projections.Sink.EF.Data;
 /// </summary>
 public class CheckPointConfiguration : IEntityTypeConfiguration<CheckPoint>
 {
-    private readonly string schema;
+    private readonly string? schema;
 
-    public CheckPointConfiguration(string schema)
+    public CheckPointConfiguration(string? schema)
     {
-        this.schema = string.IsNullOrWhiteSpace(schema)
-                          ? throw new ArgumentException("Projection schema must be provided.", nameof(schema))
-                          : schema;
+        this.schema = ProjectionNamespaceConvention.Normalize(schema);
     }
 
     /// <summary>
@@ -24,7 +23,15 @@ public class CheckPointConfiguration : IEntityTypeConfiguration<CheckPoint>
     public void Configure(EntityTypeBuilder<CheckPoint> builder)
     {
         const string tableName = "CheckPoints";
-        builder.ToTable(tableName, this.schema);
+
+        if (this.schema == null)
+        {
+            builder.ToTable(tableName);
+        }
+        else
+        {
+            builder.ToTable(tableName, this.schema);
+        }
 
         builder.HasKey(nameof(CheckPoint.ModelName));
 

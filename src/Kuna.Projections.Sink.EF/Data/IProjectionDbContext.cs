@@ -1,4 +1,5 @@
 using Kuna.Projections.Abstractions.Models;
+using Kuna.Projections.Sink.EF;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 
@@ -25,12 +26,10 @@ public class SqlProjectionsDbContext
     : DbContext,
       IProjectionDbContext
 {
-    protected SqlProjectionsDbContext(DbContextOptions options, string projectionSchema)
+    protected SqlProjectionsDbContext(DbContextOptions options, string? projectionSchema)
         : base(options)
     {
-        this.ProjectionSchema = string.IsNullOrWhiteSpace(projectionSchema)
-                                    ? throw new ArgumentException("Projection schema must be provided.", nameof(projectionSchema))
-                                    : projectionSchema;
+        this.ProjectionSchema = ProjectionNamespaceConvention.Normalize(projectionSchema);
     }
 
     public DbSet<ProjectionFailure> ProjectionFailures { get; set; }
@@ -41,7 +40,12 @@ public class SqlProjectionsDbContext
     /// Schema applied to both projection infrastructure tables and projection
     /// model tables.
     /// </summary>
-    private string ProjectionSchema { get; }
+    private string? ProjectionSchema { get; }
+
+    protected virtual string? GetProviderName()
+    {
+        return this.Database.ProviderName;
+    }
 
     /// <summary>
     /// Applies EF mappings for checkpoint and projection-failure entities.
@@ -50,10 +54,11 @@ public class SqlProjectionsDbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.HasDefaultSchema(this.ProjectionSchema);
+        var providerName = this.GetProviderName();
+        var tableSchema = ProjectionNamespaceConvention.GetSchema(this.ProjectionSchema, providerName);
 
-        modelBuilder.ApplyConfiguration(new ProjectionFailureConfiguration(this.ProjectionSchema))
-                    .ApplyConfiguration(new CheckPointConfiguration(this.ProjectionSchema));
+        modelBuilder.ApplyConfiguration(new ProjectionFailureConfiguration(tableSchema))
+                    .ApplyConfiguration(new CheckPointConfiguration(tableSchema));
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -64,6 +69,8 @@ public class SqlProjectionsDbContext
 
             ConfigureProjectionModel(modelBuilder, entityType);
         }
+
+        ProjectionNamespaceConvention.Apply(modelBuilder, this.ProjectionSchema, providerName);
     }
 
     private static void ConfigureProjectionModel(ModelBuilder modelBuilder, IMutableEntityType entityType)

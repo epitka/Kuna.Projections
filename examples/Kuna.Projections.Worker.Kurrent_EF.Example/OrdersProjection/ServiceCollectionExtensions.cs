@@ -4,6 +4,7 @@ using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Core;
 using Kuna.Projections.Sink.EF;
 using Kuna.Projections.Sink.EF.Data;
+using Kuna.Projections.Sink.EF.Npgsql;
 using Kuna.Projections.Source.KurrentDB;
 using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Events;
 using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
@@ -52,7 +53,7 @@ public static class ServiceCollectionExtensions
             });
 
         services.AddKurrentDBSource<Order>(configuration, factory, "OrdersProjection");
-        services.AddSqlProjectionsDataStore<Order, OrdersDbContext>(schema: ProjectionSchema);
+        services.AddNpgsqlProjectionsDataStore<Order, OrdersDbContext>(schema: ProjectionSchema);
         services.AddProjection<Order>(
                     configuration,
                     settingsSectionName: "OrdersProjection")
