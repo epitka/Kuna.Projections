@@ -22,6 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Kuna.Projections.Sink.EF.MySql\Kuna.Projections.Sink.EF.MySql.csproj" />
+    <ProjectReference Include="..\..\src\Kuna.Projections.Sink.EF.Npgsql\Kuna.Projections.Sink.EF.Npgsql.csproj" />
     <ProjectReference Include="..\..\src\Kuna.Projections.Sink.EF\Kuna.Projections.Sink.EF.csproj" />
   </ItemGroup>
 

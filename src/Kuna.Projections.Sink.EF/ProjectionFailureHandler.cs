@@ -1,10 +1,8 @@
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Npgsql;
 
 namespace Kuna.Projections.Sink.EF;
 
@@ -17,8 +15,6 @@ public class ProjectionFailureHandler<TState, TDataContext>
     where TState : class, IModel, new()
     where TDataContext : DbContext
 {
-    private const int DuplicatePkViolationError = 2627;
-    private const string PostgresDuplicatePkViolationError = PostgresErrorCodes.UniqueViolation;
     private const int MaxExceptionMessageLength = 4000;
     private const int MaxExceptionMessageLengthAllowed = MaxExceptionMessageLength - 1;
 
@@ -63,19 +59,11 @@ public class ProjectionFailureHandler<TState, TDataContext>
 
             await dbContext.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException dex) when (dex.InnerException is SqlException { Number: DuplicatePkViolationError, })
+        catch (DbUpdateException dex) when (this.IsDuplicateKeyViolation(dex))
         {
             await this.FindAndUpdateFailure(failure, cancellationToken);
         }
-        catch (DbUpdateException dex) when (dex.InnerException is PostgresException { SqlState: PostgresDuplicatePkViolationError, })
-        {
-            await this.FindAndUpdateFailure(failure, cancellationToken);
-        }
-        catch (SqlException sx) when (sx.Number == DuplicatePkViolationError)
-        {
-            await this.FindAndUpdateFailure(failure, cancellationToken);
-        }
-        catch (PostgresException px) when (px.SqlState == PostgresDuplicatePkViolationError)
+        catch (Exception exception) when (this.IsDuplicateKeyViolation(exception))
         {
             await this.FindAndUpdateFailure(failure, cancellationToken);
         }
@@ -115,5 +103,11 @@ public class ProjectionFailureHandler<TState, TDataContext>
 
             await dbContext.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    private bool IsDuplicateKeyViolation(Exception exception)
+    {
+        return this.serviceProvider.GetServices<IDuplicateKeyExceptionDetector>()
+                   .Any(detector => detector.IsDuplicateKeyViolation(exception));
     }
 }

@@ -3,12 +3,10 @@ using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Sink.EF.Data;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Npgsql;
 
 namespace Kuna.Projections.Sink.EF;
 
@@ -23,9 +21,6 @@ public class DataStore<TState, TDataContext>
     where TState : class, IModel, new()
     where TDataContext : DbContext, IProjectionDbContext
 {
-    private const int DuplicatePkViolationError = 2627;
-    private const string PostgresDuplicatePkViolationError = PostgresErrorCodes.UniqueViolation;
-
     private readonly IServiceProvider serviceProvider;
     private readonly IProjectionFailureHandler<TState> failureHandler;
     private readonly Stopwatch insertStopWatch;
@@ -225,25 +220,10 @@ public class DataStore<TState, TDataContext>
         await transientContext.SaveChangesAsync(cancellationToken);
     }
 
-    private static bool IsNpgsqlProvider(DbContext dbContext)
+    private bool IsDuplicateKeyViolation(Exception ex)
     {
-        var providerName = dbContext.Database.ProviderName;
-        return providerName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
-    }
-
-    private static bool IsDuplicateKeyViolation(Exception ex)
-    {
-        if (ex is DbUpdateException { InnerException: { } innerException, })
-        {
-            return IsDuplicateKeyViolation(innerException);
-        }
-
-        return ex switch
-               {
-                   SqlException { Number: DuplicatePkViolationError, }                => true,
-                   PostgresException { SqlState: PostgresDuplicatePkViolationError, } => true,
-                   _                                                                  => false,
-               };
+        return this.serviceProvider.GetServices<IDuplicateKeyExceptionDetector>()
+                   .Any(detector => detector.IsDuplicateKeyViolation(ex));
     }
 
     private async Task<PersistBatchTimings> PersistBatchInternal(

@@ -1,4 +1,5 @@
 using Kuna.Projections.Pipeline.EF.Test.Items;
+using Kuna.Projections.Sink.EF.Npgsql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,6 +23,7 @@ public static class PostgresSqlTestHelper
     {
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddNpgsqlDuplicateKeyDetection();
         services.AddDbContext<TestProjectionDbContext>(
             options => Configure(options, fixture.ConnectionString),
             ServiceLifetime.Scoped);

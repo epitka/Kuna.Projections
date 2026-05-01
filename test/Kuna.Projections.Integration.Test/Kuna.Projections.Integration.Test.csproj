@@ -26,6 +26,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Kuna.Projections.Core\Kuna.Projections.Core.csproj" />
     <ProjectReference Include="..\..\src\Kuna.Projections.Sink.EF\Kuna.Projections.Sink.EF.csproj" />
+    <ProjectReference Include="..\..\src\Kuna.Projections.Sink.EF.Npgsql\Kuna.Projections.Sink.EF.Npgsql.csproj" />
     <ProjectReference Include="..\..\src\Kuna.Projections.Source.KurrentDB\Kuna.Projections.Source.KurrentDB.csproj" />
   </ItemGroup>
 
