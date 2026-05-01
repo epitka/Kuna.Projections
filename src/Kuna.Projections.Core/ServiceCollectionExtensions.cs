@@ -75,7 +75,7 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<IProjectionLifecycle<TState>>(),
                 sp.GetRequiredService<IModelStateCache<TState>>(),
                 sp.GetRequiredService<IModelStateSink<TState>>(),
-                sp.GetRequiredService<IProjectionCheckpointStore<TState>>().Value,
+                sp.GetRequiredService<ICheckpointStore>(),
                 sp.GetRequiredService<IProjectionSettings<TState>>(),
                 sp.GetRequiredService<ILogger<ProjectionPipeline<EventEnvelope, TState>>>()));
 

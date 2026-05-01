@@ -35,7 +35,7 @@ public class PersistCheckpointTests : DataStoreIntegrationTestBase
             },
             CancellationToken.None);
 
-        var checkpoint = await store.GetCheckpoint(CancellationToken.None);
+        var checkpoint = await store.GetCheckpoint(ProjectionModelName.For<TestModel>(), CancellationToken.None);
 
         checkpoint.ModelName.ShouldBe(ProjectionModelName.For<TestModel>());
         checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(25));

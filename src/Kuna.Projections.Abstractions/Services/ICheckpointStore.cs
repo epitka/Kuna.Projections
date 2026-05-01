@@ -7,7 +7,7 @@ namespace Kuna.Projections.Abstractions.Services;
 /// </summary>
 public interface ICheckpointStore
 {
-    Task<CheckPoint> GetCheckpoint(CancellationToken cancellationToken);
+    Task<CheckPoint> GetCheckpoint(string modelName, CancellationToken cancellationToken);
 
     Task PersistCheckpoint(CheckPoint checkPoint, CancellationToken cancellationToken);
 }

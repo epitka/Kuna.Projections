@@ -1,7 +1,6 @@
 services:
   kurrentdb:
     image: kurrentplatform/kurrentdb:25.1
-    container_name: kuna-showcase-kurrentdb
     environment:
       KURRENTDB_INSECURE: "true"
       KURRENTDB_ENABLE_ATOM_PUB_OVER_HTTP: "true"
@@ -12,7 +11,6 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: kuna-showcase-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

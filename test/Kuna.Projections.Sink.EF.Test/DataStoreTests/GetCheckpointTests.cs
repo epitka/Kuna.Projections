@@ -28,7 +28,7 @@ public class GetCheckpointTests : DataStoreIntegrationTestBase
             },
             CancellationToken.None);
 
-        var checkpoint = await store.GetCheckpoint(CancellationToken.None);
+        var checkpoint = await store.GetCheckpoint(ProjectionModelName.For<TestModel>(), CancellationToken.None);
 
         checkpoint.ModelName.ShouldBe(ProjectionModelName.For<TestModel>());
         checkpoint.GlobalEventPosition.ShouldBe(position);
@@ -40,7 +40,7 @@ public class GetCheckpointTests : DataStoreIntegrationTestBase
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
 
-        var checkpoint = await store.GetCheckpoint(CancellationToken.None);
+        var checkpoint = await store.GetCheckpoint(ProjectionModelName.For<TestModel>(), CancellationToken.None);
 
         checkpoint.ModelName.ShouldBe(ProjectionModelName.For<TestModel>());
         checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(0));
