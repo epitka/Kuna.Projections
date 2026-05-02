@@ -6,10 +6,9 @@ The examples use:
 
 - `Kuna.Projections.Core`
 - `Kuna.Projections.Source.KurrentDB` (source implementation for KurrentDB)
-- a sink provider package:
-  - relational packages: `Kuna.Projections.Sink.EF.Npgsql`, `Kuna.Projections.Sink.EF.SqlServer`, or `Kuna.Projections.Sink.EF.MySql` (these bring in `Kuna.Projections.Sink.EF` transitively)
-  - NoSql : `Kuna.Projections.Sing.MongoDB`
-  - 
+- NoSQL example: `Kuna.Projections.Sink.MongoDB`
+- relational example: `Kuna.Projections.Sink.EF.Npgsql` (or `Kuna.Projections.Sink.EF.SqlServer` / `Kuna.Projections.Sink.EF.MySql`)
+
 If you want the broader package map first, see [overview.md](overview.md). If you want every configuration knob documented, see [configuration-reference.md](configuration-reference.md).
 
 ## What You Build
@@ -56,7 +55,7 @@ dotnet add package Kuna.Projections.Core
 dotnet add package Kuna.Projections.Source.KurrentDB
 ```
 
-### NoSql via MongoDB 
+### 2A. NoSQL Example: MongoDB
 
 ```bash
 dotnet add package Kuna.Projections.Sink.MongoDB
@@ -64,22 +63,23 @@ dotnet add package Kuna.Projections.Sink.MongoDB
 
 This is the easiest path because the MongoDB sink creates its required collections and failure index during startup.
 
-### SQL / EF Alternative (via PostgreSQL)
+`Kuna.Projections.Abstractions` is brought in transitively, so you usually do not need to add it explicitly unless you want a direct contracts-only dependency.
+
+### 2B. Relational Example: PostgreSQL
 
 ```bash
 dotnet add package Kuna.Projections.Sink.EF.Npgsql
 ```
 
-Use the provider adapter package that matches your relational provider:
+This quickstart uses PostgreSQL as the relational example. If you use another relational provider, install the matching adapter package instead:
 
 - PostgreSQL: `Kuna.Projections.Sink.EF.Npgsql`
 - SQL Server: `Kuna.Projections.Sink.EF.SqlServer`
 - MySQL: `Kuna.Projections.Sink.EF.MySql`
 
 The provider adapter package brings in `Kuna.Projections.Sink.EF` transitively. `Kuna.Projections.Abstractions` is also brought in transitively, so you usually do not need to add it explicitly unless you want a direct contracts-only dependency.
-This path is a better fit when your read side already lives in a relational database or needs EF Core mapping control.
 
-`Kuna.Projections.Abstractions` is brought in transitively by those packages, so you usually do not need to add it explicitly unless you want a direct contracts-only dependency.
+This path is a better fit when your read side already lives in a relational database or needs EF Core mapping control.
 
 ## 3. Create A Read Model
 
@@ -199,7 +199,7 @@ The example worker follows this pattern in `OrdersProjection`: it ignores a smal
 
 ## 6. Configure Persistence
 
-### 6A. MongoDB
+### 6A. NoSQL Example: MongoDB
 
 MongoDB is the recommended quickstart path because it has less setup surface.
 
@@ -227,7 +227,7 @@ The MongoDB sink persists:
 
 You usually do not need a custom projection startup task here because the package already registers one that creates its collections and failure index. See [mongodb-sink.md](mongodb-sink.md#startup-behavior).
 
-### 6B. SQL / EF
+### 6B. Relational Example: PostgreSQL
 
 Your relational DbContext should inherit `SqlProjectionsDbContext` so it includes checkpoint and failure tables, then add your model entities.
 
@@ -326,7 +326,7 @@ There are two supported hosting patterns:
 
 Important: `WithInitialEvent<TEvent>()` is required here. Without it, the runtime does not know which event is allowed to create a new projection instance. Use the event that creates the model or starts the aggregate stream, such as `AccountCreated`.
 
-### MongoDB Quickstart Registration
+### 9A. NoSQL Example: MongoDB
 
 ```csharp
 using Kuna.Projections.Core;
@@ -346,12 +346,12 @@ services.AddProjection<Account>(configuration, settingsSectionName: "AccountProj
         .WithInitialEvent<AccountCreated>();
 ```
 
-### SQL / EF Registration
+### 9B. Relational Example: PostgreSQL
 
 ```csharp
 using Kuna.Projections.Core;
 using Kuna.Projections.Source.KurrentDB;
-using Kuna.Projections.Sink.EF;
+using Kuna.Projections.Sink.EF.Npgsql;
 using Microsoft.EntityFrameworkCore;
 
 services.AddSingleton<IProjectionStartupTask, AccountProjectionStartupTask>();
@@ -368,11 +368,18 @@ services.AddProjection<Account>(configuration, settingsSectionName: "AccountProj
 
 Note that the relational sink requires a projection namespace value to be passed in through `schema`. On schema-capable providers that becomes a real database schema; on providers such as MySQL it is used as a table-name prefix. For more information see [configuration-reference.md](configuration-reference.md#when-to-use-a-projection-specific-schema).
 
-These calls do the heavy lifting:
+For the MongoDB path:
 
 - `AddKurrentDBSource<TState>(...)` wires the current KurrentDB-backed implementation of `IEventSource<EventEnvelope>`
 - `AddMongoProjectionsDataStore<TState>(...)` wires MongoDB-backed state loading, persistence, checkpointing, and failure handling
-- `AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)` wires SQL-backed state loading, persistence, checkpointing, and failure handling
+- `AddProjection<TState>(...)` wires projection creation, transformation, caching, and the runtime pipeline
+- `WithInitialEvent<TEvent>()` tells the runtime which event creates a new projection instance for that model type; use the event that starts the aggregate or stream, such as `AccountCreated`
+- `AddProjectionHost(...)` runs all registered pipelines and startup tasks
+- `AddHostedService<TWorker>()` is the manual alternative if you are not using `AddProjectionHost(...)`
+
+For the relational path:
+
+- `AddKurrentDBSource<TState>(...)` wires the current KurrentDB-backed implementation of `IEventSource<EventEnvelope>`
 - `AddNpgsqlProjectionsDataStore<TState, TDataContext>(schema: ...)` wires Npgsql-backed state loading, persistence, checkpointing, and failure handling
 - `AddProjection<TState>(...)` wires projection creation, transformation, caching, and the runtime pipeline
 - `WithInitialEvent<TEvent>()` tells the runtime which event creates a new projection instance for that model type; use the event that starts the aggregate or stream, such as `AccountCreated`
@@ -389,7 +396,7 @@ If you are not using PostgreSQL, use the matching provider adapter and registrat
 
 At minimum you need connection strings and one projection section that contains both projection runtime settings and a nested `KurrentDB` source section.
 
-### MongoDB
+### 10A. NoSQL Example: MongoDB
 
 ```json
 {
@@ -409,7 +416,7 @@ At minimum you need connection strings and one projection section that contains 
 }
 ```
 
-### SQL / EF
+### 10B. Relational Example: PostgreSQL
 
 ```json
 {

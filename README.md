@@ -13,9 +13,9 @@ Today, the repository provides:
 - `Kuna.Projections.Source.KurrentDB` for KurrentDB-backed event ingestion
 - `Kuna.Projections.Sink.EF` for the shared EF Core-backed relational sink
 - `Kuna.Projections.Sink.EF.Npgsql`, `Kuna.Projections.Sink.EF.SqlServer`, and `Kuna.Projections.Sink.EF.MySql` for provider-specific relational registration and duplicate-key handling
-- `Kuna.Projections.Sink.EF` for EF Core-backed persistence, checkpoints, and failure storage
 - `Kuna.Projections.Sink.MongoDB` for MongoDB-backed persistence, checkpoints, and failure storage
-- `examples/Kuna.Projections.Worker.Kurrent_EF.Example` as the runnable reference worker
+- `examples/Kuna.Projections.Worker.Kurrent_MongoDB.Example` as the runnable MongoDB reference worker
+- `examples/Kuna.Projections.Worker.Kurrent_EF.Example` as the runnable relational reference worker
 
 If you want the shortest route to a running worker, start with [docs/quickstart.md](docs/quickstart.md). If you want Mongo-specific sink registration details, see [docs/mongodb-sink.md](docs/mongodb-sink.md). If you want the full architecture and API map, start with [docs/overview.md](docs/overview.md).
 
@@ -61,20 +61,31 @@ The smallest credible setup is:
 
 ### Install packages
 
+Every worker needs:
+
 ```bash
 dotnet add package Kuna.Projections.Core
 dotnet add package Kuna.Projections.Source.KurrentDB
-dotnet add package Kuna.Projections.Sink.EF
-dotnet add package Kuna.Projections.Sink.EF.Npgsql
 ```
 
 MongoDB-backed workers use:
 
 ```bash
-dotnet add package Kuna.Projections.Core
-dotnet add package Kuna.Projections.Source.KurrentDB
 dotnet add package Kuna.Projections.Sink.MongoDB
 ```
+
+Relational workers use a provider adapter package. PostgreSQL is the example here:
+
+```bash
+dotnet add package Kuna.Projections.Sink.EF.Npgsql
+```
+
+Other relational providers use:
+
+- `Kuna.Projections.Sink.EF.SqlServer`
+- `Kuna.Projections.Sink.EF.MySql`
+
+The relational adapter package brings in `Kuna.Projections.Sink.EF` transitively. `Kuna.Projections.Abstractions` is brought in transitively as well.
 
 ### Define a read model
 
@@ -144,6 +155,33 @@ That marks the projection row for physical deletion on the next flush. The runti
 
 ### Register the runtime
 
+MongoDB-backed registration:
+
+```csharp
+using Kuna.Projections.Core;
+using Kuna.Projections.Sink.MongoDB;
+using Kuna.Projections.Source.KurrentDB;
+
+services.AddProjectionHost(typeof(Program).Assembly);
+
+services.AddKurrentDBSource<Account>(
+    configuration,
+    loggerFactory,
+    "AccountProjection");
+
+services.AddMongoProjectionsDataStore<Account>(
+    "mongodb://localhost:27017",
+    "account_projection",
+    options =>
+    {
+    });
+
+services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
+        .WithInitialEvent<AccountCreated>();
+```
+
+Relational registration with PostgreSQL:
+
 ```csharp
 using Kuna.Projections.Core;
 using Kuna.Projections.Sink.EF.Npgsql;
@@ -165,26 +203,10 @@ services.AddProjection<Account>(configuration, settingsSectionName: "AccountProj
         .WithInitialEvent<AccountCreated>();
 ```
 
-MongoDB-backed registration uses `AddMongoProjectionsDataStore<TState>(...)` instead of the EF registration:
+If you are not using PostgreSQL, swap the provider adapter and registration method:
 
-```csharp
-using Kuna.Projections.Sink.MongoDB;
-
-services.AddKurrentDBSource<Account>(
-    configuration,
-    loggerFactory,
-    "AccountProjection");
-
-services.AddMongoProjectionsDataStore<Account>(
-    "mongodb://localhost:27017",
-    "account_projection",
-    options =>
-    {
-    });
-
-services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
-        .WithInitialEvent<AccountCreated>();
-```
+- SQL Server: `Kuna.Projections.Sink.EF.SqlServer` with `AddSqlServerProjectionsDataStore<TState, TDataContext>(schema: ...)`
+- MySQL: `Kuna.Projections.Sink.EF.MySql` with `AddMySqlProjectionsDataStore<TState, TDataContext>(schema: ...)`
 
 Then run the pipeline from your host:
 
@@ -192,7 +214,10 @@ Then run the pipeline from your host:
 await pipeline.RunAsync(stoppingToken);
 ```
 
-For a full working example, see [examples/Kuna.Projections.Worker.Kurrent_EF.Example](examples/Kuna.Projections.Worker.Kurrent_EF.Example).
+For full working examples, see:
+
+- [examples/Kuna.Projections.Worker.Kurrent_MongoDB.Example](examples/Kuna.Projections.Worker.Kurrent_MongoDB.Example)
+- [examples/Kuna.Projections.Worker.Kurrent_EF.Example](examples/Kuna.Projections.Worker.Kurrent_EF.Example)
 
 ## Architecture at a glance
 
