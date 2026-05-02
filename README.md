@@ -11,7 +11,8 @@ Today, the repository provides:
 - `Kuna.Projections.Abstractions` for shared contracts and model types
 - `Kuna.Projections.Core` for the projection runtime and pipeline
 - `Kuna.Projections.Source.KurrentDB` for KurrentDB-backed event ingestion
-- `Kuna.Projections.Sink.EF` for EF Core-backed persistence, checkpoints, and failure storage
+- `Kuna.Projections.Sink.EF` for the shared EF Core-backed relational sink
+- `Kuna.Projections.Sink.EF.Npgsql`, `Kuna.Projections.Sink.EF.SqlServer`, and `Kuna.Projections.Sink.EF.MySql` for provider-specific relational registration and duplicate-key handling
 - `examples/Kuna.Projections.Worker.Kurrent_EF.Example` as the runnable reference worker
 
 If you want the shortest route to a running worker, start with [docs/quickstart.md](docs/quickstart.md). If you want the full architecture and API map, start with [docs/overview.md](docs/overview.md).
@@ -19,6 +20,10 @@ If you want the shortest route to a running worker, start with [docs/quickstart.
 ## Why this exists
 
 Projection code is usually simple. Projection plumbing is not.
+
+In event-sourced systems, projections are a standard way to turn append-only domain event streams into queryable read models. The write side preserves the event history, while the read side usually needs a materialized view shaped for API queries, reporting, dashboards, search, or operational workflows. That pattern is common, but teams often end up rebuilding the same projection runtime concerns around it in each service.
+
+The library is aimed at that event-sourcing use case first, but it is not limited to it. The runtime is source-driven rather than hard-wired to one storage model, so it can also be used in non-event-sourced systems by implementing a different source that emits envelopes from some other upstream change feed or event stream.
 
 This library moves the repetitive infrastructure concerns out of the application:
 
@@ -31,6 +36,8 @@ This library moves the repetitive infrastructure concerns out of the application
 - projection failure recording
 
 That leaves projection authors with a smaller, clearer programming model: define a state type, define events, implement `Apply(...)` methods, wire the source and sink, and run the pipeline.
+
+In other words, the library gives you a reusable projection engine: it reads envelopes from a source, routes them to projection instances, tracks replay progress with checkpoints, batches persistence work, records failures, and keeps the projection code itself focused on state transitions instead of pipeline mechanics.
 
 It also gives consumers a better throughput model:
 
@@ -56,6 +63,7 @@ The smallest credible setup is:
 dotnet add package Kuna.Projections.Core
 dotnet add package Kuna.Projections.Source.KurrentDB
 dotnet add package Kuna.Projections.Sink.EF
+dotnet add package Kuna.Projections.Sink.EF.Npgsql
 ```
 
 ### Define a read model
@@ -128,8 +136,8 @@ That marks the projection row for physical deletion on the next flush. The runti
 
 ```csharp
 using Kuna.Projections.Core;
+using Kuna.Projections.Sink.EF.Npgsql;
 using Kuna.Projections.Source.KurrentDB;
-using Kuna.Projections.Sink.EF;
 using Microsoft.EntityFrameworkCore;
 
 services.AddProjectionHost(typeof(Program).Assembly);
@@ -142,7 +150,7 @@ services.AddKurrentDBSource<Account>(
     loggerFactory,
     "AccountProjection");
 
-services.AddSqlProjectionsDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
+services.AddNpgsqlProjectionsDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
 services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
         .WithInitialEvent<AccountCreated>();
 ```

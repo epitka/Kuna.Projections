@@ -6,7 +6,7 @@ The examples use:
 
 - `Kuna.Projections.Core`
 - `Kuna.Projections.Source.KurrentDB` (source implementation for KurrentDB)
-- `Kuna.Projections.Sink.EF` (sink implemenation using Entity Framework)
+- a relational provider adapter package such as `Kuna.Projections.Sink.EF.Npgsql`, `Kuna.Projections.Sink.EF.SqlServer`, or `Kuna.Projections.Sink.EF.MySql` (these bring in `Kuna.Projections.Sink.EF` transitively)
 
 If you want the broader package map first, see [overview.md](overview.md). If you want every configuration knob documented, see [configuration-reference.md](configuration-reference.md).
 
@@ -52,10 +52,16 @@ Add the projection packages your worker needs:
 ```bash
 dotnet add package Kuna.Projections.Core
 dotnet add package Kuna.Projections.Source.KurrentDB
-dotnet add package Kuna.Projections.Sink.EF
+dotnet add package Kuna.Projections.Sink.EF.Npgsql
 ```
 
-`Kuna.Projections.Abstractions` is brought in transitively by those packages, so you usually do not need to add it explicitly unless you want a direct contracts-only dependency.
+Use the provider adapter package that matches your relational provider:
+
+- PostgreSQL: `Kuna.Projections.Sink.EF.Npgsql`
+- SQL Server: `Kuna.Projections.Sink.EF.SqlServer`
+- MySQL: `Kuna.Projections.Sink.EF.MySql`
+
+The provider adapter package brings in `Kuna.Projections.Sink.EF` transitively. `Kuna.Projections.Abstractions` is also brought in transitively, so you usually do not need to add it explicitly unless you want a direct contracts-only dependency.
 
 ## 3. Create A Read Model
 
@@ -273,7 +279,7 @@ Important: `WithInitialEvent<TEvent>()` is required here. Without it, the runtim
 ```csharp
 using Kuna.Projections.Core;
 using Kuna.Projections.Source.KurrentDB;
-using Kuna.Projections.Sink.EF;
+using Kuna.Projections.Sink.EF.Npgsql;
 using Microsoft.EntityFrameworkCore;
 
 services.AddSingleton<IProjectionStartupTask, AccountProjectionStartupTask>();
@@ -288,7 +294,7 @@ services.AddProjection<Account>(configuration, settingsSectionName: "AccountProj
         .WithInitialEvent<AccountCreated>();
 ```
 
-Note that DbContext requires db schema to be passed in. For more information see [configuration-reference.md](configuration-reference.md#when-to-use-a-projection-specific-schema).
+Note that the relational sink requires a projection namespace value to be passed in through `schema`. On schema-capable providers that becomes a real database schema; on providers such as MySQL it is used as a table-name prefix. For more information see [configuration-reference.md](configuration-reference.md#when-to-use-a-projection-specific-schema).
 
 These calls do the heavy lifting:
 
@@ -298,6 +304,12 @@ These calls do the heavy lifting:
 - `WithInitialEvent<TEvent>()` tells the runtime which event creates a new projection instance for that model type; use the event that starts the aggregate or stream, such as `AccountCreated`
 - `AddProjectionHost(...)` runs all registered pipelines and startup tasks
 - `AddHostedService<TWorker>()` is the manual alternative if you are not using `AddProjectionHost(...)`
+
+If you are not using PostgreSQL, use the matching provider adapter and registration method instead:
+
+- SQL Server: `Kuna.Projections.Sink.EF.SqlServer` with `AddSqlServerProjectionsDataStore<TState, TDataContext>(schema: ...)`
+- MySQL: `Kuna.Projections.Sink.EF.MySql` with `AddMySqlProjectionsDataStore<TState, TDataContext>(schema: ...)`
+- `AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)` remains available as the shared low-level registration path when you need custom composition
 
 ## 10. Add Configuration
 
