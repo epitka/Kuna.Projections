@@ -6,10 +6,10 @@ The examples use:
 
 - `Kuna.Projections.Core`
 - `Kuna.Projections.Source.KurrentDB` (source implementation for KurrentDB)
-- `Kuna.Projections.Sink.MongoDB` or `Kuna.Projections.Sink.EF` (persistence implementations)
-
-For the shortest setup path, start with MongoDB. The SQL/EF path is fully supported, but it requires more application-side persistence setup.
-
+- a sink provider package:
+  - relational packages: `Kuna.Projections.Sink.EF.Npgsql`, `Kuna.Projections.Sink.EF.SqlServer`, or `Kuna.Projections.Sink.EF.MySql` (these bring in `Kuna.Projections.Sink.EF` transitively)
+  - NoSql : `Kuna.Projections.Sing.MongoDB`
+  - 
 If you want the broader package map first, see [overview.md](overview.md). If you want every configuration knob documented, see [configuration-reference.md](configuration-reference.md).
 
 ## What You Build
@@ -56,7 +56,7 @@ dotnet add package Kuna.Projections.Core
 dotnet add package Kuna.Projections.Source.KurrentDB
 ```
 
-### MongoDB First
+### NoSql via MongoDB 
 
 ```bash
 dotnet add package Kuna.Projections.Sink.MongoDB
@@ -64,12 +64,19 @@ dotnet add package Kuna.Projections.Sink.MongoDB
 
 This is the easiest path because the MongoDB sink creates its required collections and failure index during startup.
 
-### SQL / EF Alternative
+### SQL / EF Alternative (via PostgreSQL)
 
 ```bash
-dotnet add package Kuna.Projections.Sink.EF
+dotnet add package Kuna.Projections.Sink.EF.Npgsql
 ```
 
+Use the provider adapter package that matches your relational provider:
+
+- PostgreSQL: `Kuna.Projections.Sink.EF.Npgsql`
+- SQL Server: `Kuna.Projections.Sink.EF.SqlServer`
+- MySQL: `Kuna.Projections.Sink.EF.MySql`
+
+The provider adapter package brings in `Kuna.Projections.Sink.EF` transitively. `Kuna.Projections.Abstractions` is also brought in transitively, so you usually do not need to add it explicitly unless you want a direct contracts-only dependency.
 This path is a better fit when your read side already lives in a relational database or needs EF Core mapping control.
 
 `Kuna.Projections.Abstractions` is brought in transitively by those packages, so you usually do not need to add it explicitly unless you want a direct contracts-only dependency.
@@ -359,7 +366,7 @@ services.AddProjection<Account>(configuration, settingsSectionName: "AccountProj
         .WithInitialEvent<AccountCreated>();
 ```
 
-The SQL path requires the DbContext plus schema-aware store registration. For more information see [configuration-reference.md](configuration-reference.md#when-to-use-a-projection-specific-schema).
+Note that the relational sink requires a projection namespace value to be passed in through `schema`. On schema-capable providers that becomes a real database schema; on providers such as MySQL it is used as a table-name prefix. For more information see [configuration-reference.md](configuration-reference.md#when-to-use-a-projection-specific-schema).
 
 These calls do the heavy lifting:
 
@@ -371,6 +378,12 @@ These calls do the heavy lifting:
 - `WithInitialEvent<TEvent>()` tells the runtime which event creates a new projection instance for that model type; use the event that starts the aggregate or stream, such as `AccountCreated`
 - `AddProjectionHost(...)` runs all registered pipelines and startup tasks
 - `AddHostedService<TWorker>()` is the manual alternative if you are not using `AddProjectionHost(...)`
+
+If you are not using PostgreSQL, use the matching provider adapter and registration method instead:
+
+- SQL Server: `Kuna.Projections.Sink.EF.SqlServer` with `AddSqlServerProjectionsDataStore<TState, TDataContext>(schema: ...)`
+- MySQL: `Kuna.Projections.Sink.EF.MySql` with `AddMySqlProjectionsDataStore<TState, TDataContext>(schema: ...)`
+- `AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)` remains available as the shared low-level registration path when you need custom composition
 
 ## 10. Add Configuration
 
