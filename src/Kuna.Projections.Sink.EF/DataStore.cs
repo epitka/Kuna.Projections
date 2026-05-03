@@ -26,7 +26,6 @@ public class DataStore<TState, TDataContext>
     private readonly Stopwatch insertStopWatch;
     private readonly Stopwatch updateStopWatch;
     private readonly ILogger logger;
-    private readonly List<ProjectionFailure> pendingUpdateFailures;
     private readonly bool hasChildEntities;
     private readonly string modelName;
 
@@ -43,7 +42,6 @@ public class DataStore<TState, TDataContext>
         this.logger = logger;
         this.modelName = ProjectionModelName.For<TState>();
 
-        this.pendingUpdateFailures = new List<ProjectionFailure>();
         this.hasChildEntities = this.ValidateAndDetectChildEntities();
 
         this.insertStopWatch = new Stopwatch();
