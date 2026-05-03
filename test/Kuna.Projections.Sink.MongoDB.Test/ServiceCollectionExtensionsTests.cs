@@ -37,7 +37,7 @@ public sealed class ServiceCollectionExtensionsTests
                           && descriptor.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
-            descriptor => descriptor.ServiceType == typeof(IProjectionCheckpointStore<TestModel>)
+            descriptor => descriptor.ServiceType == typeof(ICheckpointStore)
                           && descriptor.ImplementationFactory != null
                           && descriptor.Lifetime == ServiceLifetime.Singleton);
 
@@ -74,11 +74,8 @@ public sealed class ServiceCollectionExtensionsTests
         provider.GetRequiredService<IModelStateStore<SecondaryTestModel>>().ShouldNotBeNull();
         provider.GetRequiredService<IProjectionFailureHandler<TestModel>>().ShouldNotBeNull();
         provider.GetRequiredService<IProjectionFailureHandler<SecondaryTestModel>>().ShouldNotBeNull();
-        provider.GetRequiredService<IProjectionCheckpointStore<TestModel>>().ShouldNotBeNull();
-        provider.GetRequiredService<IProjectionCheckpointStore<SecondaryTestModel>>().ShouldNotBeNull();
-        provider.GetRequiredService<IProjectionCheckpointStore<TestModel>>()
-                .Value
-                .ShouldNotBeSameAs(provider.GetRequiredService<IProjectionCheckpointStore<SecondaryTestModel>>().Value);
+        provider.GetServices<ICheckpointStore>().Count().ShouldBe(2);
+        provider.GetServices<ICheckpointStore>().Distinct().Count().ShouldBe(2);
 
         provider.GetServices<IProjectionStartupTask>().Count().ShouldBe(2);
     }

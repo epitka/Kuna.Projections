@@ -57,8 +57,6 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IProjectionFailureHandler<TState>, ProjectionFailureHandler<TState>>();
             services.AddSingleton<IModelStateSink<TState>>(sp => sp.GetRequiredService<ModelDataStore<TState>>());
             services.AddSingleton<IModelStateStore<TState>>(sp => sp.GetRequiredService<ModelDataStore<TState>>());
-            services.AddSingleton<IProjectionCheckpointStore<TState>>(
-                sp => new ProjectionCheckpointStoreAdapter<TState>(sp.GetRequiredService<ProjectionCheckpointStore<TState>>()));
 
             return services;
         }

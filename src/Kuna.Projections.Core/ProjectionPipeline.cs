@@ -24,6 +24,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
     where TEnvelope : IEventEnvelope
     where TState : class, IModel, new()
 {
+    private static readonly TimeSpan FlushCancellationGracePeriod = TimeSpan.FromSeconds(5);
     private readonly string modelName;
     private readonly IEventSource<TEnvelope> source;
     private readonly IModelStateTransformer<TEnvelope, TState> transformer;
@@ -457,6 +458,8 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
 
         async Task<FlushResult> PersistFlushAsync(PipelineFlush<TState> flush)
         {
+            using var flushCancellation = CreateFlushCancellationTokenSource(cancellationToken);
+            var flushCancellationToken = flushCancellation.Token;
             var flushStopwatch = Stopwatch.StartNew();
             var phaseStopwatch = Stopwatch.StartNew();
             var batchInserted = 0;
@@ -494,7 +497,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                     GlobalEventPosition = flush.Position,
                 };
 
-                await this.sink.PersistBatch(batch, CancellationToken.None);
+                await this.sink.PersistBatch(batch, flushCancellationToken);
                 sinkPersistMs = phaseStopwatch.Elapsed.TotalMilliseconds;
 
                 phaseStopwatch.Restart();
@@ -514,7 +517,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                     ModelName = this.modelName,
                     GlobalEventPosition = flush.Position,
                 },
-                CancellationToken.None);
+                flushCancellationToken);
 
             checkpointPersistMs = phaseStopwatch.Elapsed.TotalMilliseconds;
 
@@ -586,6 +589,22 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
             TryLogFullyDrained();
 
             return flushResult;
+        }
+
+        CancellationTokenSource CreateFlushCancellationTokenSource(CancellationToken pipelineCancellationToken)
+        {
+            var flushCancellation = new CancellationTokenSource();
+
+            if (!pipelineCancellationToken.CanBeCanceled)
+            {
+                return flushCancellation;
+            }
+
+            pipelineCancellationToken.Register(
+                static state => ((CancellationTokenSource)state!).CancelAfter(FlushCancellationGracePeriod),
+                flushCancellation);
+
+            return flushCancellation;
         }
 
         ProjectionRuntimeStats ReadRuntimeStats()

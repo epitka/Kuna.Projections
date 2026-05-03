@@ -8,25 +8,23 @@ internal sealed class ProjectionCheckpointStore<TState> : ICheckpointStore
     where TState : class, IModel, new()
 {
     private readonly IMongoCollection<ProjectionCheckpointDocument> collection;
-    private readonly string modelName;
 
     public ProjectionCheckpointStore(ProjectionContext<TState> context)
     {
         this.collection = context.Database.GetCollection<ProjectionCheckpointDocument>(context.CollectionNamer.GetCheckpointCollectionName());
-        this.modelName = ProjectionModelName.For<TState>();
     }
 
-    public async Task<CheckPoint> GetCheckpoint(CancellationToken cancellationToken)
+    public async Task<CheckPoint> GetCheckpoint(string modelName, CancellationToken cancellationToken)
     {
         var document = await this.collection
-                                 .Find(x => x.ModelName == this.modelName)
+                                 .Find(x => x.ModelName == modelName)
                                  .SingleOrDefaultAsync(cancellationToken);
 
         if (document is null)
         {
             return new CheckPoint
             {
-                ModelName = this.modelName,
+                ModelName = modelName,
                 GlobalEventPosition = new GlobalEventPosition(0),
             };
         }
