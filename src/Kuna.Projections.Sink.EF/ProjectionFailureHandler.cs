@@ -19,6 +19,7 @@ public class ProjectionFailureHandler<TState, TDataContext>
     private const int MaxExceptionMessageLengthAllowed = MaxExceptionMessageLength - 1;
 
     private readonly IServiceProvider serviceProvider;
+    private readonly IDuplicateKeyExceptionDetector duplicateKeyExceptionDetector;
     private readonly ILogger logger;
 
     /// <summary>
@@ -27,9 +28,11 @@ public class ProjectionFailureHandler<TState, TDataContext>
     /// </summary>
     public ProjectionFailureHandler(
         IServiceProvider serviceProvider,
+        IDuplicateKeyExceptionDetector duplicateKeyExceptionDetector,
         ILogger<ProjectionFailureHandler<TState, TDataContext>> logger)
     {
         this.serviceProvider = serviceProvider;
+        this.duplicateKeyExceptionDetector = duplicateKeyExceptionDetector;
         this.logger = logger;
     }
 
@@ -107,7 +110,6 @@ public class ProjectionFailureHandler<TState, TDataContext>
 
     private bool IsDuplicateKeyViolation(Exception exception)
     {
-        return this.serviceProvider.GetServices<IDuplicateKeyExceptionDetector>()
-                   .Any(detector => detector.IsDuplicateKeyViolation(exception));
+        return this.duplicateKeyExceptionDetector.IsDuplicateKeyViolation(exception);
     }
 }

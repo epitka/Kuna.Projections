@@ -123,10 +123,11 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
             await dbContext.SaveChangesAsync(CancellationToken.None);
         }
 
+        var duplicateKeyExceptionDetector = provider.GetRequiredService<IDuplicateKeyExceptionDetector>();
         var failureLogger = provider.GetRequiredService<ILogger<ProjectionFailureHandler<TestChildModel, TestProjectionDbContext>>>();
-        var failureHandler = new ProjectionFailureHandler<TestChildModel, TestProjectionDbContext>(provider, failureLogger);
+        var failureHandler = new ProjectionFailureHandler<TestChildModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureLogger);
         var storeLogger = provider.GetRequiredService<ILogger<DataStore<TestChildModel, TestProjectionDbContext>>>();
-        var store = new DataStore<TestChildModel, TestProjectionDbContext>(provider, failureHandler, storeLogger);
+        var store = new DataStore<TestChildModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureHandler, storeLogger);
 
         var model = await store.Load(modelId, CancellationToken.None);
 
@@ -174,12 +175,13 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     public void HierarchicalModel_Without_PersistedChildEntity_Should_Fail_Fast()
     {
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
+        var duplicateKeyExceptionDetector = provider.GetRequiredService<IDuplicateKeyExceptionDetector>();
         var failureLogger = provider.GetRequiredService<ILogger<ProjectionFailureHandler<InvalidChildModel, TestProjectionDbContext>>>();
-        var failureHandler = new ProjectionFailureHandler<InvalidChildModel, TestProjectionDbContext>(provider, failureLogger);
+        var failureHandler = new ProjectionFailureHandler<InvalidChildModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureLogger);
         var storeLogger = provider.GetRequiredService<ILogger<DataStore<InvalidChildModel, TestProjectionDbContext>>>();
 
         var ex = Should.Throw<InvalidOperationException>(
-            () => new DataStore<InvalidChildModel, TestProjectionDbContext>(provider, failureHandler, storeLogger));
+            () => new DataStore<InvalidChildModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureHandler, storeLogger));
 
         ex.Message.ShouldContain($"{nameof(InvalidChildModel)}.{nameof(InvalidChildModel.Children)}");
         ex.Message.ShouldContain(nameof(InvalidChildItem));

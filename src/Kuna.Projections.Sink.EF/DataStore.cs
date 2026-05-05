@@ -22,6 +22,7 @@ public class DataStore<TState, TDataContext>
     where TDataContext : DbContext, IProjectionDbContext
 {
     private readonly IServiceProvider serviceProvider;
+    private readonly IDuplicateKeyExceptionDetector duplicateKeyExceptionDetector;
     private readonly IProjectionFailureHandler<TState> failureHandler;
     private readonly Stopwatch insertStopWatch;
     private readonly Stopwatch updateStopWatch;
@@ -34,10 +35,12 @@ public class DataStore<TState, TDataContext>
     /// </summary>
     public DataStore(
         IServiceProvider serviceProvider,
+        IDuplicateKeyExceptionDetector duplicateKeyExceptionDetector,
         IProjectionFailureHandler<TState> failureHandler,
         ILogger<DataStore<TState, TDataContext>> logger)
     {
         this.serviceProvider = serviceProvider;
+        this.duplicateKeyExceptionDetector = duplicateKeyExceptionDetector;
         this.failureHandler = failureHandler;
         this.logger = logger;
         this.modelName = ProjectionModelName.For<TState>();
@@ -231,8 +234,7 @@ public class DataStore<TState, TDataContext>
 
     private bool IsDuplicateKeyViolation(Exception ex)
     {
-        return this.serviceProvider.GetServices<IDuplicateKeyExceptionDetector>()
-                   .Any(detector => detector.IsDuplicateKeyViolation(ex));
+        return this.duplicateKeyExceptionDetector.IsDuplicateKeyViolation(ex);
     }
 
     private async Task<PersistBatchTimings> PersistBatchInternal(

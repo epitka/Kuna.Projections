@@ -18,10 +18,11 @@ public abstract class DataStoreIntegrationTestBase
 
     protected static DataStore<TestModel, TestProjectionDbContext> CreateStore(ServiceProvider provider)
     {
+        var duplicateKeyExceptionDetector = provider.GetRequiredService<IDuplicateKeyExceptionDetector>();
         var failureLogger = provider.GetRequiredService<ILogger<ProjectionFailureHandler<TestModel, TestProjectionDbContext>>>();
-        var failureHandler = new ProjectionFailureHandler<TestModel, TestProjectionDbContext>(provider, failureLogger);
+        var failureHandler = new ProjectionFailureHandler<TestModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureLogger);
         var storeLogger = provider.GetRequiredService<ILogger<DataStore<TestModel, TestProjectionDbContext>>>();
-        return new DataStore<TestModel, TestProjectionDbContext>(provider, failureHandler, storeLogger);
+        return new DataStore<TestModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureHandler, storeLogger);
     }
 
     protected static async Task SeedModel(
