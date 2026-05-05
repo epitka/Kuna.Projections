@@ -463,7 +463,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     }
 
     [Fact]
-    public async Task FailingUpdate_Should_Roll_Back_Batch_And_Record_Failure()
+    public async Task FailingUpdate_Should_Fall_Back_To_Isolated_Updates_And_Record_Failure()
     {
         var validId = Guid.NewGuid();
         var invalidId = Guid.NewGuid();
@@ -506,9 +506,9 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                           CancellationToken.None);
 
         persistedValid.ShouldNotBeNull();
-        persistedValid.Name.ShouldBe("before-valid");
-        persistedValid.EventNumber.ShouldBe(1);
-        persistedValid.GlobalEventPosition.ShouldBe(new GlobalEventPosition(1));
+        persistedValid.Name.ShouldBe("after-valid");
+        persistedValid.EventNumber.ShouldBe(2);
+        persistedValid.GlobalEventPosition.ShouldBe(new GlobalEventPosition(101));
 
         persistedInvalid.ShouldNotBeNull();
         persistedInvalid.Name.ShouldBe("before-invalid");
