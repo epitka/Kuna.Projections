@@ -25,7 +25,7 @@ public sealed class PostgresSqlContainerFixture
         var builder = new PostgreSqlBuilder("postgres:15-alpine")
                       .WithName(this.containerName)
                       .WithDatabase("testdb")
-                      .WithUsername("peakpass")
+                      .WithUsername("postgres")
                       .WithPassword("testpass")
                       .WithAutoRemove(!this.keepContainers)
                       .WithCleanUp(!this.keepContainers)

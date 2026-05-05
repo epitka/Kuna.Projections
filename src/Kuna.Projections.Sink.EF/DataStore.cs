@@ -26,7 +26,6 @@ public class DataStore<TState, TDataContext>
     private readonly Stopwatch insertStopWatch;
     private readonly Stopwatch updateStopWatch;
     private readonly ILogger logger;
-    private readonly List<ProjectionFailure> pendingUpdateFailures;
     private readonly bool hasChildEntities;
     private readonly string modelName;
 
@@ -43,7 +42,6 @@ public class DataStore<TState, TDataContext>
         this.logger = logger;
         this.modelName = ProjectionModelName.For<TState>();
 
-        this.pendingUpdateFailures = new List<ProjectionFailure>();
         this.hasChildEntities = this.ValidateAndDetectChildEntities();
 
         this.insertStopWatch = new Stopwatch();
@@ -119,10 +117,21 @@ public class DataStore<TState, TDataContext>
         {
             sinkTimings = await this.PersistBatchInternal(toPersist, cancellationToken);
         }
+        catch (DbUpdateException ex) when (this.IsDuplicateKeyViolation(ex))
+        {
+            if (this.logger.IsEnabled(LogLevel.Debug))
+            {
+                this.logger.LogDebug(
+                    "Unified batch persist hit duplicate keys for {Model}, falling back to isolated persistence handling...",
+                    this.modelName);
+            }
+
+            await this.PersistBatchIsolated(toPersist, cancellationToken);
+            sinkTimings = default;
+        }
         catch (Exception ex) when (ex is DbUpdateException or DbUpdateConcurrencyException)
         {
             this.logger.LogWarning(
-                ex,
                 "Unified batch persist failed for {Model}, falling back to isolated persistence handling...",
                 this.modelName);
 
@@ -298,7 +307,9 @@ public class DataStore<TState, TDataContext>
         return timings;
     }
 
-    private async Task PersistBatchIsolated(ModelState<TState>[] modelStates, CancellationToken cancellationToken)
+    private async Task PersistBatchIsolated(
+        ModelState<TState>[] modelStates,
+        CancellationToken cancellationToken)
     {
         var toInsert = new List<TState>(modelStates.Length);
         var toUpdate = new List<ModelState<TState>>();
@@ -314,97 +325,33 @@ public class DataStore<TState, TDataContext>
             toUpdate.Add(modelState);
         }
 
-        await this.DoBulkInserts(toInsert, cancellationToken);
+        await this.InsertOneAtTheTime(toInsert, cancellationToken);
         await this.SaveUpdates(toUpdate, cancellationToken);
-    }
-
-    private async Task DoBulkInserts(List<TState> models, CancellationToken cancellationToken)
-    {
-        if (models.Count == 0)
-        {
-            return;
-        }
-
-        var shouldFallBackToSingleInserts = false;
-        this.insertStopWatch.Restart();
-
-        using var transientScope = this.serviceProvider.CreateScope();
-
-        await using (var transientContext = transientScope
-                                            .ServiceProvider
-                                            .GetRequiredService<TDataContext>())
-        {
-            var strategy = transientContext!.Database.CreateExecutionStrategy();
-
-            await strategy.ExecuteAsync(
-                async () =>
-                {
-                    await using var transaction = await transientContext!.Database.BeginTransactionAsync(cancellationToken);
-
-                    try
-                    {
-                        await transientContext.AddRangeAsync(models, cancellationToken);
-                        await transientContext.SaveChangesAsync(cancellationToken);
-                        await transaction.CommitAsync(cancellationToken);
-
-                        this.insertStopWatch.Stop();
-
-                        if (this.logger.IsEnabled(LogLevel.Trace))
-                        {
-                            this.logger.LogTrace(
-                                "Inserted {ModelCount} models in {SqlExecutionTime} milliseconds for {Model}",
-                                models.Count,
-                                this.insertStopWatch.ElapsedMilliseconds.ToString("N0"),
-                                this.modelName);
-                        }
-
-                        this.insertStopWatch.Reset();
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync(cancellationToken);
-
-                        shouldFallBackToSingleInserts = true;
-                        this.logger.LogWarning(ex, "Batch insert failed, falling back to single inserts...");
-                    }
-                });
-        }
-
-        if (shouldFallBackToSingleInserts)
-        {
-            await this.InsertOneAtTheTime(models, cancellationToken);
-        }
     }
 
     private async Task InsertOneAtTheTime(IEnumerable<TState> models, CancellationToken cancellationToken)
     {
-        using var transientScope = this.serviceProvider.CreateScope();
-
-        await using var transientContext = transientScope
-                                           .ServiceProvider
-                                           .GetRequiredService<TDataContext>();
-
         foreach (var model in models)
         {
+            using var transientScope = this.serviceProvider.CreateScope();
+
+            await using var transientContext = transientScope
+                                               .ServiceProvider
+                                               .GetRequiredService<TDataContext>();
+
             try
             {
                 transientContext!.Attach(model);
                 transientContext!.Entry(model).State = EntityState.Added;
                 await transientContext.SaveChangesAsync(cancellationToken);
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex) when (IsDuplicateKeyViolation(ex))
             {
-                // Replay may try to insert an already-persisted model when checkpoint lags behind sink writes.
-                transientContext!.Entry(model).State = EntityState.Detached;
-
-                if (this.logger.IsEnabled(LogLevel.Debug))
-                {
-                    this.logger.LogDebug(
-                        ex,
-                        "Skipping duplicate insert for {Model} {ModelId}",
-                        this.modelName,
-                        model.Id);
-                }
+                await this.HandleDuplicateInsertOneAtTheTime(model, transientContext, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -426,6 +373,24 @@ public class DataStore<TState, TDataContext>
         }
     }
 
+    private async Task HandleDuplicateInsertOneAtTheTime(
+        TState model,
+        TDataContext transientContext,
+        CancellationToken cancellationToken)
+    {
+        transientContext.Entry(model).State = EntityState.Detached;
+
+        if (this.logger.IsEnabled(LogLevel.Debug))
+        {
+            this.logger.LogDebug(
+                "Replacing stale persisted graph for {Model} {ModelId} after duplicate insert during replay",
+                this.modelName,
+                model.Id);
+        }
+
+        await this.ReplaceOneAtTheTime(model, cancellationToken);
+    }
+
     private async Task SaveUpdates(List<ModelState<TState>> projections, CancellationToken cancellationToken)
     {
         if (projections.Count == 0)
@@ -439,13 +404,26 @@ public class DataStore<TState, TDataContext>
                                            .ServiceProvider
                                            .GetRequiredService<TDataContext>();
 
-        await this.SaveUpdates(transientContext, projections, cancellationToken);
+        try
+        {
+            await this.SaveUpdates(transientContext, projections, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is DbUpdateException or DbUpdateConcurrencyException)
+        {
+            this.logger.LogWarning(
+                "Batch update failed for {Model}, falling back to isolated updates...",
+                this.modelName);
+
+            await this.UpdateOneAtTheTime(projections, cancellationToken);
+        }
     }
 
     private async Task SaveUpdates(TDataContext dbContext, List<ModelState<TState>> projections, CancellationToken cancellationToken)
     {
-        var pending = projections.ToList();
-        this.ApplyPendingEntries(dbContext, pending);
         this.updateStopWatch.Restart();
 
         var strategy = dbContext.Database.CreateExecutionStrategy();
@@ -457,6 +435,7 @@ public class DataStore<TState, TDataContext>
 
                 try
                 {
+                    this.ApplyPendingEntries(dbContext, projections);
                     await dbContext.SaveChangesAsync(cancellationToken);
 
                     await transaction.CommitAsync(cancellationToken);
@@ -466,138 +445,147 @@ public class DataStore<TState, TDataContext>
                     {
                         this.logger.LogTrace(
                             "Updated {ModelCount} models in {SqlExecutionTime} milliseconds for {Model}",
-                            pending.Count,
+                            projections.Count,
                             this.updateStopWatch.ElapsedMilliseconds.ToString("N0"),
                             this.modelName);
                     }
                 }
-                catch (DbUpdateConcurrencyException cex)
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    await transaction.RollbackAsync(cancellationToken);
-
-                    // Treat optimistic concurrency misses as benign replay/stale updates.
-                    var skipped = 0;
-
-                    foreach (var failedEntry in cex.Entries)
-                    {
-                        var model = failedEntry.Entity as TState;
-
-                        if (model is null)
-                        {
-                            continue;
-                        }
-
-                        skipped++;
-                        pending.RemoveAll(x => x.Model.Id == model.Id);
-                        failedEntry.State = EntityState.Detached;
-                    }
-
-                    if (this.logger.IsEnabled(LogLevel.Debug))
-                    {
-                        this.logger.LogDebug(
-                            cex,
-                            "Skipped {SkippedModelCount} stale projection changes for {Model}",
-                            skipped,
-                            this.modelName);
-                    }
-
-                    if (pending.Count > 0)
-                    {
-                        this.ApplyPendingEntries(dbContext, pending);
-                        await this.SaveUpdates(dbContext, pending, cancellationToken);
-                    }
-                }
-                catch (DbUpdateException dbex)
-                {
-                    await transaction.RollbackAsync(cancellationToken);
-
-                    if (dbex.Entries.Count > 0)
-                    {
-                        foreach (var failedEntry in dbex.Entries)
-                        {
-                            var model = failedEntry.Entity as TState;
-
-                            if (model is null)
-                            {
-                                continue;
-                            }
-
-                            pending.RemoveAll(x => x.Model.Id == model.Id);
-
-                            this.logger.LogWarning(
-                                dbex,
-                                "Failed to update stream projection {ModelName} {@Model}",
-                                this.modelName,
-                                (TState)failedEntry.Entity);
-
-                            failedEntry.State = EntityState.Detached;
-
-                            var failure = new ProjectionFailure(
-                                modelId: model.Id,
-                                exception: dbex.ToString(),
-                                failureType: nameof(FailureType.Persistence),
-                                eventNumber: model.EventNumber!.Value,
-                                streamPosition: model.GlobalEventPosition,
-                                modelName: this.modelName,
-                                failureCreatedOn: DateTime.Now.ToUniversalTime());
-
-                            this.pendingUpdateFailures.Add(failure);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    await transaction.RollbackAsync(cancellationToken);
-
-                    this.logger.LogError(
-                        ex,
-                        "Failed to save updates for stream projection {Model}, number Of Models impacted {Modelcount}",
-                        this.modelName,
-                        pending.Count);
-
-                    foreach (var model in pending.Select(x => x.Model))
-                    {
-                        this.logger.LogWarning(
-                            ex,
-                            "Failed to update stream projection {Model} {Modelid}",
-                            this.modelName,
-                            model.Id);
-
-                        var failure = new ProjectionFailure(
-                            modelId: model.Id,
-                            exception: ex.ToString(),
-                            failureType: nameof(FailureType.Persistence),
-                            eventNumber: model.EventNumber!.Value,
-                            streamPosition: model.GlobalEventPosition,
-                            modelName: this.modelName,
-                            failureCreatedOn: DateTime.Now.ToUniversalTime());
-
-                        this.pendingUpdateFailures.Add(failure);
-                    }
-
-                    pending.Clear();
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    throw;
                 }
                 finally
                 {
                     this.updateStopWatch.Reset();
                 }
+            });
+    }
 
-                if (this.pendingUpdateFailures.Count > 0)
+    private async Task UpdateOneAtTheTime(IEnumerable<ModelState<TState>> projections, CancellationToken cancellationToken)
+    {
+        foreach (var projection in projections)
+        {
+            using var transientScope = this.serviceProvider.CreateScope();
+
+            await using var transientContext = transientScope
+                                               .ServiceProvider
+                                               .GetRequiredService<TDataContext>();
+
+            try
+            {
+                await this.SaveUpdates(transientContext, [projection,], cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (this.logger.IsEnabled(LogLevel.Debug))
                 {
-                    foreach (var failure in this.pendingUpdateFailures)
+                    this.logger.LogDebug(
+                        "Skipped stale projection change for {Model} {ModelId}",
+                        this.modelName,
+                        projection.Model.Id);
+                }
+            }
+            catch (DbUpdateException dbex) when (this.IsDuplicateKeyViolation(dbex))
+            {
+                if (this.logger.IsEnabled(LogLevel.Debug))
+                {
+                    this.logger.LogDebug(
+                        "Replacing persisted graph for {Model} {ModelId} after duplicate-key update failure",
+                        this.modelName,
+                        projection.Model.Id);
+                }
+
+                await this.ReplaceOneAtTheTime(projection, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                await this.HandleUpdateFailure(projection, ex, cancellationToken);
+            }
+        }
+    }
+
+    private async Task ReplaceOneAtTheTime(ModelState<TState> projection, CancellationToken cancellationToken)
+    {
+        await this.ReplaceOneAtTheTime(projection.Model, cancellationToken);
+    }
+
+    private async Task ReplaceOneAtTheTime(TState model, CancellationToken cancellationToken)
+    {
+        using var transientScope = this.serviceProvider.CreateScope();
+
+        await using var transientContext = transientScope
+                                           .ServiceProvider
+                                           .GetRequiredService<TDataContext>();
+
+        var strategy = transientContext.Database.CreateExecutionStrategy();
+
+        await strategy.ExecuteAsync(
+            async () =>
+            {
+                await using var transaction = await transientContext.Database.BeginTransactionAsync(cancellationToken);
+
+                try
+                {
+                    var persisted = await transientContext.FindAsync<TState>([model.Id,], cancellationToken);
+
+                    if (persisted != null)
                     {
-                        await this.failureHandler.Handle(failure, cancellationToken);
+                        if (this.hasChildEntities)
+                        {
+                            await this.LoadNavigationGraphAsync(transientContext, persisted, cancellationToken);
+                        }
+
+                        transientContext.Remove(persisted);
+                        await transientContext.SaveChangesAsync(cancellationToken);
+                        transientContext.ChangeTracker.Clear();
                     }
 
-                    this.pendingUpdateFailures.Clear();
+                    transientContext.Add(model);
+                    await transientContext.SaveChangesAsync(cancellationToken);
 
-                    if (pending.Count > 0)
-                    {
-                        this.ApplyPendingEntries(dbContext, pending);
-                        await this.SaveUpdates(dbContext, pending, cancellationToken);
-                    }
+                    await transaction.CommitAsync(cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    await this.HandleModelPersistenceFailure(model, ex, cancellationToken);
                 }
             });
+    }
+
+    private async Task HandleUpdateFailure(ModelState<TState> projection, Exception ex, CancellationToken cancellationToken)
+    {
+        await this.HandleModelPersistenceFailure(projection.Model, ex, cancellationToken);
+    }
+
+    private async Task HandleModelPersistenceFailure(TState model, Exception ex, CancellationToken cancellationToken)
+    {
+        this.logger.LogWarning(
+            ex,
+            "Failed to persist stream projection {ModelName} {@Model}",
+            this.modelName,
+            model);
+
+        var failure = new ProjectionFailure(
+            modelId: model.Id,
+            exception: ex.ToString(),
+            failureType: nameof(FailureType.Persistence),
+            eventNumber: model.EventNumber!.Value,
+            streamPosition: model.GlobalEventPosition,
+            modelName: this.modelName,
+            failureCreatedOn: DateTime.Now.ToUniversalTime());
+
+        await this.failureHandler.Handle(failure, cancellationToken);
     }
 
     private void ApplyPendingEntries(DbContext dbContext, IReadOnlyCollection<ModelState<TState>> pending)
