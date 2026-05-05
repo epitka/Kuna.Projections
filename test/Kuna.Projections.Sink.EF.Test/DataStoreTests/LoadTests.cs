@@ -37,6 +37,6 @@ public class LoadTests : DataStoreIntegrationTestBase
         result.Id.ShouldBe(modelId);
         result.Name.ShouldBe("existing");
         result.EventNumber.ShouldBe(3);
-        result.GlobalEventPosition.ShouldBe(new GlobalEventPosition(30));
+        result.GlobalEventPosition.ShouldBe(new GlobalEventPosition("30"));
     }
 }

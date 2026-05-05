@@ -30,11 +30,11 @@ public class SetTests
         cached.ShouldNotBeNull();
         cached.Model.Id.ShouldBe(modelId);
         cached.Model.EventNumber.ShouldBe(7);
-        cached.Model.GlobalEventPosition.ShouldBe(new GlobalEventPosition(42));
+        cached.Model.GlobalEventPosition.ShouldBe(new GlobalEventPosition("42"));
         cached.Model.Name.ShouldBe("persisted");
         cached.IsNew.ShouldBeFalse();
         cached.ShouldDelete.ShouldBeFalse();
-        cached.GlobalEventPosition.ShouldBe(new GlobalEventPosition(42));
+        cached.GlobalEventPosition.ShouldBe(new GlobalEventPosition("42"));
         cached.ExpectedEventNumber.ShouldBe(6);
         ReferenceEquals(cached.Model, state.Model).ShouldBeFalse();
 
@@ -124,12 +124,12 @@ public class SetTests
             {
                 Id = modelId,
                 EventNumber = eventNumber,
-                GlobalEventPosition = new GlobalEventPosition(globalEventPosition),
+                GlobalEventPosition = new GlobalEventPosition(globalEventPosition.ToString()),
                 Name = name,
             },
             IsNew: isNew,
             ShouldDelete: false,
-            GlobalEventPosition: new GlobalEventPosition(globalEventPosition),
+            GlobalEventPosition: new GlobalEventPosition(globalEventPosition.ToString()),
             ExpectedEventNumber: expectedEventNumber);
     }
 }

@@ -43,8 +43,8 @@ public class ProjectionFailureConfiguration : IEntityTypeConfiguration<Projectio
         builder.Property(x => x.FailureType).IsRequired();
         builder.Property(x => x.GlobalEventPosition)
                .HasConversion(
-                   value => (long)value.Value,
-                   value => new GlobalEventPosition((ulong)value))
-               .HasColumnType("bigint");
+                   value => value.Value,
+                   value => new GlobalEventPosition(value))
+               .HasMaxLength(128);
     }
 }

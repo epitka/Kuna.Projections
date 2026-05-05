@@ -21,12 +21,12 @@ public class ReadAndResetLookupStatsTests
                 {
                     Id = modelId,
                     EventNumber = 0,
-                    GlobalEventPosition = new GlobalEventPosition(1),
+                    GlobalEventPosition = new GlobalEventPosition("1"),
                     Name = "cached",
                 },
                 IsNew: true,
                 ShouldDelete: false,
-                GlobalEventPosition: new GlobalEventPosition(1),
+                GlobalEventPosition: new GlobalEventPosition("1"),
                 ExpectedEventNumber: null));
 
         cache.TryGet(modelId, out _).ShouldBeTrue();

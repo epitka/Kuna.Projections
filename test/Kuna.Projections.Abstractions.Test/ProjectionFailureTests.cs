@@ -10,7 +10,7 @@ public class ProjectionFailureTests
     public void Constructor_Should_Set_All_Properties()
     {
         var modelId = Guid.NewGuid();
-        var position = new GlobalEventPosition(55);
+        var position = new GlobalEventPosition("55");
         var failureTime = DateTime.UtcNow;
 
         var failure = new ProjectionFailure(

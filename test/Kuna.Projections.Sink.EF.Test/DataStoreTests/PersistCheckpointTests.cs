@@ -23,7 +23,7 @@ public class PersistCheckpointTests : DataStoreIntegrationTestBase
             new CheckPoint
             {
                 ModelName = ProjectionModelName.For<TestModel>(),
-                GlobalEventPosition = new GlobalEventPosition(10),
+                GlobalEventPosition = new GlobalEventPosition("10"),
             },
             CancellationToken.None);
 
@@ -31,13 +31,13 @@ public class PersistCheckpointTests : DataStoreIntegrationTestBase
             new CheckPoint
             {
                 ModelName = ProjectionModelName.For<TestModel>(),
-                GlobalEventPosition = new GlobalEventPosition(25),
+                GlobalEventPosition = new GlobalEventPosition("25"),
             },
             CancellationToken.None);
 
         var checkpoint = await store.GetCheckpoint(ProjectionModelName.For<TestModel>(), CancellationToken.None);
 
         checkpoint.ModelName.ShouldBe(ProjectionModelName.For<TestModel>());
-        checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(25));
+        checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition("25"));
     }
 }

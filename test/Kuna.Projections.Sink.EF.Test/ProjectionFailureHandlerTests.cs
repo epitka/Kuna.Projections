@@ -22,7 +22,7 @@ public class ProjectionFailureHandlerTests
         var failure = new ProjectionFailure(
             modelId: Guid.NewGuid(),
             eventNumber: 1,
-            streamPosition: new GlobalEventPosition(10),
+            streamPosition: new GlobalEventPosition("10"),
             failureCreatedOn: DateTime.UtcNow,
             exception: "boom",
             failureType: nameof(FailureType.EventProcessing),

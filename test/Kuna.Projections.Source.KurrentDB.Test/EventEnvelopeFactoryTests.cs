@@ -32,14 +32,14 @@ public class EventEnvelopeFactoryTests
             eventData: Array.Empty<byte>(),
             eventType: nameof(TestEvent),
             eventNumber: 7,
-            eventPosition: new GlobalEventPosition(70),
+            eventPosition: new GlobalEventPosition("70"),
             eventTime: createdOn);
 
         result.HasValue.ShouldBeTrue();
         result.Value.ModelId.ShouldBe(modelId);
         result.Value.Event.ShouldBeSameAs(@event);
         result.Value.EventNumber.ShouldBe(7);
-        result.Value.GlobalEventPosition.ShouldBe(new GlobalEventPosition(70));
+        result.Value.GlobalEventPosition.ShouldBe(new GlobalEventPosition("70"));
         result.Value.StreamId.ShouldBe("order-1");
         result.Value.CreatedOn.ShouldBe(createdOn);
     }
@@ -63,7 +63,7 @@ public class EventEnvelopeFactoryTests
             eventData: Array.Empty<byte>(),
             eventType: nameof(TestEvent),
             eventNumber: 1,
-            eventPosition: new GlobalEventPosition(10),
+            eventPosition: new GlobalEventPosition("10"),
             eventTime: DateTime.UtcNow);
 
         result.ShouldBeNull();
@@ -87,7 +87,7 @@ public class EventEnvelopeFactoryTests
             eventData: Array.Empty<byte>(),
             eventType: "BrokenEvent",
             eventNumber: 2,
-            eventPosition: new GlobalEventPosition(20),
+            eventPosition: new GlobalEventPosition("20"),
             eventTime: DateTime.UtcNow);
 
         result.ShouldBeNull();
@@ -114,7 +114,7 @@ public class EventEnvelopeFactoryTests
             eventData: Array.Empty<byte>(),
             eventType: "BrokenEvent",
             eventNumber: 2,
-            eventPosition: new GlobalEventPosition(20),
+            eventPosition: new GlobalEventPosition("20"),
             eventTime: createdOn);
 
         result.HasValue.ShouldBeTrue();
@@ -124,7 +124,7 @@ public class EventEnvelopeFactoryTests
         var failure = (DeserializationFailed)result.Value.Event;
         failure.ModelId.ShouldBe(modelId);
         failure.EventNumber.ShouldBe(2);
-        failure.GlobalEventPosition.ShouldBe(new GlobalEventPosition(20));
+        failure.GlobalEventPosition.ShouldBe(new GlobalEventPosition("20"));
         failure.TypeName.ShouldBe("BrokenEvent");
     }
 

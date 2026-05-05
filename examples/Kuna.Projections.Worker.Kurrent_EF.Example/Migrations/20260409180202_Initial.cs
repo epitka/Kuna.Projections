@@ -20,7 +20,7 @@ namespace Kuna.Projections.Worker.Kurrent_EF.Example.Migrations
                 columns: table => new
                 {
                     ModelName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    GlobalEventPosition = table.Column<long>(type: "bigint", nullable: false),
+                    GlobalEventPosition = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                 },
                 constraints: table =>
                 {
@@ -73,7 +73,7 @@ namespace Kuna.Projections.Worker.Kurrent_EF.Example.Migrations
                     FeeReferences = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
                     VoidReferences = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
                     EventNumber = table.Column<long>(type: "bigint", nullable: true),
-                    GlobalEventPosition = table.Column<long>(type: "bigint", nullable: false),
+                    GlobalEventPosition = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     HasStreamProcessingFaulted = table.Column<bool>(type: "boolean", nullable: false),
                 },
                 constraints: table =>
@@ -89,7 +89,7 @@ namespace Kuna.Projections.Worker.Kurrent_EF.Example.Migrations
                     ModelId = table.Column<Guid>(type: "uuid", nullable: false),
                     ModelName = table.Column<string>(type: "text", nullable: false),
                     EventNumber = table.Column<long>(type: "bigint", nullable: false),
-                    GlobalEventPosition = table.Column<long>(type: "bigint", nullable: false),
+                    GlobalEventPosition = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     FailureCreatedOn = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     Exception = table.Column<string>(type: "text", nullable: false),
                     FailureType = table.Column<string>(type: "text", nullable: false),

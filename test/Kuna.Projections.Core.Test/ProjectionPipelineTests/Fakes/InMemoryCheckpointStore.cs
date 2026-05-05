@@ -19,7 +19,7 @@ internal sealed class InMemoryCheckpointStore : ICheckpointStore
             new CheckPoint
             {
                 ModelName = modelName,
-                GlobalEventPosition = new GlobalEventPosition(0),
+                GlobalEventPosition = new GlobalEventPosition(string.Empty),
             });
     }
 

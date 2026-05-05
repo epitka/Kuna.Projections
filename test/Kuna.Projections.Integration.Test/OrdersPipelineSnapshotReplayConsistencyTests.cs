@@ -403,7 +403,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                 eventNumber: resolved.Event.EventNumber.ToInt64(),
                 eventPosition: resolved.OriginalPosition.HasValue
                                    ? resolved.OriginalPosition.Value.ToGlobalEventPosition()
-                                   : new GlobalEventPosition(0),
+                                   : new GlobalEventPosition(string.Empty),
                 eventTime: resolved.Event.Created);
 
             envelope.HasValue.ShouldBeTrue();
@@ -623,6 +623,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
             ServiceLifetime.Scoped);
 
         services.AddSingleton(_ => CreateKurrentClient(kurrentConnectionString));
+        services.AddSingleton<ICheckpointSerializer<Position>, KurrentDbCheckpointSerializer>();
 
         services.AddSingleton<IEventDeserializer>(
             sp =>
@@ -660,6 +661,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                 var source = new KurrentDbEventSource<Order>(
                     sp.GetRequiredService<KurrentDBClient>(),
                     envelopeFactory,
+                    sp.GetRequiredService<ICheckpointSerializer<Position>>(),
                     sourceSettings,
                     sp.GetRequiredService<ILogger<KurrentDbEventSource<Order>>>());
 

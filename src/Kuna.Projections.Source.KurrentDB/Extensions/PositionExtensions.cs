@@ -13,6 +13,6 @@ public static class PositionExtensions
     /// </summary>
     public static GlobalEventPosition ToGlobalEventPosition(this Position position)
     {
-        return new GlobalEventPosition(position.CommitPosition);
+        return new GlobalEventPosition(position.ToString());
     }
 }

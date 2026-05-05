@@ -191,7 +191,7 @@ public class OnFlushSucceededTests
 
         return new EventEnvelope(
             eventNumber: eventNumber,
-            streamPosition: new GlobalEventPosition((ulong)(eventNumber + 10)),
+            streamPosition: new GlobalEventPosition((eventNumber + 10).ToString()),
             streamId: $"item-{modelId}",
             modelId: modelId,
             createdOn: DateTime.UtcNow,

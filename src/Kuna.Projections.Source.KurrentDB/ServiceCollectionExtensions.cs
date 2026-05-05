@@ -52,6 +52,7 @@ public static class ServiceCollectionExtensions
                                  ?? throw new InvalidOperationException($"Missing configuration section: {resolvedSettingsSectionName}");
 
         services.TryAddSingleton<IProjectionSettings<TState>>(projectionSettings);
+        services.TryAddSingleton<ICheckpointSerializer<Position>, KurrentDbCheckpointSerializer>();
 
         services.TryAddSingleton(
             provider =>
@@ -106,6 +107,7 @@ public static class ServiceCollectionExtensions
                 var source = new KurrentDbEventSource<TState>(
                     provider.GetRequiredService<KurrentDBClient>(),
                     envelopeFactory,
+                    provider.GetRequiredService<ICheckpointSerializer<Position>>(),
                     sourceSettings,
                     provider.GetRequiredService<ILogger<KurrentDbEventSource<TState>>>());
 
