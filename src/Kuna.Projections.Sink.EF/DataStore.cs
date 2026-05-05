@@ -476,7 +476,7 @@ public class DataStore<TState, TDataContext>
 
             try
             {
-                await this.SaveUpdates(transientContext, [projection], cancellationToken);
+                await this.SaveUpdates(transientContext, [projection,], cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
