@@ -458,7 +458,8 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
 
         async Task<FlushResult> PersistFlushAsync(PipelineFlush<TState> flush)
         {
-            using var flushCancellation = CreateFlushCancellationTokenSource(cancellationToken);
+            using var flushCancellation = new CancellationTokenSource();
+            using var flushCancellationRegistration = RegisterFlushCancellation(flushCancellation, cancellationToken);
             var flushCancellationToken = flushCancellation.Token;
             var flushStopwatch = Stopwatch.StartNew();
             var phaseStopwatch = Stopwatch.StartNew();
@@ -591,20 +592,18 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
             return flushResult;
         }
 
-        CancellationTokenSource CreateFlushCancellationTokenSource(CancellationToken pipelineCancellationToken)
+        CancellationTokenRegistration RegisterFlushCancellation(
+            CancellationTokenSource flushCancellation,
+            CancellationToken pipelineCancellationToken)
         {
-            var flushCancellation = new CancellationTokenSource();
-
             if (!pipelineCancellationToken.CanBeCanceled)
             {
-                return flushCancellation;
+                return default;
             }
 
-            pipelineCancellationToken.Register(
+            return pipelineCancellationToken.Register(
                 static state => ((CancellationTokenSource)state!).CancelAfter(FlushCancellationGracePeriod),
                 flushCancellation);
-
-            return flushCancellation;
         }
 
         ProjectionRuntimeStats ReadRuntimeStats()
