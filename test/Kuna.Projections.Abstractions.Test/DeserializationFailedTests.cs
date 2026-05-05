@@ -18,13 +18,13 @@ public class DeserializationFailedTests
             CreatedOn = createdOn,
             EventNumber = 7,
             ModelId = modelId,
-            GlobalEventPosition = new GlobalEventPosition(99),
+            GlobalEventPosition = new GlobalEventPosition("99"),
         };
 
         evt.TypeName.ShouldBe(nameof(DeserializationFailed));
         evt.CreatedOn.ShouldBe(createdOn);
         evt.EventNumber.ShouldBe(7);
         evt.ModelId.ShouldBe(modelId);
-        evt.GlobalEventPosition.ShouldBe(new GlobalEventPosition(99));
+        evt.GlobalEventPosition.ShouldBe(new GlobalEventPosition("99"));
     }
 }

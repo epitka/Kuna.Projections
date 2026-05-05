@@ -26,7 +26,7 @@ public class ProcessTests
 
         var envelope = new EventEnvelope(
             eventNumber: 0,
-            streamPosition: new GlobalEventPosition(10),
+            streamPosition: new GlobalEventPosition("10"),
             streamId: "item-1",
             modelId: modelId,
             createdOn: created.CreatedOn,
@@ -37,7 +37,7 @@ public class ProcessTests
         result.ShouldBeTrue();
         projection.ModelState.Name.ShouldBe("First");
         projection.ModelState.EventNumber.ShouldBe(0);
-        projection.ModelState.GlobalEventPosition.ShouldBe(new GlobalEventPosition(10));
+        projection.ModelState.GlobalEventPosition.ShouldBe(new GlobalEventPosition("10"));
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class ProcessTests
 
         var envelope = new EventEnvelope(
             eventNumber: 0,
-            streamPosition: new GlobalEventPosition(10),
+            streamPosition: new GlobalEventPosition("10"),
             streamId: "item-1",
             modelId: modelId,
             createdOn: created.CreatedOn,
@@ -91,7 +91,7 @@ public class ProcessTests
 
         var envelope0 = new EventEnvelope(
             eventNumber: 0,
-            streamPosition: new GlobalEventPosition(10),
+            streamPosition: new GlobalEventPosition("10"),
             streamId: "item-1",
             modelId: modelId,
             createdOn: created.CreatedOn,
@@ -99,7 +99,7 @@ public class ProcessTests
 
         var envelope2 = new EventEnvelope(
             eventNumber: 2,
-            streamPosition: new GlobalEventPosition(12),
+            streamPosition: new GlobalEventPosition("12"),
             streamId: "item-1",
             modelId: modelId,
             createdOn: updated.CreatedOn,
@@ -137,7 +137,7 @@ public class ProcessTests
 
         var envelope0 = new EventEnvelope(
             eventNumber: 0,
-            streamPosition: new GlobalEventPosition(10),
+            streamPosition: new GlobalEventPosition("10"),
             streamId: "item-1",
             modelId: modelId,
             createdOn: created.CreatedOn,
@@ -145,7 +145,7 @@ public class ProcessTests
 
         var envelope2 = new EventEnvelope(
             eventNumber: 2,
-            streamPosition: new GlobalEventPosition(12),
+            streamPosition: new GlobalEventPosition("12"),
             streamId: "item-1",
             modelId: modelId,
             createdOn: updated.CreatedOn,
@@ -181,7 +181,7 @@ public class ProcessTests
 
         var envelope0 = new EventEnvelope(
             eventNumber: 0,
-            streamPosition: new GlobalEventPosition(10),
+            streamPosition: new GlobalEventPosition("10"),
             streamId: "item-1",
             modelId: modelId,
             createdOn: created.CreatedOn,
@@ -189,7 +189,7 @@ public class ProcessTests
 
         var duplicate = new EventEnvelope(
             eventNumber: 0,
-            streamPosition: new GlobalEventPosition(11),
+            streamPosition: new GlobalEventPosition("11"),
             streamId: "item-1",
             modelId: modelId,
             createdOn: updated.CreatedOn,
@@ -219,7 +219,7 @@ public class ProcessTests
 
         var envelope = new EventEnvelope(
             eventNumber: 1,
-            streamPosition: new GlobalEventPosition(11),
+            streamPosition: new GlobalEventPosition("11"),
             streamId: "item-1",
             modelId: modelId,
             createdOn: updated.CreatedOn,
@@ -244,7 +244,7 @@ public class ProcessTests
 
         var envelope = new EventEnvelope(
             eventNumber: 0,
-            streamPosition: new GlobalEventPosition(10),
+            streamPosition: new GlobalEventPosition("10"),
             streamId: "item-1",
             modelId: modelId,
             createdOn: deleted.CreatedOn,
@@ -255,7 +255,7 @@ public class ProcessTests
         result.ShouldBeTrue();
         projection.ShouldDelete.ShouldBeTrue();
         projection.ModelState.EventNumber.ShouldBe(0);
-        projection.ModelState.GlobalEventPosition.ShouldBe(new GlobalEventPosition(10));
+        projection.ModelState.GlobalEventPosition.ShouldBe(new GlobalEventPosition("10"));
     }
 
     [Fact]
@@ -275,7 +275,7 @@ public class ProcessTests
 
         var envelope = new EventEnvelope(
             eventNumber: 5,
-            streamPosition: new GlobalEventPosition(50),
+            streamPosition: new GlobalEventPosition("50"),
             streamId: "item-1",
             modelId: modelId,
             createdOn: updated.CreatedOn,
@@ -283,7 +283,7 @@ public class ProcessTests
 
         projection.Process(envelope).ShouldBeTrue();
         projection.ModelState.EventNumber.ShouldBe(5);
-        projection.ModelState.GlobalEventPosition.ShouldBe(new GlobalEventPosition(50));
+        projection.ModelState.GlobalEventPosition.ShouldBe(new GlobalEventPosition("50"));
     }
 
     [Fact]
@@ -300,7 +300,7 @@ public class ProcessTests
 
         var envelope = new EventEnvelope(
             eventNumber: 0,
-            streamPosition: new GlobalEventPosition(1),
+            streamPosition: new GlobalEventPosition("1"),
             streamId: "edge-1",
             modelId: modelId,
             createdOn: evt.CreatedOn,
@@ -324,7 +324,7 @@ public class ProcessTests
 
         var envelope = new EventEnvelope(
             eventNumber: 0,
-            streamPosition: new GlobalEventPosition(1),
+            streamPosition: new GlobalEventPosition("1"),
             streamId: "edge-1",
             modelId: modelId,
             createdOn: evt.CreatedOn,

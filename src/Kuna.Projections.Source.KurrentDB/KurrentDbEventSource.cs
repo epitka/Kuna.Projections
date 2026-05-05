@@ -19,6 +19,7 @@ public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
 {
     private readonly KurrentDBClient eventStoreClient;
     private readonly IEventEnvelopeFactory envelopeFactory;
+    private readonly ICheckpointSerializer<Position> checkpointSerializer;
     private readonly SubscriptionFilterOptions filterOptions;
     private readonly ILogger logger;
 
@@ -29,11 +30,13 @@ public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
     public KurrentDbEventSource(
         KurrentDBClient eventStoreClient,
         IEventEnvelopeFactory envelopeFactory,
+        ICheckpointSerializer<Position> checkpointSerializer,
         KurrentDbSourceSettings sourceSettings,
         ILogger<KurrentDbEventSource<TState>> logger)
     {
         this.eventStoreClient = eventStoreClient;
         this.envelopeFactory = envelopeFactory;
+        this.checkpointSerializer = checkpointSerializer;
         this.filterOptions = KurrentDbSubscriptionFilterFactory.Create(sourceSettings.Filter);
         this.logger = logger;
     }
@@ -116,11 +119,7 @@ public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var lastObservedPosition = start;
-        var position = new CheckPoint
-        {
-            ModelName = ProjectionModelName.For<TState>(),
-            GlobalEventPosition = start,
-        }.ToKurrentDbPosition();
+        var position = this.checkpointSerializer.Deserialize(start);
 
         await using var subscription = this.eventStoreClient.SubscribeToAll(
             FromAll.After(position),

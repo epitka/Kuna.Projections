@@ -78,7 +78,7 @@ public class ProjectionFailureHandlerIntegrationTests
         return new ProjectionFailure(
             modelId: modelId,
             eventNumber: 1,
-            streamPosition: new GlobalEventPosition(10),
+            streamPosition: new GlobalEventPosition("10"),
             failureCreatedOn: DateTime.UtcNow,
             exception: exception,
             failureType: nameof(FailureType.EventProcessing),
@@ -96,7 +96,7 @@ public class ProjectionFailureHandlerIntegrationTests
                 Id = modelId,
                 Name = "seed",
                 EventNumber = 1,
-                GlobalEventPosition = new GlobalEventPosition(1),
+                GlobalEventPosition = new GlobalEventPosition("1"),
                 HasStreamProcessingFaulted = false,
             });
 

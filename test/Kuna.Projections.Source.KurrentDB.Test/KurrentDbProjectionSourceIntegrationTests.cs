@@ -152,7 +152,7 @@ public class KurrentDbProjectionSourceIntegrationTests
         var initial = await ReadEnvelopesUntilCount(source, expectedCount: 2, timeout: TimeSpan.FromSeconds(15));
 
         initial.Count.ShouldBe(2);
-        var checkpoint = initial.Max(x => x.GlobalEventPosition.Value);
+        var checkpoint = initial[^1].GlobalEventPosition.Value;
 
         await AppendEvent(
             client,
@@ -175,7 +175,7 @@ public class KurrentDbProjectionSourceIntegrationTests
         resumed.Count.ShouldBe(1);
         resumed[0].Event.ShouldBeOfType<SourceIntegrationEvent>();
         ((SourceIntegrationEvent)resumed[0].Event).Name.ShouldBe("third");
-        resumed[0].GlobalEventPosition.Value.ShouldBeGreaterThan(checkpoint);
+        resumed[0].GlobalEventPosition.Value.ShouldNotBe(checkpoint);
     }
 
     [Fact]
@@ -255,7 +255,7 @@ public class KurrentDbProjectionSourceIntegrationTests
             envelopeFactoryDecorator: inner => new CountingEnvelopeFactory(inner, () => Interlocked.Increment(ref createCalls)));
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var enumerator = source.ReadAll(new GlobalEventPosition(0), cts.Token).GetAsyncEnumerator(cts.Token);
+        await using var enumerator = source.ReadAll(new GlobalEventPosition(string.Empty), cts.Token).GetAsyncEnumerator(cts.Token);
 
         (await enumerator.MoveNextAsync()).ShouldBeTrue();
         createCalls.ShouldBe(1);
@@ -305,7 +305,7 @@ public class KurrentDbProjectionSourceIntegrationTests
         var ex = await Should.ThrowAsync<InvalidOperationException>(
                      async () =>
                      {
-                         await foreach (var _ in source.ReadAll(new GlobalEventPosition(0), cts.Token))
+                         await foreach (var _ in source.ReadAll(new GlobalEventPosition(string.Empty), cts.Token))
                          {
                              // no-op
                          }
@@ -352,7 +352,7 @@ public class KurrentDbProjectionSourceIntegrationTests
             {
                 try
                 {
-                    await foreach (var _ in source.ReadAll(new GlobalEventPosition(0), cts.Token))
+                    await foreach (var _ in source.ReadAll(new GlobalEventPosition(string.Empty), cts.Token))
                     {
                         // No envelopes expected.
                     }
@@ -506,7 +506,7 @@ public class KurrentDbProjectionSourceIntegrationTests
             {
                 try
                 {
-                    await foreach (var envelope in source.ReadAll(new GlobalEventPosition(0), cts.Token))
+                    await foreach (var envelope in source.ReadAll(new GlobalEventPosition(string.Empty), cts.Token))
                     {
                         lock (sync)
                         {
@@ -627,7 +627,7 @@ public class KurrentDbProjectionSourceIntegrationTests
                           resumedSource,
                           expectedCount: 1,
                           timeout: TimeSpan.FromSeconds(30),
-                          start: new GlobalEventPosition(0));
+                          start: new GlobalEventPosition(string.Empty));
 
         resumed.Count.ShouldBe(1);
         resumed[0].Event.ShouldBeOfType<SourceIntegrationEvent>();
@@ -675,7 +675,7 @@ public class KurrentDbProjectionSourceIntegrationTests
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
         var sync = new object();
         var names = new List<string>(expectedTotal);
-        var positions = new List<ulong>(expectedTotal);
+        var positions = new List<string>(expectedTotal);
         var readerStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var readerTask = Task.Run(
@@ -683,7 +683,7 @@ public class KurrentDbProjectionSourceIntegrationTests
             {
                 try
                 {
-                    await foreach (var envelope in source.ReadAll(new GlobalEventPosition(0), cts.Token))
+                    await foreach (var envelope in source.ReadAll(new GlobalEventPosition(string.Empty), cts.Token))
                     {
                         readerStarted.TrySetResult();
 
@@ -771,7 +771,7 @@ public class KurrentDbProjectionSourceIntegrationTests
         await readerTask.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         List<string> finalNames;
-        List<ulong> finalPositions;
+        List<string> finalPositions;
 
         lock (sync)
         {
@@ -819,7 +819,7 @@ public class KurrentDbProjectionSourceIntegrationTests
     {
         using var cts = new CancellationTokenSource(timeout);
         var result = new List<EventEnvelope>();
-        var startPosition = start ?? new GlobalEventPosition(0);
+        var startPosition = start ?? new GlobalEventPosition(string.Empty);
 
         try
         {
@@ -916,6 +916,7 @@ public class KurrentDbProjectionSourceIntegrationTests
         return new KurrentDbEventSource<SourceIntegrationModel>(
             client,
             envelopeFactory,
+            new KurrentDbCheckpointSerializer(),
             new KurrentDbSourceSettings
             {
                 Filter = new KurrentDbFilterSettings

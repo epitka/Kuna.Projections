@@ -305,7 +305,7 @@ public class RunAsyncTests
         {
             new(
                 eventNumber: 0,
-                streamPosition: new GlobalEventPosition(10),
+                streamPosition: new GlobalEventPosition("10"),
                 streamId: $"item-{modelId}",
                 modelId: modelId,
                 createdOn: DateTime.UtcNow,
@@ -322,7 +322,7 @@ public class RunAsyncTests
         {
             new(
                 eventNumber: 1,
-                streamPosition: new GlobalEventPosition(11),
+                streamPosition: new GlobalEventPosition("11"),
                 streamId: $"item-{modelId}",
                 modelId: modelId,
                 createdOn: DateTime.UtcNow,
@@ -799,7 +799,7 @@ public class RunAsyncTests
             list.Add(
                 new EventEnvelope(
                     eventNumber: i,
-                    streamPosition: new GlobalEventPosition((ulong)i),
+                    streamPosition: new GlobalEventPosition(i.ToString()),
                     streamId: $"item-{modelId}",
                     @event: new TestEvent
                     {
@@ -822,7 +822,7 @@ public class RunAsyncTests
             list.Add(
                 new EventEnvelope(
                     eventNumber: i,
-                    streamPosition: new GlobalEventPosition((ulong)i),
+                    streamPosition: new GlobalEventPosition(i.ToString()),
                     streamId: $"item-{modelId}",
                     @event: new TestEvent
                     {
@@ -842,7 +842,7 @@ public class RunAsyncTests
 
         return new EventEnvelope(
             eventNumber: 0,
-            streamPosition: new GlobalEventPosition(0),
+            streamPosition: new GlobalEventPosition("0"),
             streamId: "$projection-caught-up",
             @event: caughtUp,
             modelId: Guid.Empty,
@@ -877,9 +877,9 @@ public class RunAsyncTests
 
         return new[]
         {
-            new EventEnvelope(0, new GlobalEventPosition(1), $"item-{modelId}", created, modelId, created.CreatedOn),
-            new EventEnvelope(1, new GlobalEventPosition(2), $"item-{modelId}", updated1, modelId, updated1.CreatedOn),
-            new EventEnvelope(2, new GlobalEventPosition(3), $"item-{modelId}", updated2, modelId, updated2.CreatedOn),
+            new EventEnvelope(0, new GlobalEventPosition("1"), $"item-{modelId}", created, modelId, created.CreatedOn),
+            new EventEnvelope(1, new GlobalEventPosition("2"), $"item-{modelId}", updated1, modelId, updated1.CreatedOn),
+            new EventEnvelope(2, new GlobalEventPosition("3"), $"item-{modelId}", updated2, modelId, updated2.CreatedOn),
         };
     }
 }

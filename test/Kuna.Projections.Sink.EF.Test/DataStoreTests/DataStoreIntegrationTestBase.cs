@@ -41,7 +41,7 @@ public abstract class DataStoreIntegrationTestBase
                 Id = modelId,
                 Name = name,
                 EventNumber = eventNumber,
-                GlobalEventPosition = new GlobalEventPosition(projectionStreamPosition),
+                GlobalEventPosition = new GlobalEventPosition(projectionStreamPosition.ToString()),
                 HasStreamProcessingFaulted = false,
             });
 

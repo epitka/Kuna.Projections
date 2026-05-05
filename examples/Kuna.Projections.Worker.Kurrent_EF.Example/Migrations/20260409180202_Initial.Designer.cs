@@ -32,8 +32,10 @@ namespace Kuna.Projections.Worker.Kurrent_EF.Example.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<long>("GlobalEventPosition")
-                        .HasColumnType("bigint");
+                    b.Property<string>("GlobalEventPosition")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
                     b.HasKey("ModelName");
 
@@ -62,8 +64,10 @@ namespace Kuna.Projections.Worker.Kurrent_EF.Example.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<long>("GlobalEventPosition")
-                        .HasColumnType("bigint");
+                    b.Property<string>("GlobalEventPosition")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
                     b.HasKey("ModelName", "ModelId");
 
@@ -104,8 +108,10 @@ namespace Kuna.Projections.Worker.Kurrent_EF.Example.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<long>("GlobalEventPosition")
-                        .HasColumnType("bigint");
+                    b.Property<string>("GlobalEventPosition")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
                     b.Property<bool>("HasStreamProcessingFaulted")
                         .HasColumnType("boolean");
