@@ -11,7 +11,7 @@ public class EventEnvelopeTests
     public void Should_Preserve_Input_Values()
     {
         var modelId = Guid.NewGuid();
-        var streamPosition = new GlobalEventPosition(123);
+        var streamPosition = new GlobalEventPosition("123");
         var createdOn = DateTime.UtcNow;
         var @event = new TestEvent { TypeName = nameof(TestEvent), CreatedOn = createdOn, };
 

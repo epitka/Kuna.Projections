@@ -9,7 +9,7 @@ public class ToStringTests
     [Fact]
     public void NumericValue_Should_Be_Returned()
     {
-        var position = new GlobalEventPosition(456);
+        var position = new GlobalEventPosition("456");
 
         position.ToString().ShouldBe("456");
     }

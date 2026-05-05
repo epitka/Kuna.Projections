@@ -41,8 +41,8 @@ public class CheckPointConfiguration : IEntityTypeConfiguration<CheckPoint>
 
         builder.Property(x => x.GlobalEventPosition)
                .HasConversion(
-                   value => (long)value.Value,
-                   value => new GlobalEventPosition((ulong)value))
-               .HasColumnType("bigint");
+                   value => value.Value,
+                   value => new GlobalEventPosition(value))
+               .HasMaxLength(128);
     }
 }

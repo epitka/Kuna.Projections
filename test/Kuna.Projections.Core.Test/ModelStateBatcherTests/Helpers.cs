@@ -35,11 +35,11 @@ internal static class Helpers
                 Id = id,
                 Name = name,
                 EventNumber = 1,
-                GlobalEventPosition = new GlobalEventPosition(position),
+                GlobalEventPosition = new GlobalEventPosition(position.ToString()),
             },
             IsNew: false,
             ShouldDelete: false,
-            GlobalEventPosition: new GlobalEventPosition(position),
+            GlobalEventPosition: new GlobalEventPosition(position.ToString()),
             ExpectedEventNumber: null);
     }
 }

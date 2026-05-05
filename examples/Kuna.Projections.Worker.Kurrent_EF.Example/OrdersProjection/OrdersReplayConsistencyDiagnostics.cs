@@ -380,7 +380,7 @@ public sealed class OrdersReplayConsistencyDiagnostics
                 eventData: resolved.Event.Data.ToArray(),
                 eventType: resolved.Event.EventType,
                 eventNumber: resolved.Event.EventNumber.ToInt64(),
-                eventPosition: resolved.OriginalPosition?.ToGlobalEventPosition() ?? new GlobalEventPosition(0),
+                eventPosition: resolved.OriginalPosition?.ToGlobalEventPosition() ?? new GlobalEventPosition("0:0"),
                 eventTime: resolved.Event.Created);
 
             if (envelope == null)

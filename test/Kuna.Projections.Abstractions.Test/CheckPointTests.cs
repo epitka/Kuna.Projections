@@ -12,10 +12,10 @@ public class CheckPointTests
         var checkPoint = new CheckPoint
         {
             ModelName = "Orders",
-            GlobalEventPosition = new GlobalEventPosition(42),
+            GlobalEventPosition = new GlobalEventPosition("42"),
         };
 
         checkPoint.ModelName.ShouldBe("Orders");
-        checkPoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(42));
+        checkPoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition("42"));
     }
 }

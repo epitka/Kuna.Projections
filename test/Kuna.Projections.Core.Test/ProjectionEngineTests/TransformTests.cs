@@ -74,7 +74,7 @@ public class TransformTests
         };
 
         projection.ModelState.EventNumber = 0;
-        projection.ModelState.GlobalEventPosition = new GlobalEventPosition(0);
+        projection.ModelState.GlobalEventPosition = new GlobalEventPosition("0");
 
         A.CallTo(() => factory.Create(modelId, true, A<CancellationToken>._))
          .Returns(projection);
@@ -300,12 +300,12 @@ public class TransformTests
                 {
                     Id = modelId,
                     EventNumber = 0,
-                    GlobalEventPosition = new GlobalEventPosition(10),
+                    GlobalEventPosition = new GlobalEventPosition("10"),
                     Name = "created",
                 },
                 IsNew: true,
                 ShouldDelete: false,
-                GlobalEventPosition: new GlobalEventPosition(10),
+                GlobalEventPosition: new GlobalEventPosition("10"),
                 ExpectedEventNumber: null));
 
         A.CallTo(() => factory.CreateFromModel(A<ItemModel>._, A<bool>._))
@@ -399,7 +399,7 @@ public class TransformTests
 
         return new EventEnvelope(
             eventNumber: eventNumber,
-            streamPosition: new GlobalEventPosition((ulong)(eventNumber + 10)),
+            streamPosition: new GlobalEventPosition((eventNumber + 10).ToString()),
             streamId: $"item-{modelId}",
             modelId: modelId,
             createdOn: DateTime.UtcNow,

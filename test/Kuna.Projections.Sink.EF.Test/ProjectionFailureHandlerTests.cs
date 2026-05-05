@@ -17,12 +17,12 @@ public class ProjectionFailureHandlerTests
         services.AddLogging();
         var provider = services.BuildServiceProvider();
         var logger = provider.GetRequiredService<ILogger<ProjectionFailureHandler<TestModel, TestProjectionDbContext>>>();
-        var handler = new ProjectionFailureHandler<TestModel, TestProjectionDbContext>(provider, logger);
+        var handler = new ProjectionFailureHandler<TestModel, TestProjectionDbContext>(provider, new NoOpDuplicateKeyExceptionDetector(), logger);
 
         var failure = new ProjectionFailure(
             modelId: Guid.NewGuid(),
             eventNumber: 1,
-            streamPosition: new GlobalEventPosition(10),
+            streamPosition: new GlobalEventPosition("10"),
             failureCreatedOn: DateTime.UtcNow,
             exception: "boom",
             failureType: nameof(FailureType.EventProcessing),
@@ -30,5 +30,13 @@ public class ProjectionFailureHandlerTests
 
         var exception = await Should.ThrowAsync<InvalidOperationException>(() => handler.Handle(failure, CancellationToken.None));
         exception.Message.ShouldContain(nameof(TestProjectionDbContext));
+    }
+
+    private sealed class NoOpDuplicateKeyExceptionDetector : IDuplicateKeyExceptionDetector
+    {
+        public bool IsDuplicateKeyViolation(Exception exception)
+        {
+            return false;
+        }
     }
 }

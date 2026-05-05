@@ -81,8 +81,8 @@ public class SqlProjectionsDbContext
         entity.Property<long?>(nameof(Kuna.Projections.Abstractions.Models.IModel.EventNumber)).IsConcurrencyToken();
         entity.Property<GlobalEventPosition>(nameof(Kuna.Projections.Abstractions.Models.IModel.GlobalEventPosition))
               .HasConversion(
-                  value => (long)value.Value,
-                  value => new GlobalEventPosition((ulong)value))
-              .HasColumnType("bigint");
+                  value => value.Value,
+                  value => new GlobalEventPosition(value))
+              .HasMaxLength(128);
     }
 }

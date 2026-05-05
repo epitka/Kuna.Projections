@@ -60,7 +60,7 @@ public class CreateTests
 
         batches.Count.ShouldBe(1);
         batches[0].Changes.Count.ShouldBe(2);
-        batches[0].GlobalEventPosition.ShouldBe(new GlobalEventPosition(12));
+        batches[0].GlobalEventPosition.ShouldBe(new GlobalEventPosition("12"));
         batches[0].Changes.ShouldContain(x => x.Model.Id == modelId && x.Model.Name == "v2");
         batches[0].Changes.ShouldNotContain(x => x.Model.Id == modelId && x.Model.Name == "v1");
     }
@@ -92,7 +92,7 @@ public class CreateTests
 
         batches.Count.ShouldBe(2);
         batches[0].Changes.Count.ShouldBe(2);
-        batches[0].GlobalEventPosition.ShouldBe(new GlobalEventPosition(3));
+        batches[0].GlobalEventPosition.ShouldBe(new GlobalEventPosition("3"));
         batches[0].Changes.ShouldContain(x => x.Model.Id == firstId && x.Model.Name == "first-v2");
         batches[0].Changes.ShouldContain(x => x.Model.Id == secondId);
         batches[1].Changes.Count.ShouldBe(1);
@@ -110,11 +110,11 @@ public class CreateTests
                 {
                     Id = Guid.NewGuid(),
                     EventNumber = 1,
-                    GlobalEventPosition = new GlobalEventPosition(1),
+                    GlobalEventPosition = new GlobalEventPosition("1"),
                 },
                 IsNew: true,
                 ShouldDelete: true,
-                GlobalEventPosition: new GlobalEventPosition(1),
+                GlobalEventPosition: new GlobalEventPosition("1"),
                 ExpectedEventNumber: null),
             Helpers.CreateChange(validId, 2, "keep"),
         };
@@ -133,7 +133,7 @@ public class CreateTests
         batches.Count.ShouldBe(1);
         batches[0].Changes.Count.ShouldBe(1);
         batches[0].Changes[0].Model.Id.ShouldBe(validId);
-        batches[0].GlobalEventPosition.ShouldBe(new GlobalEventPosition(2));
+        batches[0].GlobalEventPosition.ShouldBe(new GlobalEventPosition("2"));
     }
 
     [Fact]
@@ -284,7 +284,7 @@ public class CreateTests
 
         batches.Count.ShouldBe(1);
         batches[0].Changes.Count.ShouldBe(2);
-        batches[0].GlobalEventPosition.ShouldBe(new GlobalEventPosition(2));
+        batches[0].GlobalEventPosition.ShouldBe(new GlobalEventPosition("2"));
     }
 
     [Fact]
@@ -297,11 +297,11 @@ public class CreateTests
                 {
                     Id = Guid.NewGuid(),
                     EventNumber = 1,
-                    GlobalEventPosition = new GlobalEventPosition(1),
+                    GlobalEventPosition = new GlobalEventPosition("1"),
                 },
                 IsNew: true,
                 ShouldDelete: true,
-                GlobalEventPosition: new GlobalEventPosition(1),
+                GlobalEventPosition: new GlobalEventPosition("1"),
                 ExpectedEventNumber: null),
         };
 

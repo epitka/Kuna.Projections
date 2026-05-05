@@ -29,7 +29,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
             Id = modelId,
             Name = "created",
             EventNumber = 1,
-            GlobalEventPosition = new GlobalEventPosition(11),
+            GlobalEventPosition = new GlobalEventPosition("11"),
             HasStreamProcessingFaulted = false,
         };
 
@@ -41,10 +41,10 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                     model,
                     IsNew: true,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: null),
             ],
-            GlobalEventPosition = new GlobalEventPosition(99),
+            GlobalEventPosition = new GlobalEventPosition("99"),
         };
 
         await store.PersistBatch(batch, CancellationToken.None);
@@ -70,7 +70,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         model.ShouldNotBeNull();
         model.Name = "after";
         model.EventNumber = 2;
-        model.GlobalEventPosition = new GlobalEventPosition(22);
+        model.GlobalEventPosition = new GlobalEventPosition("22");
 
         var batch = new ModelStatesBatch<TestModel>
         {
@@ -80,10 +80,10 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                     model,
                     IsNew: false,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(22),
+                    GlobalEventPosition: new GlobalEventPosition("22"),
                     ExpectedEventNumber: 1),
             ],
-            GlobalEventPosition = new GlobalEventPosition(120),
+            GlobalEventPosition = new GlobalEventPosition("120"),
         };
 
         await store.PersistBatch(batch, CancellationToken.None);
@@ -94,7 +94,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         persistedModel.ShouldNotBeNull();
         persistedModel.Name.ShouldBe("after");
         persistedModel.EventNumber.ShouldBe(2);
-        persistedModel.GlobalEventPosition.ShouldBe(new GlobalEventPosition(22));
+        persistedModel.GlobalEventPosition.ShouldBe(new GlobalEventPosition("22"));
         (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
             .ShouldBeNull();
     }
@@ -116,24 +116,25 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                     Id = modelId,
                     Name = "before",
                     EventNumber = 1,
-                    GlobalEventPosition = new GlobalEventPosition(5),
+                    GlobalEventPosition = new GlobalEventPosition("5"),
                     HasStreamProcessingFaulted = false,
                 });
 
             await dbContext.SaveChangesAsync(CancellationToken.None);
         }
 
+        var duplicateKeyExceptionDetector = provider.GetRequiredService<IDuplicateKeyExceptionDetector>();
         var failureLogger = provider.GetRequiredService<ILogger<ProjectionFailureHandler<TestChildModel, TestProjectionDbContext>>>();
-        var failureHandler = new ProjectionFailureHandler<TestChildModel, TestProjectionDbContext>(provider, failureLogger);
+        var failureHandler = new ProjectionFailureHandler<TestChildModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureLogger);
         var storeLogger = provider.GetRequiredService<ILogger<DataStore<TestChildModel, TestProjectionDbContext>>>();
-        var store = new DataStore<TestChildModel, TestProjectionDbContext>(provider, failureHandler, storeLogger);
+        var store = new DataStore<TestChildModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureHandler, storeLogger);
 
         var model = await store.Load(modelId, CancellationToken.None);
 
         model.ShouldNotBeNull();
         model.Name = "after";
         model.EventNumber = 2;
-        model.GlobalEventPosition = new GlobalEventPosition(22);
+        model.GlobalEventPosition = new GlobalEventPosition("22");
         model.Children.Add(
             new TestChildItem
             {
@@ -150,10 +151,10 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                     model,
                     IsNew: false,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(22),
+                    GlobalEventPosition: new GlobalEventPosition("22"),
                     ExpectedEventNumber: 1),
             ],
-            GlobalEventPosition = new GlobalEventPosition(220),
+            GlobalEventPosition = new GlobalEventPosition("220"),
         };
 
         await store.PersistBatch(batch, CancellationToken.None);
@@ -174,12 +175,13 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
     public void HierarchicalModel_Without_PersistedChildEntity_Should_Fail_Fast()
     {
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
+        var duplicateKeyExceptionDetector = provider.GetRequiredService<IDuplicateKeyExceptionDetector>();
         var failureLogger = provider.GetRequiredService<ILogger<ProjectionFailureHandler<InvalidChildModel, TestProjectionDbContext>>>();
-        var failureHandler = new ProjectionFailureHandler<InvalidChildModel, TestProjectionDbContext>(provider, failureLogger);
+        var failureHandler = new ProjectionFailureHandler<InvalidChildModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureLogger);
         var storeLogger = provider.GetRequiredService<ILogger<DataStore<InvalidChildModel, TestProjectionDbContext>>>();
 
         var ex = Should.Throw<InvalidOperationException>(
-            () => new DataStore<InvalidChildModel, TestProjectionDbContext>(provider, failureHandler, storeLogger));
+            () => new DataStore<InvalidChildModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureHandler, storeLogger));
 
         ex.Message.ShouldContain($"{nameof(InvalidChildModel)}.{nameof(InvalidChildModel.Children)}");
         ex.Message.ShouldContain(nameof(InvalidChildItem));
@@ -205,10 +207,10 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                     model,
                     IsNew: false,
                     ShouldDelete: true,
-                    GlobalEventPosition: new GlobalEventPosition(40),
+                    GlobalEventPosition: new GlobalEventPosition("40"),
                     ExpectedEventNumber: 4),
             ],
-            GlobalEventPosition = new GlobalEventPosition(140),
+            GlobalEventPosition = new GlobalEventPosition("140"),
         };
 
         await store.PersistBatch(batch, CancellationToken.None);
@@ -238,15 +240,15 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                         Id = modelId,
                         Name = "invalid",
                         EventNumber = 1,
-                        GlobalEventPosition = new GlobalEventPosition(1),
+                        GlobalEventPosition = new GlobalEventPosition("1"),
                         HasStreamProcessingFaulted = false,
                     },
                     IsNew: true,
                     ShouldDelete: true,
-                    GlobalEventPosition: new GlobalEventPosition(1),
+                    GlobalEventPosition: new GlobalEventPosition("1"),
                     ExpectedEventNumber: null),
             ],
-            GlobalEventPosition = new GlobalEventPosition(200),
+            GlobalEventPosition = new GlobalEventPosition("200"),
         };
 
         await store.PersistBatch(batch, CancellationToken.None);
@@ -277,12 +279,12 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                         Id = validId,
                         Name = "valid",
                         EventNumber = 1,
-                        GlobalEventPosition = new GlobalEventPosition(10),
+                        GlobalEventPosition = new GlobalEventPosition("10"),
                         HasStreamProcessingFaulted = false,
                     },
                     IsNew: true,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(10),
+                    GlobalEventPosition: new GlobalEventPosition("10"),
                     ExpectedEventNumber: null),
                 new ModelState<TestModel>(
                     new TestModel
@@ -290,15 +292,15 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                         Id = invalidId,
                         Name = new string('x', 128),
                         EventNumber = 2,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                         HasStreamProcessingFaulted = false,
                     },
                     IsNew: true,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: null),
             ],
-            GlobalEventPosition = new GlobalEventPosition(201),
+            GlobalEventPosition = new GlobalEventPosition("201"),
         };
 
         await store.PersistBatch(batch, CancellationToken.None);
@@ -351,12 +353,12 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                     Id = id,
                     Name = name,
                     EventNumber = i + 1,
-                    GlobalEventPosition = new GlobalEventPosition((ulong)(1000 + i)),
+                    GlobalEventPosition = new GlobalEventPosition($"{1000 + i}"),
                     HasStreamProcessingFaulted = false,
                 },
                 IsNew: true,
                 ShouldDelete: false,
-                GlobalEventPosition: new GlobalEventPosition((ulong)(1000 + i)),
+                GlobalEventPosition: new GlobalEventPosition($"{1000 + i}"),
                 ExpectedEventNumber: null);
         }
 
@@ -364,7 +366,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
             new ModelStatesBatch<TestModel>
             {
                 Changes = changes,
-                GlobalEventPosition = new GlobalEventPosition(500),
+                GlobalEventPosition = new GlobalEventPosition("500"),
             },
             CancellationToken.None);
 
@@ -424,12 +426,12 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                     Id = id,
                     Name = name,
                     EventNumber = i + 1,
-                    GlobalEventPosition = new GlobalEventPosition((ulong)(2000 + i)),
+                    GlobalEventPosition = new GlobalEventPosition($"{2000 + i}"),
                     HasStreamProcessingFaulted = false,
                 },
                 IsNew: true,
                 ShouldDelete: false,
-                GlobalEventPosition: new GlobalEventPosition((ulong)(2000 + i)),
+                GlobalEventPosition: new GlobalEventPosition($"{2000 + i}"),
                 ExpectedEventNumber: null);
         }
 
@@ -437,7 +439,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
             new ModelStatesBatch<TestModel>
             {
                 Changes = changes,
-                GlobalEventPosition = new GlobalEventPosition(777),
+                GlobalEventPosition = new GlobalEventPosition("777"),
             },
             CancellationToken.None);
 
@@ -479,11 +481,11 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
 
         validModel.Name = "after-valid";
         validModel.EventNumber = 2;
-        validModel.GlobalEventPosition = new GlobalEventPosition(101);
+        validModel.GlobalEventPosition = new GlobalEventPosition("101");
 
         invalidModel.Name = new string('y', 256);
         invalidModel.EventNumber = 2;
-        invalidModel.GlobalEventPosition = new GlobalEventPosition(102);
+        invalidModel.GlobalEventPosition = new GlobalEventPosition("102");
 
         var batch = new ModelStatesBatch<TestModel>
         {
@@ -492,7 +494,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
                 new ModelState<TestModel>(validModel, false, false, validModel.GlobalEventPosition, 1),
                 new ModelState<TestModel>(invalidModel, false, false, invalidModel.GlobalEventPosition, 1),
             ],
-            GlobalEventPosition = new GlobalEventPosition(300),
+            GlobalEventPosition = new GlobalEventPosition("300"),
         };
 
         await store.PersistBatch(batch, CancellationToken.None);
@@ -508,7 +510,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         persistedValid.ShouldNotBeNull();
         persistedValid.Name.ShouldBe("after-valid");
         persistedValid.EventNumber.ShouldBe(2);
-        persistedValid.GlobalEventPosition.ShouldBe(new GlobalEventPosition(101));
+        persistedValid.GlobalEventPosition.ShouldBe(new GlobalEventPosition("101"));
 
         persistedInvalid.ShouldNotBeNull();
         persistedInvalid.Name.ShouldBe("before-invalid");
@@ -530,7 +532,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
             new ModelStatesBatch<TestModel>
             {
                 Changes = Array.Empty<ModelState<TestModel>>(),
-                GlobalEventPosition = new GlobalEventPosition(400),
+                GlobalEventPosition = new GlobalEventPosition("400"),
             },
             CancellationToken.None);
 

@@ -27,8 +27,9 @@ public class ProjectionFailureHandlerIntegrationTests
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.fixture);
         await SeedModel(provider, modelId);
 
+        var duplicateKeyExceptionDetector = provider.GetRequiredService<IDuplicateKeyExceptionDetector>();
         var logger = provider.GetRequiredService<ILogger<ProjectionFailureHandler<TestModel, TestProjectionDbContext>>>();
-        var handler = new ProjectionFailureHandler<TestModel, TestProjectionDbContext>(provider, logger);
+        var handler = new ProjectionFailureHandler<TestModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, logger);
         var failure = CreateFailure(modelId, "first");
 
         await handler.Handle(failure, CancellationToken.None);
@@ -54,8 +55,9 @@ public class ProjectionFailureHandlerIntegrationTests
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.fixture);
         await SeedModel(provider, modelId);
 
+        var duplicateKeyExceptionDetector = provider.GetRequiredService<IDuplicateKeyExceptionDetector>();
         var logger = provider.GetRequiredService<ILogger<ProjectionFailureHandler<TestModel, TestProjectionDbContext>>>();
-        var handler = new ProjectionFailureHandler<TestModel, TestProjectionDbContext>(provider, logger);
+        var handler = new ProjectionFailureHandler<TestModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, logger);
 
         await handler.Handle(CreateFailure(modelId, new string('a', 3950)), CancellationToken.None);
         await handler.Handle(CreateFailure(modelId, new string('b', 200)), CancellationToken.None);
@@ -76,7 +78,7 @@ public class ProjectionFailureHandlerIntegrationTests
         return new ProjectionFailure(
             modelId: modelId,
             eventNumber: 1,
-            streamPosition: new GlobalEventPosition(10),
+            streamPosition: new GlobalEventPosition("10"),
             failureCreatedOn: DateTime.UtcNow,
             exception: exception,
             failureType: nameof(FailureType.EventProcessing),
@@ -94,7 +96,7 @@ public class ProjectionFailureHandlerIntegrationTests
                 Id = modelId,
                 Name = "seed",
                 EventNumber = 1,
-                GlobalEventPosition = new GlobalEventPosition(1),
+                GlobalEventPosition = new GlobalEventPosition("1"),
                 HasStreamProcessingFaulted = false,
             });
 
