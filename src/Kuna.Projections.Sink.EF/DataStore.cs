@@ -121,12 +121,12 @@ public class DataStore<TState, TDataContext>
         }
         catch (DbUpdateException ex) when (this.IsDuplicateKeyViolation(ex))
         {
-                        if (this.logger.IsEnabled(LogLevel.Debug))
-                        {
-                            this.logger.LogDebug(
-                                "Unified batch persist hit duplicate keys for {Model}, falling back to isolated persistence handling...",
-                                this.modelName);
-                        }
+            if (this.logger.IsEnabled(LogLevel.Debug))
+            {
+                this.logger.LogDebug(
+                    "Unified batch persist hit duplicate keys for {Model}, falling back to isolated persistence handling...",
+                    this.modelName);
+            }
 
             await this.PersistBatchIsolated(toPersist, cancellationToken);
             sinkTimings = default;
@@ -134,7 +134,6 @@ public class DataStore<TState, TDataContext>
         catch (Exception ex) when (ex is DbUpdateException or DbUpdateConcurrencyException)
         {
             this.logger.LogWarning(
-                ex,
                 "Unified batch persist failed for {Model}, falling back to isolated persistence handling...",
                 this.modelName);
 
@@ -401,7 +400,7 @@ public class DataStore<TState, TDataContext>
                         cancellationToken.ThrowIfCancellationRequested();
 
                         shouldFallBackToSingleInserts = true;
-                        this.logger.LogWarning(ex, "Batch insert failed, falling back to single inserts...");
+                        this.logger.LogWarning("Batch insert failed, falling back to single inserts...");
                     }
                 });
         }
@@ -466,7 +465,7 @@ public class DataStore<TState, TDataContext>
         if (this.logger.IsEnabled(LogLevel.Debug))
         {
             this.logger.LogDebug(
-                "Replacing stale persisted graph for {Model} {ModelId} after duplicate insert during replay.",
+                "Replacing stale persisted graph for {Model} {ModelId} after duplicate insert during replay",
                 this.modelName,
                 model.Id);
         }
@@ -498,7 +497,6 @@ public class DataStore<TState, TDataContext>
         catch (Exception ex) when (ex is DbUpdateException or DbUpdateConcurrencyException)
         {
             this.logger.LogWarning(
-                ex,
                 "Batch update failed for {Model}, falling back to isolated updates...",
                 this.modelName);
 
@@ -564,25 +562,25 @@ public class DataStore<TState, TDataContext>
             {
                 throw;
             }
-                catch (DbUpdateConcurrencyException)
+            catch (DbUpdateConcurrencyException)
+            {
+                if (this.logger.IsEnabled(LogLevel.Debug))
                 {
-                    if (this.logger.IsEnabled(LogLevel.Debug))
-                    {
-                        this.logger.LogDebug(
-                            "Skipped stale projection change for {Model} {ModelId}",
-                            this.modelName,
-                            projection.Model.Id);
-                    }
+                    this.logger.LogDebug(
+                        "Skipped stale projection change for {Model} {ModelId}",
+                        this.modelName,
+                        projection.Model.Id);
                 }
+            }
             catch (DbUpdateException dbex) when (this.IsDuplicateKeyViolation(dbex))
             {
-                    if (this.logger.IsEnabled(LogLevel.Debug))
-                    {
-                        this.logger.LogDebug(
-                            "Replacing persisted graph for {Model} {ModelId} after duplicate-key update failure.",
-                            this.modelName,
-                            projection.Model.Id);
-                    }
+                if (this.logger.IsEnabled(LogLevel.Debug))
+                {
+                    this.logger.LogDebug(
+                        "Replacing persisted graph for {Model} {ModelId} after duplicate-key update failure",
+                        this.modelName,
+                        projection.Model.Id);
+                }
 
                 await this.ReplaceOneAtTheTime(projection, cancellationToken);
             }
