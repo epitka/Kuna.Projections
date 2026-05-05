@@ -132,7 +132,6 @@ public class DataStore<TState, TDataContext>
         catch (Exception ex) when (ex is DbUpdateException or DbUpdateConcurrencyException)
         {
             this.logger.LogWarning(
-                ex,
                 "Unified batch persist failed for {Model}, falling back to isolated persistence handling...",
                 this.modelName);
 
@@ -384,7 +383,7 @@ public class DataStore<TState, TDataContext>
         if (this.logger.IsEnabled(LogLevel.Debug))
         {
             this.logger.LogDebug(
-                "Replacing stale persisted graph for {Model} {ModelId} after duplicate insert during replay.",
+                "Replacing stale persisted graph for {Model} {ModelId} after duplicate insert during replay",
                 this.modelName,
                 model.Id);
         }
@@ -416,7 +415,6 @@ public class DataStore<TState, TDataContext>
         catch (Exception ex) when (ex is DbUpdateException or DbUpdateConcurrencyException)
         {
             this.logger.LogWarning(
-                ex,
                 "Batch update failed for {Model}, falling back to isolated updates...",
                 this.modelName);
 
@@ -497,7 +495,7 @@ public class DataStore<TState, TDataContext>
                 if (this.logger.IsEnabled(LogLevel.Debug))
                 {
                     this.logger.LogDebug(
-                        "Replacing persisted graph for {Model} {ModelId} after duplicate-key update failure.",
+                        "Replacing persisted graph for {Model} {ModelId} after duplicate-key update failure",
                         this.modelName,
                         projection.Model.Id);
                 }
