@@ -249,6 +249,54 @@ public class RunAsyncTests
     }
 
     [Fact]
+    public async Task Should_Not_Throw_When_Cancelling_After_Completed_Flushes()
+    {
+        var testCancellationToken = TestContext.Current.CancellationToken;
+        var envelopes = CreateEnvelopes(100);
+        var source = new FastSource(envelopes);
+        var runtime = new CountingEngineLike();
+        var sink = new CapturingSink();
+        var checkpointStore = new InMemoryCheckpointStore();
+        var settings = new ProjectionSettings<ItemModel>
+        {
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ImmediateModelFlush,
+                ModelCountThreshold = 16,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ImmediateModelFlush,
+                Delay = 1000,
+            },
+            ModelStateCacheCapacity = 10000,
+            EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
+        };
+
+        var logger = LoggerFactory.Create(
+                                      builder =>
+                                      {
+                                      })
+                                  .CreateLogger<ProjectionPipeline<EventEnvelope, ItemModel>>();
+
+        var pipeline = new ProjectionPipeline<EventEnvelope, ItemModel>(
+            source,
+            runtime,
+            runtime,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            sink,
+            checkpointStore,
+            settings,
+            logger);
+
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(testCancellationToken);
+        await pipeline.RunAsync(linkedCts.Token);
+
+        await Should.NotThrowAsync(linkedCts.CancelAsync);
+        sink.Batches.Count.ShouldBe(envelopes.Count);
+    }
+
+    [Fact]
     public async Task EndToEnd_Delete_Should_Persist_Delete_But_Not_Publish_Deleted_State_To_Cache()
     {
         var testCancellationToken = TestContext.Current.CancellationToken;
