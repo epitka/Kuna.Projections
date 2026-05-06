@@ -631,17 +631,13 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                     GetOrderEventTypes(),
                     sp.GetRequiredService<ILogger<EventDeserializer>>()));
 
-        services.AddSingleton<IProjectionSettings<Order>>(
-            new ProjectionSettings<Order>
-            {
-                InstanceId = "orders-integration",
-                ModelIdResolutionStrategy = ModelIdResolutionStrategy.PreferAttribute,
-            });
+        var registrationKey = ProjectionRegistration.GetKey<Order>(ProjectionSettingsSection.Name);
 
-        services.AddSingleton<IProjectionEventSource<Order>>(
-            sp =>
+        services.AddKeyedSingleton<IProjectionEventSource<Order>>(
+            registrationKey,
+            (sp, _) =>
             {
-                var projectionSettings = sp.GetRequiredService<IProjectionSettings<Order>>();
+                var projectionSettings = sp.GetRequiredKeyedService<IProjectionSettings<Order>>(registrationKey);
                 var sourceSettings = new KurrentDbSourceSettings
                 {
                     Filter = new KurrentDbFilterSettings
@@ -670,7 +666,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                 return new TestProjectionEventSource<Order>(source);
             });
 
-        services.AddNpgsqlProjectionsDataStore<Order, OrdersDbContext>(schema: "dbo");
+        services.AddNpgsqlProjectionsDataStore<Order, OrdersDbContext>(ProjectionSettingsSection.Name, schema: "dbo");
 
         var config = new ConfigurationBuilder()
                      .AddInMemoryCollection(
@@ -687,7 +683,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                          })
                      .Build();
 
-        services.AddProjection<Order>(config)
+        services.AddProjection<Order>(config, ProjectionSettingsSection.Name)
                 .WithInitialEvent<OrderCreatedEvent>();
 
         return services.BuildServiceProvider();

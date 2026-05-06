@@ -14,8 +14,6 @@ public class ServiceCollectionExtensionsTests
     public void AddProjectionCore_Should_Throw_When_Projections_Config_Section_Is_Missing()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<IModelStateStore<CoreServiceTestModel>, DummyStateStore>();
-        services.AddSingleton<IProjectionFailureHandler<CoreServiceTestModel>, DummyFailureHandler>();
         services.AddLogging();
 
         var configuration = new ConfigurationBuilder()
@@ -24,7 +22,7 @@ public class ServiceCollectionExtensionsTests
 
         var exception = Should.Throw<InvalidOperationException>(
             () =>
-                services.AddProjection<CoreServiceTestModel>(configuration));
+                services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name));
 
         exception.Message.ShouldContain(ProjectionSettingsSection.Name);
     }
@@ -46,10 +44,10 @@ public class ServiceCollectionExtensionsTests
                                 })
                             .Build();
 
-        services.AddProjection<CoreServiceTestModel>(configuration);
+        services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name);
 
         using var provider = services.BuildServiceProvider();
-        var settings = provider.GetRequiredService<IProjectionSettings<CoreServiceTestModel>>();
+        var settings = provider.GetRequiredKeyedService<IProjectionSettings<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name));
 
         settings.CatchUpFlush.ModelCountThreshold.ShouldBe(12);
         settings.LiveProcessingFlush.ModelCountThreshold.ShouldBe(7);
@@ -67,8 +65,6 @@ public class ServiceCollectionExtensionsTests
     public void AddProjectionCore_Should_Register_Core_Services_When_Config_Section_Is_Present()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<IModelStateStore<CoreServiceTestModel>, DummyStateStore>();
-
         var configuration = new ConfigurationBuilder()
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
@@ -78,40 +74,37 @@ public class ServiceCollectionExtensionsTests
                                 })
                             .Build();
 
-        services.AddProjection<CoreServiceTestModel>(configuration);
+        services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name);
 
-        using var provider = services.BuildServiceProvider();
         services.ShouldContain(
             sd =>
                 sd.ServiceType == typeof(IModelStateTransformer<EventEnvelope, CoreServiceTestModel>)
-                && sd.ImplementationFactory != null
+                && Equals(sd.ServiceKey, GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name))
                 && sd.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             sd =>
                 sd.ServiceType == typeof(IProjectionLifecycle<CoreServiceTestModel>)
-                && sd.ImplementationFactory != null
+                && Equals(sd.ServiceKey, GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name))
                 && sd.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             sd =>
                 sd.ServiceType == typeof(IModelStateCache<CoreServiceTestModel>)
-                && sd.ImplementationType == typeof(InMemoryModelStateCache<CoreServiceTestModel>)
+                && Equals(sd.ServiceKey, GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name))
                 && sd.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             sd =>
                 sd.ServiceType == typeof(IProjectionPipeline<CoreServiceTestModel>)
-                && sd.ImplementationFactory != null
+                && Equals(sd.ServiceKey, GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name))
                 && sd.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             sd =>
                 sd.ServiceType == typeof(IProjectionFactory<CoreServiceTestModel>)
-                && sd.ImplementationFactory != null
+                && Equals(sd.ServiceKey, GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name))
                 && sd.Lifetime == ServiceLifetime.Singleton);
-
-        provider.GetRequiredService<IProjectionFactory<CoreServiceTestModel>>().ShouldNotBeNull();
     }
 
     [Fact]
@@ -134,7 +127,7 @@ public class ServiceCollectionExtensionsTests
             settingsSectionName: "OrdersProjection");
 
         using var provider = services.BuildServiceProvider();
-        var settings = provider.GetRequiredService<IProjectionSettings<CoreServiceTestModel>>();
+        var settings = provider.GetRequiredKeyedService<IProjectionSettings<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection"));
 
         settings.CatchUpFlush.Strategy.ShouldBe(PersistenceStrategy.ModelCountBatching);
         settings.LiveProcessingFlush.Strategy.ShouldBe(PersistenceStrategy.ImmediateModelFlush);
@@ -162,7 +155,7 @@ public class ServiceCollectionExtensionsTests
                                 })
                             .Build();
 
-        var exception = Should.Throw<InvalidOperationException>(() => services.AddProjection<CoreServiceTestModel>(configuration));
+        var exception = Should.Throw<InvalidOperationException>(() => services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name));
 
         exception.Message.ShouldContain(nameof(IProjectionSettings<CoreServiceTestModel>.InstanceId));
         exception.Message.ShouldContain(ProjectionSettingsSection.Name);
@@ -172,8 +165,6 @@ public class ServiceCollectionExtensionsTests
     public void AddProjectionCore_Should_Throw_When_Projection_Does_Not_Have_Guid_Ctor()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<IModelStateStore<BadCtorModel>, BadCtorStateStore>();
-
         var configuration = new ConfigurationBuilder()
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
@@ -183,13 +174,14 @@ public class ServiceCollectionExtensionsTests
                                 })
                             .Build();
 
-        services.AddProjection<BadCtorModel>(configuration);
+        AddStateStore<BadCtorModel, BadCtorStateStore>(services, ProjectionSettingsSection.Name);
+        services.AddProjection<BadCtorModel>(configuration, ProjectionSettingsSection.Name);
 
         using var provider = services.BuildServiceProvider();
 
         var ex = Should.Throw<InvalidOperationException>(
             () =>
-                provider.GetRequiredService<IProjectionFactory<BadCtorModel>>());
+                provider.GetRequiredKeyedService<IProjectionFactory<BadCtorModel>>(GetProjectionKey<BadCtorModel>(ProjectionSettingsSection.Name)));
 
         ex.Message.ShouldContain(typeof(BadCtorProjection).FullName!);
         ex.Message.ShouldContain("Guid parameter");
@@ -199,8 +191,6 @@ public class ServiceCollectionExtensionsTests
     public void AddProjectionCore_Should_Require_Initial_Event_Registration_For_Runtime_Resolution()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<IModelStateStore<CoreServiceTestModel>, DummyStateStore>();
-        services.AddSingleton<IProjectionFailureHandler<CoreServiceTestModel>, DummyFailureHandler>();
         services.AddLogging();
 
         var configuration = new ConfigurationBuilder()
@@ -212,10 +202,12 @@ public class ServiceCollectionExtensionsTests
                                 })
                             .Build();
 
-        services.AddProjection<CoreServiceTestModel>(configuration);
+        AddStateStore<CoreServiceTestModel, DummyStateStore>(services, ProjectionSettingsSection.Name);
+        AddFailureHandler<CoreServiceTestModel, DummyFailureHandler>(services, ProjectionSettingsSection.Name);
+        services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name);
 
         using var provider = services.BuildServiceProvider();
-        var ex = Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<ProjectionEngine<CoreServiceTestModel>>());
+        var ex = Should.Throw<InvalidOperationException>(() => provider.GetRequiredKeyedService<ProjectionEngine<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name)));
 
         ex.Message.ShouldContain(nameof(ProjectionCreationRegistration<CoreServiceTestModel>));
     }
@@ -224,8 +216,6 @@ public class ServiceCollectionExtensionsTests
     public void AddProjectionCore_Should_Allow_Registering_Initial_Event()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<IModelStateStore<CoreServiceTestModel>, DummyStateStore>();
-
         var configuration = new ConfigurationBuilder()
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
@@ -235,11 +225,11 @@ public class ServiceCollectionExtensionsTests
                                 })
                             .Build();
 
-        services.AddProjection<CoreServiceTestModel>(configuration)
+        services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name)
                 .WithInitialEvent<TestInitialEvent>();
 
         using var provider = services.BuildServiceProvider();
-        var registration = GetProjectionCreationRegistration<CoreServiceTestModel>(provider);
+        var registration = GetProjectionCreationRegistration<CoreServiceTestModel>(provider, ProjectionSettingsSection.Name);
 
         GetInitialEventType(registration).ShouldBe(typeof(TestInitialEvent));
     }
@@ -248,8 +238,6 @@ public class ServiceCollectionExtensionsTests
     public void AddProjectionCore_Should_Throw_When_Initial_Event_Is_Registered_Twice()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<IModelStateStore<CoreServiceTestModel>, DummyStateStore>();
-
         var configuration = new ConfigurationBuilder()
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
@@ -259,7 +247,7 @@ public class ServiceCollectionExtensionsTests
                                 })
                             .Build();
 
-        var builder = services.AddProjection<CoreServiceTestModel>(configuration)
+        var builder = services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name)
                               .WithInitialEvent<TestInitialEvent>();
 
         var ex = Should.Throw<InvalidOperationException>(() => builder.WithInitialEvent<AnotherInitialEvent>());
@@ -285,17 +273,18 @@ public class ServiceCollectionExtensionsTests
                                 })
                             .Build();
 
-        services.AddSingleton<IModelStateStore<CoreServiceTestModel>, DummyStateStore>();
-        services.AddSingleton<IModelStateSink<CoreServiceTestModel>, DummyStateSink>();
-        services.AddSingleton<IProjectionFailureHandler<CoreServiceTestModel>, DummyFailureHandler>();
-        services.AddSingleton<IProjectionEventSource<CoreServiceTestModel>>(new TestProjectionEventSource<CoreServiceTestModel>());
+        AddStateStore<CoreServiceTestModel, DummyStateStore>(services, "OrdersProjection");
+        AddStateSink<CoreServiceTestModel, DummyStateSink>(services, "OrdersProjection");
+        AddFailureHandler<CoreServiceTestModel, DummyFailureHandler>(services, "OrdersProjection");
+        services.AddKeyedSingleton<IProjectionEventSource<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection"), new TestProjectionEventSource<CoreServiceTestModel>());
         var checkpointStore = new DummyCheckpointStore();
-        services.AddSingleton<ICheckpointStore>(checkpointStore);
+        services.AddKeyedSingleton<ICheckpointStore>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection"), checkpointStore);
 
-        services.AddSingleton<IModelStateStore<SecondaryServiceTestModel>, SecondaryStateStore>();
-        services.AddSingleton<IModelStateSink<SecondaryServiceTestModel>, SecondaryStateSink>();
-        services.AddSingleton<IProjectionFailureHandler<SecondaryServiceTestModel>, SecondaryFailureHandler>();
-        services.AddSingleton<IProjectionEventSource<SecondaryServiceTestModel>>(new TestProjectionEventSource<SecondaryServiceTestModel>());
+        AddStateStore<SecondaryServiceTestModel, SecondaryStateStore>(services, "InvoicesProjection");
+        AddStateSink<SecondaryServiceTestModel, SecondaryStateSink>(services, "InvoicesProjection");
+        AddFailureHandler<SecondaryServiceTestModel, SecondaryFailureHandler>(services, "InvoicesProjection");
+        services.AddKeyedSingleton<IProjectionEventSource<SecondaryServiceTestModel>>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"), new TestProjectionEventSource<SecondaryServiceTestModel>());
+        services.AddKeyedSingleton<ICheckpointStore>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"), checkpointStore);
 
         services.AddProjection<CoreServiceTestModel>(configuration, settingsSectionName: "OrdersProjection")
                 .WithInitialEvent<TestInitialEvent>();
@@ -307,32 +296,32 @@ public class ServiceCollectionExtensionsTests
 
         provider.GetServices<IProjectionPipeline>().Count().ShouldBe(2);
 
-        var ordersPipeline = provider.GetRequiredService<IProjectionPipeline<CoreServiceTestModel>>();
-        var invoicesPipeline = provider.GetRequiredService<IProjectionPipeline<SecondaryServiceTestModel>>();
+        var ordersPipeline = provider.GetRequiredKeyedService<IProjectionPipeline<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection"));
+        var invoicesPipeline = provider.GetRequiredKeyedService<IProjectionPipeline<SecondaryServiceTestModel>>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"));
 
-        GetPrivateField<object>(ordersPipeline, "source").ShouldBeSameAs(provider.GetRequiredService<IProjectionEventSource<CoreServiceTestModel>>().Value);
+        GetPrivateField<object>(ordersPipeline, "source").ShouldBeSameAs(provider.GetRequiredKeyedService<IProjectionEventSource<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection")).Value);
         GetPrivateField<object>(ordersPipeline, "checkpointStore")
             .ShouldBeSameAs(checkpointStore);
 
-        GetPrivateField<object>(ordersPipeline, "lifecycle").ShouldBeSameAs(provider.GetRequiredService<IProjectionLifecycle<CoreServiceTestModel>>());
+        GetPrivateField<object>(ordersPipeline, "lifecycle").ShouldBeSameAs(provider.GetRequiredKeyedService<IProjectionLifecycle<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection")));
 
         GetPrivateField<object>(invoicesPipeline, "source")
-            .ShouldBeSameAs(provider.GetRequiredService<IProjectionEventSource<SecondaryServiceTestModel>>().Value);
+            .ShouldBeSameAs(provider.GetRequiredKeyedService<IProjectionEventSource<SecondaryServiceTestModel>>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection")).Value);
 
         GetPrivateField<object>(invoicesPipeline, "checkpointStore")
             .ShouldBeSameAs(checkpointStore);
 
-        GetPrivateField<object>(invoicesPipeline, "lifecycle").ShouldBeSameAs(provider.GetRequiredService<IProjectionLifecycle<SecondaryServiceTestModel>>());
+        GetPrivateField<object>(invoicesPipeline, "lifecycle").ShouldBeSameAs(provider.GetRequiredKeyedService<IProjectionLifecycle<SecondaryServiceTestModel>>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection")));
     }
 
-    private static object GetProjectionCreationRegistration<TState>(IServiceProvider provider)
+    private static object GetProjectionCreationRegistration<TState>(IServiceProvider provider, string settingsSectionName)
         where TState : class, IModel, new()
     {
         var registrationType = typeof(ServiceCollectionExtensions).Assembly
                                                                   .GetType("Kuna.Projections.Core.ProjectionCreationRegistration`1")!
                                                                   .MakeGenericType(typeof(TState));
 
-        return provider.GetRequiredService(registrationType);
+        return provider.GetRequiredKeyedService(registrationType, GetProjectionKey<TState>(settingsSectionName));
     }
 
     private static Type GetInitialEventType(object registration)
@@ -345,6 +334,33 @@ public class ServiceCollectionExtensionsTests
         return (TField)target.GetType()
                              .GetField(fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
                              .GetValue(target)!;
+    }
+
+    private static string GetProjectionKey<TState>(string settingsSectionName)
+        where TState : class, IModel, new()
+    {
+        return ProjectionRegistration.GetKey<TState>(settingsSectionName);
+    }
+
+    private static void AddStateStore<TState, TStore>(IServiceCollection services, string settingsSectionName)
+        where TState : class, IModel, new()
+        where TStore : class, IModelStateStore<TState>
+    {
+        services.AddKeyedSingleton<IModelStateStore<TState>, TStore>(GetProjectionKey<TState>(settingsSectionName));
+    }
+
+    private static void AddStateSink<TState, TSink>(IServiceCollection services, string settingsSectionName)
+        where TState : class, IModel, new()
+        where TSink : class, IModelStateSink<TState>
+    {
+        services.AddKeyedSingleton<IModelStateSink<TState>, TSink>(GetProjectionKey<TState>(settingsSectionName));
+    }
+
+    private static void AddFailureHandler<TState, THandler>(IServiceCollection services, string settingsSectionName)
+        where TState : class, IModel, new()
+        where THandler : class, IProjectionFailureHandler<TState>
+    {
+        services.AddKeyedSingleton<IProjectionFailureHandler<TState>, THandler>(GetProjectionKey<TState>(settingsSectionName));
     }
 
     public sealed class CoreServiceTestModel : Model
