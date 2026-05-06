@@ -39,8 +39,8 @@ public sealed class ProjectionRegistrationBuilder<TState>
                                                 && Equals(x.ServiceKey, this.RegistrationKey))
                                        .Select(
                                            x => x.IsKeyedService
-                                               ? x.KeyedImplementationInstance
-                                               : x.ImplementationInstance)
+                                                    ? x.KeyedImplementationInstance
+                                                    : x.ImplementationInstance)
                                        .OfType<ProjectionCreationRegistration<TState>>()
                                        .LastOrDefault();
 

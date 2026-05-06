@@ -17,7 +17,10 @@ public static class ServiceCollectionExtensions
     /// Adds the SQL projection persistence services for the specified model
     /// state and DbContext types.
     /// </summary>
-    public static IServiceCollection AddSqlProjectionsDataStore<TState, TDataContext>(this IServiceCollection services, string settingsSectionName, string? schema = null)
+    public static IServiceCollection AddSqlProjectionsDataStore<TState, TDataContext>(
+        this IServiceCollection services,
+        string settingsSectionName,
+        string? schema = null)
         where TState : class, IModel, new()
         where TDataContext : DbContext, IProjectionDbContext
     {
@@ -34,8 +37,15 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredKeyedService<IProjectionFailureHandler<TState>>(registrationKey),
                 sp.GetRequiredKeyedService<IProjectionSettings<TState>>(registrationKey),
                 sp.GetRequiredService<ILogger<DataStore<TState, TDataContext>>>()));
-        services.AddKeyedSingleton<IModelStateSink<TState>>(registrationKey, (sp, _) => sp.GetRequiredKeyedService<DataStore<TState, TDataContext>>(registrationKey));
-        services.AddKeyedSingleton<IModelStateStore<TState>>(registrationKey, (sp, _) => sp.GetRequiredKeyedService<DataStore<TState, TDataContext>>(registrationKey));
+
+        services.AddKeyedSingleton<IModelStateSink<TState>>(
+            registrationKey,
+            (sp, _) => sp.GetRequiredKeyedService<DataStore<TState, TDataContext>>(registrationKey));
+
+        services.AddKeyedSingleton<IModelStateStore<TState>>(
+            registrationKey,
+            (sp, _) => sp.GetRequiredKeyedService<DataStore<TState, TDataContext>>(registrationKey));
+
         services.AddKeyedSingleton<ICheckpointStore>(registrationKey, (sp, _) => sp.GetRequiredKeyedService<DataStore<TState, TDataContext>>(registrationKey));
 
         services.AddHealthChecks().AddDbContextCheck<TDataContext>();

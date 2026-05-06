@@ -73,12 +73,15 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredKeyedService<ProjectionCreationRegistration<TState>>(registrationKey),
                 sp.GetRequiredKeyedService<IProjectionSettings<TState>>(registrationKey),
                 sp.GetRequiredService<ILogger<ProjectionEngine<TState>>>()));
+
         services.AddKeyedSingleton<IModelStateTransformer<EventEnvelope, TState>>(
             registrationKey,
             (sp, _) => sp.GetRequiredKeyedService<ProjectionEngine<TState>>(registrationKey));
+
         services.AddKeyedSingleton<IProjectionLifecycle<TState>>(
             registrationKey,
             (sp, _) => sp.GetRequiredKeyedService<ProjectionEngine<TState>>(registrationKey));
+
         services.AddKeyedSingleton<IModelStateCache<TState>>(
             registrationKey,
             (sp, _) => new InMemoryModelStateCache<TState>(sp.GetRequiredKeyedService<IProjectionSettings<TState>>(registrationKey)));

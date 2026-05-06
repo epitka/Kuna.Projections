@@ -8,6 +8,16 @@ namespace Kuna.Projections.Sink.EF.Npgsql;
 
 public static class ServiceCollectionExtensions
 {
+    public static IProjectionRegistrationBuilder<TState> UseNpgsqlDataStore<TState, TDataContext>(
+        this IProjectionRegistrationBuilder<TState> builder,
+        string? schema = null)
+        where TState : class, IModel, new()
+        where TDataContext : DbContext, IProjectionDbContext
+    {
+        builder.Services.AddNpgsqlProjectionsDataStore<TState, TDataContext>(builder.SettingsSectionName, schema);
+        return builder;
+    }
+
     extension(IServiceCollection services)
     {
         public IServiceCollection AddNpgsqlDuplicateKeyDetection()
@@ -23,14 +33,5 @@ public static class ServiceCollectionExtensions
             services.AddSqlProjectionsDataStore<TState, TDataContext>(settingsSectionName, schema);
             return services;
         }
-
-    }
-
-    public static IProjectionRegistrationBuilder<TState> UseNpgsqlDataStore<TState, TDataContext>(this IProjectionRegistrationBuilder<TState> builder, string? schema = null)
-        where TState : class, IModel, new()
-        where TDataContext : DbContext, IProjectionDbContext
-    {
-        builder.Services.AddNpgsqlProjectionsDataStore<TState, TDataContext>(builder.SettingsSectionName, schema);
-        return builder;
     }
 }

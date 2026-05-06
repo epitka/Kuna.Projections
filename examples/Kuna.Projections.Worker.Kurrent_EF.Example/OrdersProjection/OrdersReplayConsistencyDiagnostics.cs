@@ -45,6 +45,7 @@ public sealed class OrdersReplayConsistencyDiagnostics
 
         var projectionSettings = projectionSection.Get<ProjectionSettings<Order>>()
                                  ?? throw new InvalidOperationException($"Missing configuration section: {SettingsSectionName}");
+
         var sectionPath = $"{SettingsSectionName}:{KurrentDbSourceSettings.SectionName}";
         var section = configuration.GetSection(sectionPath);
 

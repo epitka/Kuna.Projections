@@ -47,7 +47,8 @@ public class ServiceCollectionExtensionsTests
         services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name);
 
         using var provider = services.BuildServiceProvider();
-        var settings = provider.GetRequiredKeyedService<IProjectionSettings<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name));
+        var settings = provider.GetRequiredKeyedService<IProjectionSettings<CoreServiceTestModel>>(
+            GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name));
 
         settings.CatchUpFlush.ModelCountThreshold.ShouldBe(12);
         settings.LiveProcessingFlush.ModelCountThreshold.ShouldBe(7);
@@ -155,7 +156,8 @@ public class ServiceCollectionExtensionsTests
                                 })
                             .Build();
 
-        var exception = Should.Throw<InvalidOperationException>(() => services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name));
+        var exception = Should.Throw<InvalidOperationException>(
+            () => services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name));
 
         exception.Message.ShouldContain(nameof(IProjectionSettings<CoreServiceTestModel>.InstanceId));
         exception.Message.ShouldContain(ProjectionSettingsSection.Name);
@@ -207,7 +209,9 @@ public class ServiceCollectionExtensionsTests
         services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name);
 
         using var provider = services.BuildServiceProvider();
-        var ex = Should.Throw<InvalidOperationException>(() => provider.GetRequiredKeyedService<ProjectionEngine<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name)));
+        var ex = Should.Throw<InvalidOperationException>(
+            () => provider.GetRequiredKeyedService<ProjectionEngine<CoreServiceTestModel>>(
+                GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name)));
 
         ex.Message.ShouldContain(nameof(ProjectionCreationRegistration<CoreServiceTestModel>));
     }
@@ -276,14 +280,20 @@ public class ServiceCollectionExtensionsTests
         AddStateStore<CoreServiceTestModel, DummyStateStore>(services, "OrdersProjection");
         AddStateSink<CoreServiceTestModel, DummyStateSink>(services, "OrdersProjection");
         AddFailureHandler<CoreServiceTestModel, DummyFailureHandler>(services, "OrdersProjection");
-        services.AddKeyedSingleton<IProjectionEventSource<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection"), new TestProjectionEventSource<CoreServiceTestModel>());
+        services.AddKeyedSingleton<IProjectionEventSource<CoreServiceTestModel>>(
+            GetProjectionKey<CoreServiceTestModel>("OrdersProjection"),
+            new TestProjectionEventSource<CoreServiceTestModel>());
+
         var checkpointStore = new DummyCheckpointStore();
         services.AddKeyedSingleton<ICheckpointStore>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection"), checkpointStore);
 
         AddStateStore<SecondaryServiceTestModel, SecondaryStateStore>(services, "InvoicesProjection");
         AddStateSink<SecondaryServiceTestModel, SecondaryStateSink>(services, "InvoicesProjection");
         AddFailureHandler<SecondaryServiceTestModel, SecondaryFailureHandler>(services, "InvoicesProjection");
-        services.AddKeyedSingleton<IProjectionEventSource<SecondaryServiceTestModel>>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"), new TestProjectionEventSource<SecondaryServiceTestModel>());
+        services.AddKeyedSingleton<IProjectionEventSource<SecondaryServiceTestModel>>(
+            GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"),
+            new TestProjectionEventSource<SecondaryServiceTestModel>());
+
         services.AddKeyedSingleton<ICheckpointStore>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"), checkpointStore);
 
         services.AddProjection<CoreServiceTestModel>(configuration, settingsSectionName: "OrdersProjection")
@@ -296,22 +306,37 @@ public class ServiceCollectionExtensionsTests
 
         provider.GetServices<IProjectionPipeline>().Count().ShouldBe(2);
 
-        var ordersPipeline = provider.GetRequiredKeyedService<IProjectionPipeline<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection"));
-        var invoicesPipeline = provider.GetRequiredKeyedService<IProjectionPipeline<SecondaryServiceTestModel>>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"));
+        var ordersPipeline =
+            provider.GetRequiredKeyedService<IProjectionPipeline<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection"));
 
-        GetPrivateField<object>(ordersPipeline, "source").ShouldBeSameAs(provider.GetRequiredKeyedService<IProjectionEventSource<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection")).Value);
+        var invoicesPipeline =
+            provider.GetRequiredKeyedService<IProjectionPipeline<SecondaryServiceTestModel>>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"));
+
+        GetPrivateField<object>(ordersPipeline, "source")
+            .ShouldBeSameAs(
+                provider.GetRequiredKeyedService<IProjectionEventSource<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection"))
+                        .Value);
+
         GetPrivateField<object>(ordersPipeline, "checkpointStore")
             .ShouldBeSameAs(checkpointStore);
 
-        GetPrivateField<object>(ordersPipeline, "lifecycle").ShouldBeSameAs(provider.GetRequiredKeyedService<IProjectionLifecycle<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection")));
+        GetPrivateField<object>(ordersPipeline, "lifecycle")
+            .ShouldBeSameAs(
+                provider.GetRequiredKeyedService<IProjectionLifecycle<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection")));
 
         GetPrivateField<object>(invoicesPipeline, "source")
-            .ShouldBeSameAs(provider.GetRequiredKeyedService<IProjectionEventSource<SecondaryServiceTestModel>>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection")).Value);
+            .ShouldBeSameAs(
+                provider.GetRequiredKeyedService<IProjectionEventSource<SecondaryServiceTestModel>>(
+                            GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"))
+                        .Value);
 
         GetPrivateField<object>(invoicesPipeline, "checkpointStore")
             .ShouldBeSameAs(checkpointStore);
 
-        GetPrivateField<object>(invoicesPipeline, "lifecycle").ShouldBeSameAs(provider.GetRequiredKeyedService<IProjectionLifecycle<SecondaryServiceTestModel>>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection")));
+        GetPrivateField<object>(invoicesPipeline, "lifecycle")
+            .ShouldBeSameAs(
+                provider.GetRequiredKeyedService<IProjectionLifecycle<SecondaryServiceTestModel>>(
+                    GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection")));
     }
 
     private static object GetProjectionCreationRegistration<TState>(IServiceProvider provider, string settingsSectionName)
