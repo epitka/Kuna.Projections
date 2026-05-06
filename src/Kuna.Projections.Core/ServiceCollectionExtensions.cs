@@ -5,7 +5,6 @@ using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Core.Utils;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -36,16 +35,18 @@ public static class ServiceCollectionExtensions
     public static ProjectionRegistrationBuilder<TState> AddProjection<TState>(
         this IServiceCollection services,
         IConfiguration configuration,
-        Action<ProjectionSettings<TState>>? configureProjection = null,
-        string? settingsSectionName = null)
+        string settingsSectionName,
+        Action<ProjectionSettings<TState>>? configureProjection = null)
         where TState : class, IModel, new()
     {
         var exportedTypes = typeof(TState).Assembly.GetExportedTypes();
+        var registrationKey = ProjectionRegistration.GetKey<TState>(settingsSectionName);
 
-        services.AddSingleton<IProjectionFactory<TState>>(
-            sp =>
+        services.AddKeyedSingleton<IProjectionFactory<TState>>(
+            registrationKey,
+            (sp, _) =>
             {
-                var stateStore = sp.GetRequiredService<IModelStateStore<TState>>();
+                var stateStore = sp.GetRequiredKeyedService<IModelStateStore<TState>>(registrationKey);
 
                 var projectionType = exportedTypes
                     .Single(x => x.BaseType == typeof(Projection<TState>));
@@ -63,30 +64,44 @@ public static class ServiceCollectionExtensions
                     stateStore);
             });
 
-        services.AddSingleton<ProjectionEngine<TState>>();
-        services.AddSingleton<IModelStateTransformer<EventEnvelope, TState>>(sp => sp.GetRequiredService<ProjectionEngine<TState>>());
-        services.AddSingleton<IProjectionLifecycle<TState>>(sp => sp.GetRequiredService<ProjectionEngine<TState>>());
-        services.AddSingleton<IModelStateCache<TState>, InMemoryModelStateCache<TState>>();
+        services.AddKeyedSingleton<ProjectionEngine<TState>>(
+            registrationKey,
+            (sp, _) => new ProjectionEngine<TState>(
+                sp.GetRequiredKeyedService<IProjectionFactory<TState>>(registrationKey),
+                sp.GetRequiredKeyedService<IProjectionFailureHandler<TState>>(registrationKey),
+                sp.GetRequiredKeyedService<IModelStateCache<TState>>(registrationKey),
+                sp.GetRequiredKeyedService<ProjectionCreationRegistration<TState>>(registrationKey),
+                sp.GetRequiredKeyedService<IProjectionSettings<TState>>(registrationKey),
+                sp.GetRequiredService<ILogger<ProjectionEngine<TState>>>()));
 
-        services.AddSingleton<IProjectionPipeline<TState>>(
-            sp => new ProjectionPipeline<EventEnvelope, TState>(
-                sp.GetRequiredService<IProjectionEventSource<TState>>().Value,
-                sp.GetRequiredService<IModelStateTransformer<EventEnvelope, TState>>(),
-                sp.GetRequiredService<IProjectionLifecycle<TState>>(),
-                sp.GetRequiredService<IModelStateCache<TState>>(),
-                sp.GetRequiredService<IModelStateSink<TState>>(),
-                sp.GetRequiredService<ICheckpointStore>(),
-                sp.GetRequiredService<IProjectionSettings<TState>>(),
+        services.AddKeyedSingleton<IModelStateTransformer<EventEnvelope, TState>>(
+            registrationKey,
+            (sp, _) => sp.GetRequiredKeyedService<ProjectionEngine<TState>>(registrationKey));
+
+        services.AddKeyedSingleton<IProjectionLifecycle<TState>>(
+            registrationKey,
+            (sp, _) => sp.GetRequiredKeyedService<ProjectionEngine<TState>>(registrationKey));
+
+        services.AddKeyedSingleton<IModelStateCache<TState>>(
+            registrationKey,
+            (sp, _) => new InMemoryModelStateCache<TState>(sp.GetRequiredKeyedService<IProjectionSettings<TState>>(registrationKey)));
+
+        services.AddKeyedSingleton<IProjectionPipeline<TState>>(
+            registrationKey,
+            (sp, _) => new ProjectionPipeline<EventEnvelope, TState>(
+                sp.GetRequiredKeyedService<IProjectionEventSource<TState>>(registrationKey).Value,
+                sp.GetRequiredKeyedService<IModelStateTransformer<EventEnvelope, TState>>(registrationKey),
+                sp.GetRequiredKeyedService<IProjectionLifecycle<TState>>(registrationKey),
+                sp.GetRequiredKeyedService<IModelStateCache<TState>>(registrationKey),
+                sp.GetRequiredKeyedService<IModelStateSink<TState>>(registrationKey),
+                sp.GetRequiredKeyedService<ICheckpointStore>(registrationKey),
+                sp.GetRequiredKeyedService<IProjectionSettings<TState>>(registrationKey),
                 sp.GetRequiredService<ILogger<ProjectionPipeline<EventEnvelope, TState>>>()));
 
-        services.AddSingleton<IProjectionPipeline>(sp => sp.GetRequiredService<IProjectionPipeline<TState>>());
-
-        var resolvedSettingsSectionName = string.IsNullOrWhiteSpace(settingsSectionName)
-                                              ? ProjectionSettingsSection.Name
-                                              : settingsSectionName;
+        services.AddSingleton<IProjectionPipeline>(sp => sp.GetRequiredKeyedService<IProjectionPipeline<TState>>(registrationKey));
 
         var projectionSettings = configuration
-                                 .GetRequiredSection(resolvedSettingsSectionName)
+                                 .GetRequiredSection(settingsSectionName)
                                  .Get<ProjectionSettings<TState>>();
 
         projectionSettings ??= new ProjectionSettings<TState>();
@@ -96,11 +111,11 @@ public static class ServiceCollectionExtensions
         if (string.IsNullOrWhiteSpace(projectionSettings.InstanceId))
         {
             throw new InvalidOperationException(
-                $"Projection settings section '{resolvedSettingsSectionName}' must define a non-empty '{nameof(IProjectionSettings<TState>.InstanceId)}'.");
+                $"Projection settings section '{settingsSectionName}' must define a non-empty '{nameof(IProjectionSettings<TState>.InstanceId)}'.");
         }
 
-        services.AddSingleton<IProjectionSettings<TState>>(projectionSettings);
+        services.AddKeyedSingleton<IProjectionSettings<TState>>(registrationKey, projectionSettings);
 
-        return new ProjectionRegistrationBuilder<TState>(services);
+        return new ProjectionRegistrationBuilder<TState>(services, configuration, settingsSectionName, registrationKey);
     }
 }

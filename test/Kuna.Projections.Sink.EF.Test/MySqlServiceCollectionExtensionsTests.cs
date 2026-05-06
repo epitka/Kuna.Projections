@@ -14,8 +14,9 @@ public class MySqlServiceCollectionExtensionsTests
     public void AddMySqlProjectionsDataStore_Should_Register_Provider_Detector_And_Common_Services()
     {
         var services = new ServiceCollection();
+        var registrationKey = ProjectionRegistration.GetKey<TestModel>("OrdersProjection");
 
-        var returned = services.AddMySqlProjectionsDataStore<TestModel, TestProjectionDbContext>(schema: "orders");
+        var returned = services.AddMySqlProjectionsDataStore<TestModel, TestProjectionDbContext>("OrdersProjection", schema: "orders");
 
         returned.ShouldBeSameAs(services);
 
@@ -29,25 +30,25 @@ public class MySqlServiceCollectionExtensionsTests
         services.ShouldContain(
             sd =>
                 sd.ServiceType == typeof(IProjectionFailureHandler<TestModel>)
-                && sd.ImplementationType == typeof(ProjectionFailureHandler<TestModel, TestProjectionDbContext>)
+                && Equals(sd.ServiceKey, registrationKey)
                 && sd.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             sd =>
                 sd.ServiceType == typeof(IModelStateSink<TestModel>)
-                && sd.ImplementationFactory != null
+                && Equals(sd.ServiceKey, registrationKey)
                 && sd.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             sd =>
                 sd.ServiceType == typeof(IModelStateStore<TestModel>)
-                && sd.ImplementationFactory != null
+                && Equals(sd.ServiceKey, registrationKey)
                 && sd.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             sd =>
                 sd.ServiceType == typeof(ICheckpointStore)
-                && sd.ImplementationFactory != null
+                && Equals(sd.ServiceKey, registrationKey)
                 && sd.Lifetime == ServiceLifetime.Singleton);
     }
 }

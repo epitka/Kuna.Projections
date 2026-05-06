@@ -25,7 +25,8 @@ public class ServiceCollectionExtensionsTests
             LoggerFactory.Create(
                 _ =>
                 {
-                }));
+                }),
+            ProjectionSettingsSection.Name);
 
         using var provider = services.BuildServiceProvider();
 
@@ -47,11 +48,16 @@ public class ServiceCollectionExtensionsTests
             LoggerFactory.Create(
                 _ =>
                 {
-                }));
+                }),
+            ProjectionSettingsSection.Name);
+
+        RegisterProjectionSettings<TestModel>(services, configuration, ProjectionSettingsSection.Name);
 
         using var provider = services.BuildServiceProvider();
 
-        var ex = Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<IProjectionEventSource<TestModel>>());
+        var ex = Should.Throw<InvalidOperationException>(
+            () => provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)));
+
         ex.Message.ShouldContain("Projections:KurrentDB");
     }
 
@@ -70,13 +76,17 @@ public class ServiceCollectionExtensionsTests
             LoggerFactory.Create(
                 _ =>
                 {
-                }));
+                }),
+            ProjectionSettingsSection.Name);
+
+        RegisterProjectionSettings<TestModel>(services, configuration, ProjectionSettingsSection.Name);
 
         using var provider = services.BuildServiceProvider();
 
         provider.GetRequiredService<IEventDeserializer>().ShouldNotBeNull();
-        provider.GetRequiredService<IProjectionEventSource<TestModel>>().ShouldNotBeNull();
-        provider.GetRequiredService<IProjectionSettings<TestModel>>().Source.ShouldBe(ProjectionSourceKind.KurrentDB);
+        provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
+        provider.GetRequiredKeyedService<IProjectionSettings<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name))
+                .Source.ShouldBe(ProjectionSourceKind.KurrentDB);
     }
 
     [Fact]
@@ -96,11 +106,14 @@ public class ServiceCollectionExtensionsTests
             LoggerFactory.Create(
                 _ =>
                 {
-                }));
+                }),
+            ProjectionSettingsSection.Name);
+
+        RegisterProjectionSettings<TestModel>(services, configuration, ProjectionSettingsSection.Name);
 
         using var provider = services.BuildServiceProvider();
 
-        provider.GetRequiredService<IProjectionEventSource<TestModel>>().ShouldNotBeNull();
+        provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
     }
 
     [Fact]
@@ -119,11 +132,16 @@ public class ServiceCollectionExtensionsTests
             LoggerFactory.Create(
                 _ =>
                 {
-                }));
+                }),
+            ProjectionSettingsSection.Name);
+
+        RegisterProjectionSettings<TestModel>(services, configuration, ProjectionSettingsSection.Name);
 
         using var provider = services.BuildServiceProvider();
 
-        var ex = Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<IProjectionEventSource<TestModel>>());
+        var ex = Should.Throw<InvalidOperationException>(
+            () => provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)));
+
         ex.Message.ShouldContain("regular expression");
     }
 
@@ -151,10 +169,13 @@ public class ServiceCollectionExtensionsTests
                 }),
             "OrdersProjection");
 
+        RegisterProjectionSettings<TestModel>(services, configuration, "OrdersProjection");
+
         using var provider = services.BuildServiceProvider();
 
-        provider.GetRequiredService<IProjectionEventSource<TestModel>>().ShouldNotBeNull();
-        provider.GetRequiredService<IProjectionSettings<TestModel>>().ModelIdResolutionStrategy.ShouldBe(ModelIdResolutionStrategy.RequireStreamId);
+        provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>("OrdersProjection")).ShouldNotBeNull();
+        provider.GetRequiredKeyedService<IProjectionSettings<TestModel>>(GetRegistrationKey<TestModel>("OrdersProjection"))
+                .ModelIdResolutionStrategy.ShouldBe(ModelIdResolutionStrategy.RequireStreamId);
     }
 
     private static IConfiguration BuildConfiguration(IDictionary<string, string?> values)
@@ -174,6 +195,21 @@ public class ServiceCollectionExtensionsTests
             ["Projections:KurrentDB:Filter:Kind"] = "StreamPrefix",
             ["Projections:KurrentDB:Filter:Prefixes:0"] = "orders-",
         };
+    }
+
+    private static void RegisterProjectionSettings<TState>(IServiceCollection services, IConfiguration configuration, string sectionName)
+        where TState : class, IModel, new()
+    {
+        var settings = configuration.GetRequiredSection(sectionName).Get<ProjectionSettings<TState>>()
+                       ?? throw new InvalidOperationException($"Missing configuration section: {sectionName}");
+
+        services.AddKeyedSingleton<IProjectionSettings<TState>>(GetRegistrationKey<TState>(sectionName), settings);
+    }
+
+    private static string GetRegistrationKey<TState>(string sectionName)
+        where TState : class, IModel, new()
+    {
+        return ProjectionRegistration.GetKey<TState>(sectionName);
     }
 
     private sealed class TestModel : Model

@@ -79,9 +79,9 @@ public sealed class AccountProjection : Projection<Account>
 }
 
 // registration
-services.AddKurrentDBSource<Account>(configuration, loggerFactory, "AccountProjection");
-services.AddSqlProjectionsDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
-services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection");
+services.AddProjection<Account>(configuration, "AccountProjection")
+        .UseKurrentDbSource(loggerFactory)
+        .UseSqlDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
 ```
 
 Then a hosted worker resolves `IProjectionPipeline` and calls:
@@ -238,7 +238,7 @@ Primary runtime types:
 
 Registration:
 
-- `ServiceCollectionExtensions.AddProjection<TState>(...)`: wires up the runtime for a model type
+- `ServiceCollectionExtensions.AddProjection<TState>(configuration, settingsSectionName)`: anchors one projection definition and wires up the runtime for that definition
 
 Important adopter notes:
 
@@ -263,7 +263,7 @@ Source-facing types:
 
 Registration:
 
-- `ServiceCollectionExtensions.AddKurrentDBSource<TState>(...)`: wires the source, deserializer, resolver, envelope factory, and health check
+- `UseKurrentDbSource(...)` on the projection registration builder wires the source, deserializer, resolver, envelope factory, and health check for that projection definition
 
 Important adopter notes:
 
@@ -284,8 +284,8 @@ Persistence-facing types:
 
 Registration:
 
-- `ServiceCollectionExtensions.AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)`: wires the shared relational sink, store, checkpoint store, failure handler, and health check
-- provider adapter packages add duplicate-key detection and convenience registration for concrete EF providers such as Npgsql, SQL Server, and MySQL
+- `UseSqlDataStore<TState, TDataContext>(schema: ...)`: wires the shared relational sink, store, checkpoint store, failure handler, and health check for that projection definition
+- provider adapter packages add duplicate-key detection and convenience builder methods such as `UseNpgsqlDataStore(...)`, `UseSqlServerDataStore(...)`, and `UseMySqlDataStore(...)`
 
 Important adopter notes:
 

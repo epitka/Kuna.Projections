@@ -24,11 +24,11 @@ The projection section name is application-defined. The tables below list the fu
 The library-owned names are:
 
 - `KurrentDB`
-  Required by `AddKurrentDBSource<TState>(...)`.
+  Required when the projection registration uses `UseKurrentDbSource(...)`.
 - `PostgreSql`
   Not required by the library itself, but used by the example application when constructing the EF Core `DbContext`.
 
-If `KurrentDB` is missing or empty, `AddKurrentDBSource<TState>(...)` throws during registration.
+If `KurrentDB` is missing or empty, `UseKurrentDbSource(...)` throws during registration.
 
 ## Projection Section
 
@@ -39,8 +39,6 @@ Bound by: `AddProjection<TState>(configuration, settingsSectionName: "...")`
 Target type: `ProjectionSettings<TState>`
 
 The section itself is required because `AddProjection<TState>(...)` calls `configuration.GetRequiredSection(...)`.
-
-If you omit `settingsSectionName`, the default section name is `Projections`. That section is still required.
 
 ### Settings Summary
 
@@ -358,7 +356,7 @@ Guidance:
 
 Section name: `KurrentDB`
 
-Bound by: `AddKurrentDBSource<TState>(configuration, loggerFactory, settingsSectionName)`
+Bound by: `UseKurrentDbSource(...)` on a projection registration builder
 
 Target type: `KurrentDbSourceSettings`
 
@@ -415,7 +413,7 @@ Examples from the runnable worker:
 
 - `ConnectionStrings:PostgreSql`
   Used by the host app when configuring `OrdersDbContext`.
-- schema passed to `AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)`
+- schema passed to `UseNpgsqlDataStore<TState, TDataContext>(schema: ...)`, `UseSqlServerDataStore<TState, TDataContext>(schema: ...)`, `UseMySqlDataStore<TState, TDataContext>(schema: ...)`, or `UseSqlDataStore<TState, TDataContext>(schema: ...)`
   Chosen in code, not from library-owned configuration.
 
 Those are valid application decisions, but they are not part of the shared runtime settings contract documented above.

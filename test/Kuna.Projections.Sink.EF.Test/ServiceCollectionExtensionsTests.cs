@@ -13,34 +13,35 @@ public class ServiceCollectionExtensionsTests
     public void AddEfProjectionStore_Should_Register_Required_Services()
     {
         var services = new ServiceCollection();
-        var returned = services.AddSqlProjectionsDataStore<TestModel, TestProjectionDbContext>(schema: "dbo");
+        var returned = services.AddSqlProjectionsDataStore<TestModel, TestProjectionDbContext>("OrdersProjection", schema: "dbo");
+        var registrationKey = ProjectionRegistration.GetKey<TestModel>("OrdersProjection");
 
         returned.ShouldBeSameAs(services);
 
         services.ShouldContain(
             sd =>
                 sd.ServiceType == typeof(IProjectionFailureHandler<TestModel>)
-                && sd.ImplementationType == typeof(ProjectionFailureHandler<TestModel, TestProjectionDbContext>)
+                && Equals(sd.ServiceKey, registrationKey)
                 && sd.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             sd =>
                 sd.ServiceType == typeof(DataStore<TestModel, TestProjectionDbContext>)
-                && sd.ImplementationType == typeof(DataStore<TestModel, TestProjectionDbContext>)
+                && Equals(sd.ServiceKey, registrationKey)
                 && sd.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             sd =>
-                sd.ServiceType == typeof(IModelStateSink<TestModel>) && sd.ImplementationFactory != null && sd.Lifetime == ServiceLifetime.Singleton);
+                sd.ServiceType == typeof(IModelStateSink<TestModel>) && Equals(sd.ServiceKey, registrationKey) && sd.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             sd =>
-                sd.ServiceType == typeof(IModelStateStore<TestModel>) && sd.ImplementationFactory != null && sd.Lifetime == ServiceLifetime.Singleton);
+                sd.ServiceType == typeof(IModelStateStore<TestModel>) && Equals(sd.ServiceKey, registrationKey) && sd.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             sd =>
                 sd.ServiceType == typeof(ICheckpointStore)
-                && sd.ImplementationFactory != null
+                && Equals(sd.ServiceKey, registrationKey)
                 && sd.Lifetime == ServiceLifetime.Singleton);
     }
 }
