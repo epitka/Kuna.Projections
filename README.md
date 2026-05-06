@@ -145,13 +145,9 @@ services.AddProjectionHost(typeof(Program).Assembly);
 services.AddDbContext<AccountProjectionDbContext>(
     options => options.UseNpgsql(configuration.GetConnectionString("PostgreSql")));
 
-services.AddKurrentDBSource<Account>(
-    configuration,
-    loggerFactory,
-    "AccountProjection");
-
-services.AddNpgsqlProjectionsDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
-services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
+services.AddProjection<Account>(configuration, "AccountProjection")
+        .UseKurrentDbSource(loggerFactory)
+        .UseNpgsqlDataStore<Account, AccountProjectionDbContext>(schema: "dbo")
         .WithInitialEvent<AccountCreated>();
 ```
 
