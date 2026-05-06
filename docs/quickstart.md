@@ -322,6 +322,7 @@ At minimum you need connection strings and one projection section that contains 
     "PostgreSql": "Host=localhost;Port=5432;Database=accounts_projection;Username=postgres;Password=postgres"
   },
   "AccountProjection": {
+    "InstanceId": "accounts-v1",
     "Source": "KurrentDB",
     "KurrentDB": {
       "Filter": {
@@ -335,6 +336,9 @@ At minimum you need connection strings and one projection section that contains 
 
 Useful settings notes:
 
+- `InstanceId` is required and should be a stable deployment-scoped identifier such as `accounts-v1`
+- when projection logic changes, create a new `InstanceId` such as `accounts-v2` so the new deployment replays from the beginning instead of resuming the old checkpoint
+- the usual rollout is blue/green: keep `accounts-v1` serving reads, let `accounts-v2` rebuild and catch up in parallel, validate it, then switch readers
 - `Source` defaults to `KurrentDB`, but the section is still shown explicitly here because the worker must contain a matching nested `KurrentDB` section
 - `KurrentDB.Filter.Prefixes` currently requires exactly one prefix and is used as the prefix filter for the Kurrent subscription
 - the default `ModelIdResolutionStrategy` on the root projection section is `PreferAttribute`

@@ -176,3 +176,4 @@ docker compose up -d
 ## Configuration
 
 - The worker uses `ConnectionStrings:PostgreSql` and `ConnectionStrings:KurrentDB` from `appsettings.json`.
+- `OrdersProjection:InstanceId` is the deployment identity. Change it when the projection logic changes and you want the new deployment to replay from the beginning in parallel before switching reads over.
