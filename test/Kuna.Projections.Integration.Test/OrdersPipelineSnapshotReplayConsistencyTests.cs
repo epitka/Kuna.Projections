@@ -105,7 +105,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
             testCase.CatchUpStrategy,
             testCase.LivePersistenceStrategy);
 
-        var pipeline = provider.GetRequiredService<IProjectionPipeline<Order>>();
+        var pipeline = provider.GetRequiredKeyedService<IProjectionPipeline<Order>>(ProjectionRegistration.GetKey<Order>(ProjectionSettingsSection.Name));
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
         var pipelineTask = pipeline.RunAsync(cts.Token);
