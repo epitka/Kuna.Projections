@@ -14,10 +14,10 @@ internal sealed class ProjectionCheckpointStore<TState> : ICheckpointStore
         this.collection = context.Database.GetCollection<ProjectionCheckpointDocument>(context.CollectionNamer.GetCheckpointCollectionName());
     }
 
-    public async Task<CheckPoint> GetCheckpoint(string modelName, CancellationToken cancellationToken)
+    public async Task<CheckPoint> GetCheckpoint(string modelName, string instanceId, CancellationToken cancellationToken)
     {
         var document = await this.collection
-                                 .Find(x => x.ModelName == modelName)
+                                 .Find(x => x.ModelName == modelName && x.InstanceId == instanceId)
                                  .SingleOrDefaultAsync(cancellationToken);
 
         if (document is null)
@@ -25,13 +25,15 @@ internal sealed class ProjectionCheckpointStore<TState> : ICheckpointStore
             return new CheckPoint
             {
                 ModelName = modelName,
-                GlobalEventPosition = new GlobalEventPosition(0),
+                InstanceId = instanceId,
+                GlobalEventPosition = new GlobalEventPosition(0L),
             };
         }
 
         return new CheckPoint
         {
             ModelName = document.ModelName,
+            InstanceId = document.InstanceId,
             GlobalEventPosition = GlobalEventPosition.From(document.GlobalEventPosition),
         };
     }
@@ -40,17 +42,24 @@ internal sealed class ProjectionCheckpointStore<TState> : ICheckpointStore
     {
         ProjectionCheckpointDocument document = new()
         {
+            Id = GetId(checkPoint.ModelName, checkPoint.InstanceId),
             ModelName = checkPoint.ModelName,
+            InstanceId = checkPoint.InstanceId,
             GlobalEventPosition = checkPoint.GlobalEventPosition.ToString(),
         };
 
         return this.collection.ReplaceOneAsync(
-            x => x.ModelName == checkPoint.ModelName,
+            x => x.Id == document.Id,
             document,
             new ReplaceOptions
             {
                 IsUpsert = true,
             },
             cancellationToken);
+    }
+
+    private static string GetId(string modelName, string instanceId)
+    {
+        return $"{modelName}:{instanceId}";
     }
 }

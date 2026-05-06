@@ -18,7 +18,7 @@ public sealed class LoadTests : MongoDbIntegrationTestBase
     public async Task Load_Should_Return_Null_For_Unknown_Id()
     {
         await using var provider = this.CreateProvider();
-        var store = provider.GetRequiredService<IModelStateStore<TestModel>>();
+        var store = provider.GetRequiredKeyedService<IModelStateStore<TestModel>>(GetRegistrationKey<TestModel>());
 
         var result = await store.Load(Guid.NewGuid(), CancellationToken.None);
 
@@ -32,7 +32,7 @@ public sealed class LoadTests : MongoDbIntegrationTestBase
 
         await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "alpha", 42, 101);
-        var store = provider.GetRequiredService<IModelStateStore<TestModel>>();
+        var store = provider.GetRequiredKeyedService<IModelStateStore<TestModel>>(GetRegistrationKey<TestModel>());
 
         var result = await store.Load(modelId, CancellationToken.None);
 
@@ -40,7 +40,7 @@ public sealed class LoadTests : MongoDbIntegrationTestBase
         result.Id.ShouldBe(modelId);
         result.Name.ShouldBe("alpha");
         result.EventNumber.ShouldBe(42);
-        result.GlobalEventPosition.Value.ShouldBe(101UL);
+        result.GlobalEventPosition.ShouldBe(new Kuna.Projections.Abstractions.Models.GlobalEventPosition("101"));
         result.HasStreamProcessingFaulted.ShouldBeFalse();
     }
 }

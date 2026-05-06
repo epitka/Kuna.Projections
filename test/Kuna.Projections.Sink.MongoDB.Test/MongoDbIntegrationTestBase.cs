@@ -8,6 +8,8 @@ namespace Kuna.Projections.Sink.MongoDB.Test;
 
 public abstract class MongoDbIntegrationTestBase
 {
+    protected const string SettingsSectionName = "MongoProjection";
+
     protected MongoDbIntegrationTestBase(MongoDbContainerFixture fixture)
     {
         this.Fixture = fixture;
@@ -17,6 +19,12 @@ public abstract class MongoDbIntegrationTestBase
     protected MongoDbContainerFixture Fixture { get; }
 
     protected string DatabaseName { get; }
+
+    protected static string GetRegistrationKey<TState>()
+        where TState : class, Kuna.Projections.Abstractions.Models.IModel, new()
+    {
+        return ProjectionRegistration.GetKey<TState>(SettingsSectionName);
+    }
 
     protected ServiceProvider CreateProvider()
     {
@@ -30,6 +38,7 @@ public abstract class MongoDbIntegrationTestBase
     {
         var services = new ServiceCollection();
         services.AddMongoProjectionsDataStore<TestModel>(
+            SettingsSectionName,
             this.Fixture.ConnectionString,
             this.DatabaseName,
             options =>

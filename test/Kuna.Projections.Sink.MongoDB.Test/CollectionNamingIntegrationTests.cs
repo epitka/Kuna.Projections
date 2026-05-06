@@ -35,6 +35,7 @@ public sealed class CollectionNamingIntegrationTests : MongoDbIntegrationTestBas
         ServiceCollection services = new();
 
         services.AddMongoProjectionsDataStore<Items.TestModel>(
+            SettingsSectionName,
             this.Fixture.ConnectionString,
             this.DatabaseName,
             options =>

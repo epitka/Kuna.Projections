@@ -12,14 +12,17 @@ internal sealed class ModelDataStore<TState>
 {
     private readonly IMongoCollection<TState> collection;
     private readonly IProjectionFailureHandler<TState> failureHandler;
+    private readonly string instanceId;
     private readonly string modelName;
 
     public ModelDataStore(
         ProjectionContext<TState> context,
-        IProjectionFailureHandler<TState> failureHandler)
+        IProjectionFailureHandler<TState> failureHandler,
+        string instanceId)
     {
         this.collection = context.Database.GetCollection<TState>(context.CollectionNamer.GetModelCollectionName<TState>());
         this.failureHandler = failureHandler;
+        this.instanceId = instanceId;
 
         this.modelName = ProjectionModelName.For<TState>();
     }
@@ -276,6 +279,7 @@ internal sealed class ModelDataStore<TState>
             failureCreatedOn: DateTime.UtcNow,
             exception: exception.ToString(),
             failureType: nameof(FailureType.Persistence),
-            modelName: this.modelName);
+            modelName: this.modelName,
+            instanceId: this.instanceId);
     }
 }

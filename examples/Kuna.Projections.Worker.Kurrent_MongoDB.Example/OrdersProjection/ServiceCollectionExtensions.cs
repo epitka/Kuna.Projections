@@ -30,18 +30,17 @@ public static class ServiceCollectionExtensions
                 builder.AddSerilog();
             });
 
-        services.AddKurrentDBSource<Order>(configuration, factory, "OrdersProjection");
-        services.AddMongoProjectionsDataStore<Order>(
-            mongoDbConnectionString,
-            "orders_projection",
-            options =>
-            {
-                options.CollectionPrefix = "orders";
-            });
-
         services.AddProjection<Order>(
                     configuration,
                     settingsSectionName: "OrdersProjection")
+                .UseKurrentDbSource(factory)
+                .UseMongoDataStore(
+                    mongoDbConnectionString,
+                    "orders_projection",
+                    options =>
+                    {
+                        options.CollectionPrefix = "orders";
+                    })
                 .WithInitialEvent<OrderCreatedEvent>();
 
         services.AddScoped<OrdersReplayConsistencyDiagnostics>();

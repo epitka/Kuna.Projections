@@ -191,7 +191,8 @@ public class ServiceCollectionExtensionsTests
             LoggerFactory.Create(
                 _ =>
                 {
-                }));
+                }),
+            ProjectionSettingsSection.Name);
 
         using var provider = services.BuildServiceProvider();
 

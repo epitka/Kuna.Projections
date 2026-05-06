@@ -31,7 +31,7 @@ public static class ServiceCollectionExtensions
         where TState : class, IModel, new()
     {
         var assembly = Assembly.GetEntryAssembly();
-        var exportedTypes = assembly!.GetExportedTypes();
+        var eventTypes = ResolveEventTypes(assembly, typeof(TState).Assembly);
         var registrationKey = ProjectionRegistration.GetKey<TState>(settingsSectionName);
 
         services.AddSingleton<IEventDeserializer>(
@@ -114,7 +114,6 @@ public static class ServiceCollectionExtensions
         builder.Services.AddKurrentDBSource<TState>(builder.Configuration, loggerFactory, builder.SettingsSectionName);
         return builder;
     }
-
 
     private static Type[] ResolveEventTypes(Assembly? entryAssembly, Assembly stateAssembly)
     {

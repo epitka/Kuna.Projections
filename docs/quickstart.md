@@ -206,16 +206,18 @@ MongoDB is the recommended quickstart path because it has less setup surface.
 Register the MongoDB sink directly in DI:
 
 ```csharp
+using Kuna.Projections.Core;
 using Kuna.Projections.Sink.MongoDB;
+using Kuna.Projections.Source.KurrentDB;
 
-services.AddKurrentDBSource<Account>(configuration, loggerFactory, "AccountProjection");
-services.AddMongoProjectionsDataStore<Account>(
-    "mongodb://localhost:27017",
-    "account_projection",
-    options =>
-    {
-    });
 services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
+        .UseKurrentDbSource(loggerFactory)
+        .UseMongoDataStore(
+            "mongodb://localhost:27017",
+            "account_projection",
+            options =>
+            {
+            })
         .WithInitialEvent<AccountCreated>();
 ```
 
@@ -335,14 +337,14 @@ using Kuna.Projections.Sink.MongoDB;
 
 services.AddProjectionHost(typeof(Program).Assembly);
 
-services.AddKurrentDBSource<Account>(configuration, loggerFactory, "AccountProjection");
-services.AddMongoProjectionsDataStore<Account>(
-    configuration.GetConnectionString("MongoDB"),
-    "account_projection",
-    options =>
-    {
-    });
 services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
+        .UseKurrentDbSource(loggerFactory)
+        .UseMongoDataStore(
+            configuration.GetConnectionString("MongoDB"),
+            "account_projection",
+            options =>
+            {
+            })
         .WithInitialEvent<AccountCreated>();
 ```
 

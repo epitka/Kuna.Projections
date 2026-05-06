@@ -22,7 +22,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         var modelId = Guid.NewGuid();
 
         await using var provider = this.CreateProvider();
-        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -60,7 +60,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "before", 1, 10);
-        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -98,7 +98,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "to-delete", 2, 10);
-        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -133,7 +133,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "existing", 1, 10);
-        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -172,7 +172,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "before", 3, 10);
-        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -209,7 +209,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         await using var provider = this.CreateProvider();
         await this.SeedModel(provider, modelId, "existing", 5, 10);
-        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -245,7 +245,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         var modelId = Guid.NewGuid();
 
         await using var provider = this.CreateProvider();
-        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -281,7 +281,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         await using var provider = this.CreateProvider();
         await this.SeedModel(provider, existingModelId, "existing", 1, 10);
-        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -334,7 +334,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         await using var provider = this.CreateProvider();
         await this.SeedModel(provider, staleModelId, "stale-before", 3, 10);
         await this.SeedModel(provider, validModelId, "valid-before", 5, 10);
-        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -388,7 +388,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         await using var provider = this.CreateProvider();
         await this.SeedModel(provider, staleModelId, "stale-existing", 3, 10);
         await this.SeedModel(provider, validModelId, "valid-existing", 5, 10);
-        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -438,7 +438,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         var validModelId = Guid.NewGuid();
 
         await using var provider = this.CreateProvider();
-        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =
@@ -494,7 +494,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         await using var provider = this.CreateProvider();
         await this.SeedModel(provider, failedModelId, "failed-before", 3, 10);
         await this.SeedModel(provider, validModelId, "valid-before", 5, 10);
-        var sink = provider.GetRequiredService<IModelStateSink<TestModel>>();
+        var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
             Changes =

@@ -164,19 +164,14 @@ using Kuna.Projections.Source.KurrentDB;
 
 services.AddProjectionHost(typeof(Program).Assembly);
 
-services.AddKurrentDBSource<Account>(
-    configuration,
-    loggerFactory,
-    "AccountProjection");
-
-services.AddMongoProjectionsDataStore<Account>(
-    "mongodb://localhost:27017",
-    "account_projection",
-    options =>
-    {
-    });
-
 services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
+        .UseKurrentDbSource(loggerFactory)
+        .UseMongoDataStore(
+            "mongodb://localhost:27017",
+            "account_projection",
+            options =>
+            {
+            })
         .WithInitialEvent<AccountCreated>();
 ```
 

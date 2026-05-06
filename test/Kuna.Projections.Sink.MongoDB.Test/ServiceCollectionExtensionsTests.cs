@@ -8,12 +8,16 @@ namespace Kuna.Projections.Sink.MongoDB.Test;
 
 public sealed class ServiceCollectionExtensionsTests
 {
+    private const string OrdersSectionName = "OrdersProjection";
+    private const string InvoicesSectionName = "InvoicesProjection";
+
     [Fact]
     public void AddMongoProjectionsDataStore_Should_Register_Required_Services()
     {
         ServiceCollection services = new();
 
         var returned = services.AddMongoProjectionsDataStore<TestModel>(
+            OrdersSectionName,
             "mongodb://localhost:27017",
             "testdb",
             options =>
@@ -24,26 +28,31 @@ public sealed class ServiceCollectionExtensionsTests
 
         services.ShouldContain(
             descriptor => descriptor.ServiceType == typeof(IProjectionFailureHandler<TestModel>)
+                          && descriptor.IsKeyedService
+                          && Equals(descriptor.ServiceKey, GetProjectionKey<TestModel>(OrdersSectionName))
                           && descriptor.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             descriptor => descriptor.ServiceType == typeof(IModelStateSink<TestModel>)
-                          && descriptor.ImplementationFactory != null
+                          && descriptor.IsKeyedService
+                          && Equals(descriptor.ServiceKey, GetProjectionKey<TestModel>(OrdersSectionName))
                           && descriptor.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             descriptor => descriptor.ServiceType == typeof(IModelStateStore<TestModel>)
-                          && descriptor.ImplementationFactory != null
+                          && descriptor.IsKeyedService
+                          && Equals(descriptor.ServiceKey, GetProjectionKey<TestModel>(OrdersSectionName))
                           && descriptor.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             descriptor => descriptor.ServiceType == typeof(ICheckpointStore)
-                          && descriptor.ImplementationFactory != null
+                          && descriptor.IsKeyedService
+                          && Equals(descriptor.ServiceKey, GetProjectionKey<TestModel>(OrdersSectionName))
                           && descriptor.Lifetime == ServiceLifetime.Singleton);
 
         services.ShouldContain(
             descriptor => descriptor.ServiceType == typeof(IProjectionStartupTask)
-                          && descriptor.ImplementationFactory != null
+                          && !descriptor.IsKeyedService
                           && descriptor.Lifetime == ServiceLifetime.Singleton);
     }
 
@@ -53,6 +62,7 @@ public sealed class ServiceCollectionExtensionsTests
         ServiceCollection services = new();
 
         services.AddMongoProjectionsDataStore<TestModel>(
+            OrdersSectionName,
             "mongodb://localhost:27017",
             "testdb",
             options =>
@@ -61,6 +71,7 @@ public sealed class ServiceCollectionExtensionsTests
             });
 
         services.AddMongoProjectionsDataStore<SecondaryTestModel>(
+            InvoicesSectionName,
             "mongodb://localhost:27017",
             "testdb",
             options =>
@@ -70,12 +81,14 @@ public sealed class ServiceCollectionExtensionsTests
 
         using var provider = services.BuildServiceProvider();
 
-        provider.GetRequiredService<IModelStateStore<TestModel>>().ShouldNotBeNull();
-        provider.GetRequiredService<IModelStateStore<SecondaryTestModel>>().ShouldNotBeNull();
-        provider.GetRequiredService<IProjectionFailureHandler<TestModel>>().ShouldNotBeNull();
-        provider.GetRequiredService<IProjectionFailureHandler<SecondaryTestModel>>().ShouldNotBeNull();
-        provider.GetServices<ICheckpointStore>().Count().ShouldBe(2);
-        provider.GetServices<ICheckpointStore>().Distinct().Count().ShouldBe(2);
+        provider.GetRequiredKeyedService<IModelStateStore<TestModel>>(GetProjectionKey<TestModel>(OrdersSectionName)).ShouldNotBeNull();
+        provider.GetRequiredKeyedService<IModelStateStore<SecondaryTestModel>>(GetProjectionKey<SecondaryTestModel>(InvoicesSectionName)).ShouldNotBeNull();
+        provider.GetRequiredKeyedService<IProjectionFailureHandler<TestModel>>(GetProjectionKey<TestModel>(OrdersSectionName)).ShouldNotBeNull();
+        provider.GetRequiredKeyedService<IProjectionFailureHandler<SecondaryTestModel>>(GetProjectionKey<SecondaryTestModel>(InvoicesSectionName))
+                .ShouldNotBeNull();
+
+        provider.GetRequiredKeyedService<ICheckpointStore>(GetProjectionKey<TestModel>(OrdersSectionName)).ShouldNotBeNull();
+        provider.GetRequiredKeyedService<ICheckpointStore>(GetProjectionKey<SecondaryTestModel>(InvoicesSectionName)).ShouldNotBeNull();
 
         provider.GetServices<IProjectionStartupTask>().Count().ShouldBe(2);
     }
@@ -87,6 +100,7 @@ public sealed class ServiceCollectionExtensionsTests
         var factoryCalled = false;
 
         services.AddMongoProjectionsDataStore<TestModel>(
+            OrdersSectionName,
             "mongodb://localhost:27017",
             "testdb",
             options =>
@@ -99,5 +113,11 @@ public sealed class ServiceCollectionExtensionsTests
             });
 
         factoryCalled.ShouldBeTrue();
+    }
+
+    private static string GetProjectionKey<TState>(string settingsSectionName)
+        where TState : class, Kuna.Projections.Abstractions.Models.IModel, new()
+    {
+        return ProjectionRegistration.GetKey<TState>(settingsSectionName);
     }
 }

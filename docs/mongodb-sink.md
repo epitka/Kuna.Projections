@@ -20,27 +20,35 @@ dotnet add package Kuna.Projections.Sink.MongoDB
 ## Register
 
 ```csharp
+using Kuna.Projections.Core;
 using Kuna.Projections.Sink.MongoDB;
+using Kuna.Projections.Source.KurrentDB;
 
-services.AddMongoProjectionsDataStore<Account>(
-    "mongodb://localhost:27017",
-    "account_projection",
-    options =>
-    {
-    });
+services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
+    .UseKurrentDbSource(loggerFactory)
+    .UseMongoDataStore(
+        "mongodb://localhost:27017",
+        "account_projection",
+        options =>
+        {
+        })
+    .WithInitialEvent<AccountCreated>();
 ```
 
 Optional overrides:
 
 ```csharp
-services.AddMongoProjectionsDataStore<Account>(
-    "mongodb://localhost:27017",
-    "account_projection",
-    options =>
-    {
-        options.CollectionPrefix = "accounts";
-        options.SetModelCollectionName<Account>("account_documents");
-    });
+services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
+    .UseKurrentDbSource(loggerFactory)
+    .UseMongoDataStore(
+        "mongodb://localhost:27017",
+        "account_projection",
+        options =>
+        {
+            options.CollectionPrefix = "accounts";
+            options.SetModelCollectionName<Account>("account_documents");
+        })
+    .WithInitialEvent<AccountCreated>();
 ```
 
 ## Collection Naming
