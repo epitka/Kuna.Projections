@@ -20,7 +20,8 @@ public class ProjectionFailureTests
             failureCreatedOn: failureTime,
             exception: "boom",
             failureType: "Test",
-            modelName: "TestModel");
+            modelName: "TestModel",
+            instanceId: "orders-v1");
 
         failure.ModelId.ShouldBe(modelId);
         failure.EventNumber.ShouldBe(12);
@@ -29,5 +30,6 @@ public class ProjectionFailureTests
         failure.Exception.ShouldBe("boom");
         failure.FailureType.ShouldBe("Test");
         failure.ModelName.ShouldBe("TestModel");
+        failure.InstanceId.ShouldBe("orders-v1");
     }
 }

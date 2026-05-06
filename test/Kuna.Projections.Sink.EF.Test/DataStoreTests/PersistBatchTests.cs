@@ -1,5 +1,6 @@
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
+using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Pipeline.EF.Test.Items;
 using Kuna.Projections.Sink.EF;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,8 @@ namespace Kuna.Projections.Pipeline.EF.Test.DataStoreTests;
 [Collection(PostgresSqlCollection.Name)]
 public class PersistBatchTests : DataStoreIntegrationTestBase
 {
+    private const string TestModelInstanceId = "test-model";
+
     public PersistBatchTests(PostgresSqlContainerFixture fixture)
         : base(fixture)
     {
@@ -54,7 +57,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         var persistedModel = await dbContext.TestModels.FindAsync(new object[] { modelId, }, CancellationToken.None);
         persistedModel.ShouldNotBeNull();
         persistedModel.Name.ShouldBe("created");
-        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), TestModelInstanceId, }, CancellationToken.None))
             .ShouldBeNull();
     }
 
@@ -95,7 +98,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         persistedModel.Name.ShouldBe("after");
         persistedModel.EventNumber.ShouldBe(2);
         persistedModel.GlobalEventPosition.ShouldBe(new GlobalEventPosition("22"));
-        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), TestModelInstanceId, }, CancellationToken.None))
             .ShouldBeNull();
     }
 
@@ -126,8 +129,9 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         var duplicateKeyExceptionDetector = provider.GetRequiredService<IDuplicateKeyExceptionDetector>();
         var failureLogger = provider.GetRequiredService<ILogger<ProjectionFailureHandler<TestChildModel, TestProjectionDbContext>>>();
         var failureHandler = new ProjectionFailureHandler<TestChildModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureLogger);
+        var settings = provider.GetRequiredService<IProjectionSettings<TestChildModel>>();
         var storeLogger = provider.GetRequiredService<ILogger<DataStore<TestChildModel, TestProjectionDbContext>>>();
-        var store = new DataStore<TestChildModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureHandler, storeLogger);
+        var store = new DataStore<TestChildModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureHandler, settings, storeLogger);
 
         var model = await store.Load(modelId, CancellationToken.None);
 
@@ -178,10 +182,11 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         var duplicateKeyExceptionDetector = provider.GetRequiredService<IDuplicateKeyExceptionDetector>();
         var failureLogger = provider.GetRequiredService<ILogger<ProjectionFailureHandler<InvalidChildModel, TestProjectionDbContext>>>();
         var failureHandler = new ProjectionFailureHandler<InvalidChildModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureLogger);
+        var settings = provider.GetRequiredService<IProjectionSettings<InvalidChildModel>>();
         var storeLogger = provider.GetRequiredService<ILogger<DataStore<InvalidChildModel, TestProjectionDbContext>>>();
 
         var ex = Should.Throw<InvalidOperationException>(
-            () => new DataStore<InvalidChildModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureHandler, storeLogger));
+            () => new DataStore<InvalidChildModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureHandler, settings, storeLogger));
 
         ex.Message.ShouldContain($"{nameof(InvalidChildModel)}.{nameof(InvalidChildModel.Children)}");
         ex.Message.ShouldContain(nameof(InvalidChildItem));
@@ -219,7 +224,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         await using var dbContext = scope.ServiceProvider.GetRequiredService<TestProjectionDbContext>();
         var persistedModel = await dbContext.TestModels.FindAsync(new object[] { modelId, }, CancellationToken.None);
         persistedModel.ShouldBeNull();
-        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), TestModelInstanceId, }, CancellationToken.None))
             .ShouldBeNull();
     }
 
@@ -257,7 +262,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         await using var dbContext = scope.ServiceProvider.GetRequiredService<TestProjectionDbContext>();
         var persistedModel = await dbContext.TestModels.FindAsync(new object[] { modelId, }, CancellationToken.None);
         persistedModel.ShouldBeNull();
-        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), TestModelInstanceId, }, CancellationToken.None))
             .ShouldBeNull();
     }
 
@@ -311,14 +316,14 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         var validModel = await dbContext.TestModels.FindAsync(new object[] { validId, }, CancellationToken.None);
         var invalidModel = await dbContext.TestModels.FindAsync(new object[] { invalidId, }, CancellationToken.None);
         var failure = await dbContext.ProjectionFailures.FindAsync(
-                          new object[] { ProjectionModelName.For<TestModel>(), invalidId, },
+                          new object[] { ProjectionModelName.For<TestModel>(), TestModelInstanceId, invalidId, },
                           CancellationToken.None);
 
         validModel.ShouldNotBeNull();
         invalidModel.ShouldBeNull();
         failure.ShouldNotBeNull();
         failure.FailureType.ShouldBe(nameof(FailureType.Persistence));
-        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), TestModelInstanceId, }, CancellationToken.None))
             .ShouldBeNull();
     }
 
@@ -383,7 +388,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         failures.Count.ShouldBe(2);
         failures.ShouldContain(x => x.ModelId == invalidId1 && x.FailureType == nameof(FailureType.Persistence));
         failures.ShouldContain(x => x.ModelId == invalidId2 && x.FailureType == nameof(FailureType.Persistence));
-        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), TestModelInstanceId, }, CancellationToken.None))
             .ShouldBeNull();
     }
 
@@ -460,7 +465,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
             failures.ShouldContain(x => x.ModelId == invalidId && x.FailureType == nameof(FailureType.Persistence));
         }
 
-        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), TestModelInstanceId, }, CancellationToken.None))
             .ShouldBeNull();
     }
 
@@ -504,7 +509,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         var persistedValid = await dbContext.TestModels.FindAsync(new object[] { validId, }, CancellationToken.None);
         var persistedInvalid = await dbContext.TestModels.FindAsync(new object[] { invalidId, }, CancellationToken.None);
         var failure = await dbContext.ProjectionFailures.FindAsync(
-                          new object[] { ProjectionModelName.For<TestModel>(), invalidId, },
+                          new object[] { ProjectionModelName.For<TestModel>(), TestModelInstanceId, invalidId, },
                           CancellationToken.None);
 
         persistedValid.ShouldNotBeNull();
@@ -518,7 +523,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
 
         failure.ShouldNotBeNull();
         failure.FailureType.ShouldBe(nameof(FailureType.Persistence));
-        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), TestModelInstanceId, }, CancellationToken.None))
             .ShouldBeNull();
     }
 
@@ -542,7 +547,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         var failureCount = await dbContext.ProjectionFailures.CountAsync(CancellationToken.None);
         modelCount.ShouldBe(0);
         failureCount.ShouldBe(0);
-        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), }, CancellationToken.None))
+        (await dbContext.CheckPoint.FindAsync(new object[] { ProjectionModelName.For<TestModel>(), TestModelInstanceId, }, CancellationToken.None))
             .ShouldBeNull();
     }
 }

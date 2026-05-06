@@ -634,6 +634,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         services.AddSingleton<IProjectionSettings<Order>>(
             new ProjectionSettings<Order>
             {
+                InstanceId = "orders-integration",
                 ModelIdResolutionStrategy = ModelIdResolutionStrategy.PreferAttribute,
             });
 
@@ -663,6 +664,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                     envelopeFactory,
                     sp.GetRequiredService<ICheckpointSerializer<Position>>(),
                     sourceSettings,
+                    projectionSettings,
                     sp.GetRequiredService<ILogger<KurrentDbEventSource<Order>>>());
 
                 return new TestProjectionEventSource<Order>(source);
@@ -674,6 +676,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                      .AddInMemoryCollection(
                          new Dictionary<string, string?>
                          {
+                             ["Projections:InstanceId"] = "orders-integration",
                              ["Projections:CatchUpFlush:Strategy"] = catchUpPersistenceStrategy.ToString(),
                              ["Projections:LiveProcessingFlush:Strategy"] = livePersistenceStrategy.ToString(),
                              ["Projections:CatchUpFlush:ModelCountThreshold"] = modelCountFlushThreshold.ToString(CultureInfo.InvariantCulture),
@@ -700,7 +703,13 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
     private async Task EnsureCheckpointExists()
     {
         await using var ctx = CreateOrdersDbContext(this.postgresFixture.ConnectionString);
-        var existing = await ctx.CheckPoint.Where(x => x.ModelName == ProjectionModelName.For<Order>()).SingleOrDefaultAsync();
+        var existing = await ctx.CheckPoint.FindAsync(
+                           new object[]
+                           {
+                               ProjectionModelName.For<Order>(),
+                               "orders-integration",
+                           },
+                           CancellationToken.None);
 
         if (existing == null)
         {
@@ -708,6 +717,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                 new CheckPoint
                 {
                     ModelName = ProjectionModelName.For<Order>(),
+                    InstanceId = "orders-integration",
                     GlobalEventPosition = Position.Start.ToGlobalEventPosition(),
                 });
 

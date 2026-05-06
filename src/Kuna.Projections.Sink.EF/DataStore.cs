@@ -29,6 +29,7 @@ public class DataStore<TState, TDataContext>
     private readonly ILogger logger;
     private readonly bool hasChildEntities;
     private readonly string modelName;
+    private readonly string instanceId;
 
     /// <summary>
     /// Initializes the EF-backed model store.
@@ -37,6 +38,7 @@ public class DataStore<TState, TDataContext>
         IServiceProvider serviceProvider,
         IDuplicateKeyExceptionDetector duplicateKeyExceptionDetector,
         IProjectionFailureHandler<TState> failureHandler,
+        IProjectionSettings<TState> settings,
         ILogger<DataStore<TState, TDataContext>> logger)
     {
         this.serviceProvider = serviceProvider;
@@ -44,6 +46,7 @@ public class DataStore<TState, TDataContext>
         this.failureHandler = failureHandler;
         this.logger = logger;
         this.modelName = ProjectionModelName.For<TState>();
+        this.instanceId = settings.InstanceId;
 
         this.hasChildEntities = this.ValidateAndDetectChildEntities();
 
@@ -87,8 +90,9 @@ public class DataStore<TState, TDataContext>
         catch (Exception ex)
         {
             this.logger.LogError(
-                "LoadModel failed for modelName: {Model} id: {ModelId}, with {Exception}",
+                "LoadModel failed for modelName: {Model} instanceId: {InstanceId} id: {ModelId}, with {Exception}",
                 this.modelName,
+                this.instanceId,
                 modelId,
                 ex.ToString());
 
@@ -167,8 +171,9 @@ public class DataStore<TState, TDataContext>
         if (this.logger.IsEnabled(LogLevel.Debug))
         {
             this.logger.LogDebug(
-                "Projection EF sink persisted for {Model}: batchChanges={BatchChanges}, persisted={Persisted}, inserted={Inserted}, updated={Updated}, excluded={Excluded}, modelPersistMs={ModelPersistMs:F0}, insertMs={InsertMs:F0}, updateMs={UpdateMs:F0}, commitMs={CommitMs:F0}, markPersistedGraphMs={MarkPersistedGraphMs:F0}, totalMs={TotalMs:F0}",
+                "Projection EF sink persisted for {Model} instance {InstanceId}: batchChanges={BatchChanges}, persisted={Persisted}, inserted={Inserted}, updated={Updated}, excluded={Excluded}, modelPersistMs={ModelPersistMs:F0}, insertMs={InsertMs:F0}, updateMs={UpdateMs:F0}, commitMs={CommitMs:F0}, markPersistedGraphMs={MarkPersistedGraphMs:F0}, totalMs={TotalMs:F0}",
                 this.modelName,
+                this.instanceId,
                 batch.Changes.Count,
                 toPersist.Length,
                 insertCount,
@@ -186,7 +191,7 @@ public class DataStore<TState, TDataContext>
     /// <summary>
     /// Loads the persisted checkpoint for the specified model name.
     /// </summary>
-    public async Task<CheckPoint> GetCheckpoint(string modelName, CancellationToken cancellationToken)
+    public async Task<CheckPoint> GetCheckpoint(string modelName, string instanceId, CancellationToken cancellationToken)
     {
         using var transientScope = this.serviceProvider.CreateScope();
 
@@ -194,12 +199,13 @@ public class DataStore<TState, TDataContext>
                                            .ServiceProvider
                                            .GetRequiredService<TDataContext>();
 
-        var checkPoint = await transientContext!.CheckPoint.FindAsync([modelName,], cancellationToken);
+        var checkPoint = await transientContext!.CheckPoint.FindAsync([modelName, instanceId,], cancellationToken);
 
         return checkPoint
                ?? new CheckPoint
                {
                    ModelName = modelName,
+                   InstanceId = instanceId,
                    GlobalEventPosition = new GlobalEventPosition(string.Empty),
                };
     }
@@ -217,7 +223,9 @@ public class DataStore<TState, TDataContext>
 
         var currentCheckpoint = await transientContext!
                                       .CheckPoint
-                                      .Where(x => x.ModelName == checkPoint.ModelName)
+                                      .Where(
+                                          x => x.ModelName == checkPoint.ModelName
+                                               && x.InstanceId == checkPoint.InstanceId)
                                       .SingleOrDefaultAsync(cancellationToken);
 
         if (currentCheckpoint == null)
@@ -366,6 +374,7 @@ public class DataStore<TState, TDataContext>
                     eventNumber: model.EventNumber!.Value,
                     streamPosition: model.GlobalEventPosition,
                     modelName: this.modelName,
+                    instanceId: this.instanceId,
                     failureCreatedOn: DateTime.Now.ToUniversalTime());
 
                 await this.failureHandler.Handle(failure, cancellationToken);
@@ -574,8 +583,9 @@ public class DataStore<TState, TDataContext>
     {
         this.logger.LogWarning(
             ex,
-            "Failed to persist stream projection {ModelName} {@Model}",
+            "Failed to persist stream projection {ModelName} instance {InstanceId} {@Model}",
             this.modelName,
+            this.instanceId,
             model);
 
         var failure = new ProjectionFailure(
@@ -585,6 +595,7 @@ public class DataStore<TState, TDataContext>
             eventNumber: model.EventNumber!.Value,
             streamPosition: model.GlobalEventPosition,
             modelName: this.modelName,
+            instanceId: this.instanceId,
             failureCreatedOn: DateTime.Now.ToUniversalTime());
 
         await this.failureHandler.Handle(failure, cancellationToken);

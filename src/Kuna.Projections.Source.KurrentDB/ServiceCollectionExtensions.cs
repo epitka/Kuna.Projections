@@ -109,6 +109,7 @@ public static class ServiceCollectionExtensions
                     envelopeFactory,
                     provider.GetRequiredService<ICheckpointSerializer<Position>>(),
                     sourceSettings,
+                    resolvedProjectionSettings,
                     provider.GetRequiredService<ILogger<KurrentDbEventSource<TState>>>());
 
                 return new ProjectionEventSource<TState>(source);

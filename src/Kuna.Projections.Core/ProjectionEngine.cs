@@ -104,16 +104,18 @@ internal sealed class ProjectionEngine<TState>
                     failureCreatedOn: DateTime.Now.ToUniversalTime(),
                     exception: ex.Message,
                     failureType: FailureType.EventOutOfOrder.ToString(),
-                    modelName: this.modelName);
+                    modelName: this.modelName,
+                    instanceId: this.settings.InstanceId);
 
                 await this.failureHandler.Handle(failure, cancellationToken);
 
                 this.logger.LogError(
                     ex,
-                    "Projection failed to process, event out of order in {StreamId}, event {EventNumber} for model {ModelState}",
+                    "Projection failed to process, event out of order in {StreamId}, event {EventNumber} for model {ModelState} instance {InstanceId}",
                     envelope.StreamId,
                     envelope.EventNumber,
-                    this.modelName);
+                    this.modelName,
+                    this.settings.InstanceId);
             }
 
             throw;
@@ -122,10 +124,11 @@ internal sealed class ProjectionEngine<TState>
         {
             this.logger.LogError(
                 ex,
-                "Projection failed to process in {StreamId}, event {EventNumber} for model {ModelState}",
+                "Projection failed to process in {StreamId}, event {EventNumber} for model {ModelState} instance {InstanceId}",
                 envelope.StreamId,
                 envelope.EventNumber,
-                this.modelName);
+                this.modelName,
+                this.settings.InstanceId);
 
             throw;
         }
@@ -240,10 +243,11 @@ internal sealed class ProjectionEngine<TState>
         }
 
         this.logger.LogWarning(
-            "Projection state not found in data store for {StreamId}, event {EventNumber} for model {ModelState}",
+            "Projection state not found in data store for {StreamId}, event {EventNumber} for model {ModelState} instance {InstanceId}",
             envelope.StreamId,
             envelope.EventNumber,
-            this.modelName);
+            this.modelName,
+            this.settings.InstanceId);
 
         var ex = $"Projection state not found in data store for {envelope.StreamId}, event {envelope.EventNumber}";
 
@@ -254,7 +258,8 @@ internal sealed class ProjectionEngine<TState>
             failureCreatedOn: DateTime.Now.ToUniversalTime(),
             exception: ex,
             failureType: FailureType.EventProcessing.ToString(),
-            modelName: this.modelName);
+            modelName: this.modelName,
+            instanceId: this.settings.InstanceId);
 
         await this.failureHandler.Handle(failure, cancellationToken);
 

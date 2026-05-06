@@ -33,9 +33,13 @@ public class CheckPointConfiguration : IEntityTypeConfiguration<CheckPoint>
             builder.ToTable(tableName, this.schema);
         }
 
-        builder.HasKey(nameof(CheckPoint.ModelName));
+        builder.HasKey(nameof(CheckPoint.ModelName), nameof(CheckPoint.InstanceId));
 
         builder.Property(x => x.ModelName)
+               .IsRequired()
+               .HasMaxLength(100);
+
+        builder.Property(x => x.InstanceId)
                .IsRequired()
                .HasMaxLength(100);
 

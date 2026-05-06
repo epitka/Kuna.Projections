@@ -202,6 +202,7 @@ Example:
     "KurrentDB": "esdb://admin:changeit@localhost:2113?tls=false"
   },
   "OrdersProjection": {
+    "InstanceId": "orders-v1",
     "Source": "KurrentDB",
     "KurrentDB": {
       "Filter": {
@@ -212,6 +213,19 @@ Example:
   }
 }
 ```
+
+`InstanceId` is required. It identifies one deployed projection instance, not the `TState` type in the abstract.
+
+That distinction matters when the projection logic changes and you want a blue/green rollout:
+
+1. keep the current deployment running with `InstanceId = "orders-v1"`
+2. deploy the new projection with `InstanceId = "orders-v2"`
+3. let `orders-v2` replay from the beginning into its own checkpoint and storage boundary
+4. validate the rebuilt `orders-v2` read model
+5. switch readers or configuration to `orders-v2`
+6. retire `orders-v1` later
+
+The point is to make projection changes replay-safe. A new `InstanceId` starts a new checkpoint lineage, so the new deployment can rebuild from the start without overwriting the current deployment's checkpoint or failure records.
 
 `KurrentDB:Filter` maps onto the Kurrent .NET subscription filter model:
 
