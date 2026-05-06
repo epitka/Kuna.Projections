@@ -92,7 +92,7 @@ public class ProjectionFailureHandler<TState, TDataContext>
                                     .GetRequiredService<TDataContext>();
 
         var eventFailure = await dbContext.FindAsync<ProjectionFailure>(
-                               [failure.ModelName, failure.ModelId,],
+                               [failure.ModelName, failure.InstanceId, failure.ModelId,],
                                cancellationToken);
 
         if (eventFailure != null)

@@ -37,7 +37,7 @@ public class ProjectionFailureHandlerIntegrationTests
         using var scope = provider.CreateScope();
         await using var dbContext = scope.ServiceProvider.GetRequiredService<TestProjectionDbContext>();
         var persistedFailure = await dbContext.ProjectionFailures.FindAsync(
-                                   new object[] { failure.ModelName, modelId, },
+                                   new object[] { failure.ModelName, failure.InstanceId, modelId, },
                                    CancellationToken.None);
 
         var persistedModel = await dbContext.TestModels.FindAsync(new object[] { modelId, }, CancellationToken.None);
@@ -65,7 +65,9 @@ public class ProjectionFailureHandlerIntegrationTests
         using var scope = provider.CreateScope();
         await using var dbContext = scope.ServiceProvider.GetRequiredService<TestProjectionDbContext>();
         var failures = await dbContext.ProjectionFailures
-                                      .Where(x => x.ModelId == modelId && x.ModelName == ProjectionModelName.For<TestModel>())
+                                      .Where(x => x.ModelId == modelId
+                                                  && x.ModelName == ProjectionModelName.For<TestModel>()
+                                                  && x.InstanceId == "test-model")
                                       .ToListAsync(CancellationToken.None);
 
         failures.Count.ShouldBe(1);
@@ -82,7 +84,8 @@ public class ProjectionFailureHandlerIntegrationTests
             failureCreatedOn: DateTime.UtcNow,
             exception: exception,
             failureType: nameof(FailureType.EventProcessing),
-            modelName: ProjectionModelName.For<TestModel>());
+            modelName: ProjectionModelName.For<TestModel>(),
+            instanceId: "test-model");
     }
 
     private static async Task SeedModel(IServiceProvider provider, Guid modelId)

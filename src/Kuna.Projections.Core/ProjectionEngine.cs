@@ -104,7 +104,8 @@ internal sealed class ProjectionEngine<TState>
                     failureCreatedOn: DateTime.Now.ToUniversalTime(),
                     exception: ex.Message,
                     failureType: FailureType.EventOutOfOrder.ToString(),
-                    modelName: this.modelName);
+                    modelName: this.modelName,
+                    instanceId: this.settings.InstanceId);
 
                 await this.failureHandler.Handle(failure, cancellationToken);
 
@@ -254,7 +255,8 @@ internal sealed class ProjectionEngine<TState>
             failureCreatedOn: DateTime.Now.ToUniversalTime(),
             exception: ex,
             failureType: FailureType.EventProcessing.ToString(),
-            modelName: this.modelName);
+            modelName: this.modelName,
+            instanceId: this.settings.InstanceId);
 
         await this.failureHandler.Handle(failure, cancellationToken);
 

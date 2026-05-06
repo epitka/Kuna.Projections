@@ -316,7 +316,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         var validModel = await dbContext.TestModels.FindAsync(new object[] { validId, }, CancellationToken.None);
         var invalidModel = await dbContext.TestModels.FindAsync(new object[] { invalidId, }, CancellationToken.None);
         var failure = await dbContext.ProjectionFailures.FindAsync(
-                          new object[] { ProjectionModelName.For<TestModel>(), invalidId, },
+                          new object[] { ProjectionModelName.For<TestModel>(), TestModelInstanceId, invalidId, },
                           CancellationToken.None);
 
         validModel.ShouldNotBeNull();
@@ -509,7 +509,7 @@ public class PersistBatchTests : DataStoreIntegrationTestBase
         var persistedValid = await dbContext.TestModels.FindAsync(new object[] { validId, }, CancellationToken.None);
         var persistedInvalid = await dbContext.TestModels.FindAsync(new object[] { invalidId, }, CancellationToken.None);
         var failure = await dbContext.ProjectionFailures.FindAsync(
-                          new object[] { ProjectionModelName.For<TestModel>(), invalidId, },
+                          new object[] { ProjectionModelName.For<TestModel>(), TestModelInstanceId, invalidId, },
                           CancellationToken.None);
 
         persistedValid.ShouldNotBeNull();

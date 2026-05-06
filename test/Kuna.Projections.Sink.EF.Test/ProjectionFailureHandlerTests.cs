@@ -26,7 +26,8 @@ public class ProjectionFailureHandlerTests
             failureCreatedOn: DateTime.UtcNow,
             exception: "boom",
             failureType: nameof(FailureType.EventProcessing),
-            modelName: nameof(TestModel));
+            modelName: nameof(TestModel),
+            instanceId: "test-model");
 
         var exception = await Should.ThrowAsync<InvalidOperationException>(() => handler.Handle(failure, CancellationToken.None));
         exception.Message.ShouldContain(nameof(TestProjectionDbContext));

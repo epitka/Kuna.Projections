@@ -371,6 +371,7 @@ public class DataStore<TState, TDataContext>
                     eventNumber: model.EventNumber!.Value,
                     streamPosition: model.GlobalEventPosition,
                     modelName: this.modelName,
+                    instanceId: this.instanceId,
                     failureCreatedOn: DateTime.Now.ToUniversalTime());
 
                 await this.failureHandler.Handle(failure, cancellationToken);
@@ -590,6 +591,7 @@ public class DataStore<TState, TDataContext>
             eventNumber: model.EventNumber!.Value,
             streamPosition: model.GlobalEventPosition,
             modelName: this.modelName,
+            instanceId: this.instanceId,
             failureCreatedOn: DateTime.Now.ToUniversalTime());
 
         await this.failureHandler.Handle(failure, cancellationToken);
