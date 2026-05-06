@@ -29,6 +29,7 @@ public class DataStore<TState, TDataContext>
     private readonly ILogger logger;
     private readonly bool hasChildEntities;
     private readonly string modelName;
+    private readonly string instanceId;
 
     /// <summary>
     /// Initializes the EF-backed model store.
@@ -37,6 +38,7 @@ public class DataStore<TState, TDataContext>
         IServiceProvider serviceProvider,
         IDuplicateKeyExceptionDetector duplicateKeyExceptionDetector,
         IProjectionFailureHandler<TState> failureHandler,
+        IProjectionSettings<TState> settings,
         ILogger<DataStore<TState, TDataContext>> logger)
     {
         this.serviceProvider = serviceProvider;
@@ -44,6 +46,7 @@ public class DataStore<TState, TDataContext>
         this.failureHandler = failureHandler;
         this.logger = logger;
         this.modelName = ProjectionModelName.For<TState>();
+        this.instanceId = settings.InstanceId;
 
         this.hasChildEntities = this.ValidateAndDetectChildEntities();
 
@@ -186,7 +189,7 @@ public class DataStore<TState, TDataContext>
     /// <summary>
     /// Loads the persisted checkpoint for the specified model name.
     /// </summary>
-    public async Task<CheckPoint> GetCheckpoint(string modelName, CancellationToken cancellationToken)
+    public async Task<CheckPoint> GetCheckpoint(string modelName, string instanceId, CancellationToken cancellationToken)
     {
         using var transientScope = this.serviceProvider.CreateScope();
 
@@ -194,12 +197,13 @@ public class DataStore<TState, TDataContext>
                                            .ServiceProvider
                                            .GetRequiredService<TDataContext>();
 
-        var checkPoint = await transientContext!.CheckPoint.FindAsync([modelName,], cancellationToken);
+        var checkPoint = await transientContext!.CheckPoint.FindAsync([modelName, instanceId,], cancellationToken);
 
         return checkPoint
                ?? new CheckPoint
                {
                    ModelName = modelName,
+                   InstanceId = instanceId,
                    GlobalEventPosition = new GlobalEventPosition(string.Empty),
                };
     }
@@ -217,7 +221,8 @@ public class DataStore<TState, TDataContext>
 
         var currentCheckpoint = await transientContext!
                                       .CheckPoint
-                                      .Where(x => x.ModelName == checkPoint.ModelName)
+                                      .Where(x => x.ModelName == checkPoint.ModelName
+                                                  && x.InstanceId == checkPoint.InstanceId)
                                       .SingleOrDefaultAsync(cancellationToken);
 
         if (currentCheckpoint == null)

@@ -93,6 +93,12 @@ public static class ServiceCollectionExtensions
 
         configureProjection?.Invoke(projectionSettings);
 
+        if (string.IsNullOrWhiteSpace(projectionSettings.InstanceId))
+        {
+            throw new InvalidOperationException(
+                $"Projection settings section '{resolvedSettingsSectionName}' must define a non-empty '{nameof(IProjectionSettings<TState>.InstanceId)}'.");
+        }
+
         services.AddSingleton<IProjectionSettings<TState>>(projectionSettings);
 
         return new ProjectionRegistrationBuilder<TState>(services);

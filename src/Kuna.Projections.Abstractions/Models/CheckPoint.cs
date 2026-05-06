@@ -8,5 +8,7 @@ public class CheckPoint
 {
     public required string ModelName { get; init; }
 
+    public required string InstanceId { get; init; }
+
     public GlobalEventPosition GlobalEventPosition { get; set; }
 }

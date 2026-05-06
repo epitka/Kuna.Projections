@@ -8,6 +8,8 @@ namespace Kuna.Projections.Pipeline.EF.Test.DataStoreTests;
 [Collection(PostgresSqlCollection.Name)]
 public class GetCheckpointTests : DataStoreIntegrationTestBase
 {
+    private const string InstanceId = "test-instance";
+
     public GetCheckpointTests(PostgresSqlContainerFixture fixture)
         : base(fixture)
     {
@@ -24,13 +26,15 @@ public class GetCheckpointTests : DataStoreIntegrationTestBase
             new CheckPoint
             {
                 ModelName = ProjectionModelName.For<TestModel>(),
+                InstanceId = InstanceId,
                 GlobalEventPosition = position,
             },
             CancellationToken.None);
 
-        var checkpoint = await store.GetCheckpoint(ProjectionModelName.For<TestModel>(), CancellationToken.None);
+        var checkpoint = await store.GetCheckpoint(ProjectionModelName.For<TestModel>(), InstanceId, CancellationToken.None);
 
         checkpoint.ModelName.ShouldBe(ProjectionModelName.For<TestModel>());
+        checkpoint.InstanceId.ShouldBe(InstanceId);
         checkpoint.GlobalEventPosition.ShouldBe(position);
     }
 
@@ -40,9 +44,10 @@ public class GetCheckpointTests : DataStoreIntegrationTestBase
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.Fixture);
         var store = CreateStore(provider);
 
-        var checkpoint = await store.GetCheckpoint(ProjectionModelName.For<TestModel>(), CancellationToken.None);
+        var checkpoint = await store.GetCheckpoint(ProjectionModelName.For<TestModel>(), InstanceId, CancellationToken.None);
 
         checkpoint.ModelName.ShouldBe(ProjectionModelName.For<TestModel>());
+        checkpoint.InstanceId.ShouldBe(InstanceId);
         checkpoint.GlobalEventPosition.ShouldBe(new GlobalEventPosition(string.Empty));
     }
 }

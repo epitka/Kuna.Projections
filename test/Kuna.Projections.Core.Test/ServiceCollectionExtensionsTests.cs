@@ -39,6 +39,7 @@ public class ServiceCollectionExtensionsTests
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
                                 {
+                                    [$"{ProjectionSettingsSection.Name}:InstanceId"] = "orders-v1",
                                     [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                     [$"{ProjectionSettingsSection.Name}:CatchUpFlush:ModelCountThreshold"] = "12",
                                     [$"{ProjectionSettingsSection.Name}:LiveProcessingFlush:ModelCountThreshold"] = "7",
@@ -59,6 +60,7 @@ public class ServiceCollectionExtensionsTests
         settings.LiveProcessingFlush.Strategy.ShouldBe(PersistenceStrategy.ImmediateModelFlush);
         settings.ModelStateCacheCapacity.ShouldBe(10000);
         settings.EventVersionCheckStrategy.ShouldBe(EventVersionCheckStrategy.Consecutive);
+        settings.InstanceId.ShouldBe("orders-v1");
     }
 
     [Fact]
@@ -71,6 +73,7 @@ public class ServiceCollectionExtensionsTests
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
                                 {
+                                    [$"{ProjectionSettingsSection.Name}:InstanceId"] = "orders-v1",
                                     [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
@@ -121,6 +124,7 @@ public class ServiceCollectionExtensionsTests
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
                                 {
+                                    ["OrdersProjection:InstanceId"] = "orders-v2",
                                     ["OrdersProjection:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
@@ -141,6 +145,28 @@ public class ServiceCollectionExtensionsTests
         settings.LiveProcessingFlush.Delay.ShouldBe(1000);
         settings.ModelStateCacheCapacity.ShouldBe(10000);
         settings.EventVersionCheckStrategy.ShouldBe(EventVersionCheckStrategy.Consecutive);
+        settings.InstanceId.ShouldBe("orders-v2");
+    }
+
+    [Fact]
+    public void AddProjectionCore_Should_Throw_When_InstanceId_Is_Missing()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IModelStateStore<CoreServiceTestModel>, DummyStateStore>();
+
+        var configuration = new ConfigurationBuilder()
+                            .AddInMemoryCollection(
+                                new Dictionary<string, string?>
+                                {
+                                    [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
+                                })
+                            .Build();
+
+        var exception = Should.Throw<InvalidOperationException>(
+            () => services.AddProjection<CoreServiceTestModel>(configuration));
+
+        exception.Message.ShouldContain(nameof(IProjectionSettings<CoreServiceTestModel>.InstanceId));
+        exception.Message.ShouldContain(ProjectionSettingsSection.Name);
     }
 
     [Fact]
@@ -153,6 +179,7 @@ public class ServiceCollectionExtensionsTests
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
                                 {
+                                    [$"{ProjectionSettingsSection.Name}:InstanceId"] = "orders-v1",
                                     [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
@@ -181,6 +208,7 @@ public class ServiceCollectionExtensionsTests
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
                                 {
+                                    [$"{ProjectionSettingsSection.Name}:InstanceId"] = "orders-v1",
                                     [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
@@ -203,6 +231,7 @@ public class ServiceCollectionExtensionsTests
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
                                 {
+                                    [$"{ProjectionSettingsSection.Name}:InstanceId"] = "orders-v1",
                                     [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
@@ -226,6 +255,7 @@ public class ServiceCollectionExtensionsTests
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
                                 {
+                                    [$"{ProjectionSettingsSection.Name}:InstanceId"] = "orders-v1",
                                     [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
@@ -249,7 +279,9 @@ public class ServiceCollectionExtensionsTests
                             .AddInMemoryCollection(
                                 new Dictionary<string, string?>
                                 {
+                                    ["OrdersProjection:InstanceId"] = "orders-v1",
                                     ["OrdersProjection:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
+                                    ["InvoicesProjection:InstanceId"] = "invoices-v1",
                                     ["InvoicesProjection:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
@@ -436,12 +468,13 @@ public class ServiceCollectionExtensionsTests
 
     private sealed class DummyCheckpointStore : ICheckpointStore
     {
-        public Task<CheckPoint> GetCheckpoint(string modelName, CancellationToken cancellationToken)
+        public Task<CheckPoint> GetCheckpoint(string modelName, string instanceId, CancellationToken cancellationToken)
         {
             return Task.FromResult(
                 new CheckPoint
                 {
                     ModelName = modelName,
+                    InstanceId = instanceId,
                     GlobalEventPosition = new GlobalEventPosition(string.Empty),
                 });
         }

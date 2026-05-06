@@ -1,4 +1,5 @@
 using Kuna.Projections.Abstractions.Models;
+using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Pipeline.EF.Test.Items;
 using Kuna.Projections.Sink.EF;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,8 +22,9 @@ public abstract class DataStoreIntegrationTestBase
         var duplicateKeyExceptionDetector = provider.GetRequiredService<IDuplicateKeyExceptionDetector>();
         var failureLogger = provider.GetRequiredService<ILogger<ProjectionFailureHandler<TestModel, TestProjectionDbContext>>>();
         var failureHandler = new ProjectionFailureHandler<TestModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureLogger);
+        var settings = provider.GetRequiredService<IProjectionSettings<TestModel>>();
         var storeLogger = provider.GetRequiredService<ILogger<DataStore<TestModel, TestProjectionDbContext>>>();
-        return new DataStore<TestModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureHandler, storeLogger);
+        return new DataStore<TestModel, TestProjectionDbContext>(provider, duplicateKeyExceptionDetector, failureHandler, settings, storeLogger);
     }
 
     protected static async Task SeedModel(
