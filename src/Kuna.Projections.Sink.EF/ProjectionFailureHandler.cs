@@ -73,9 +73,10 @@ public class ProjectionFailureHandler<TState, TDataContext>
         catch (Exception e)
         {
             this.logger.LogError(
-                "Failed to persist {@Failure} for {Model} {ModelId}, exception {Exception}",
+                "Failed to persist {@Failure} for {Model} instance {InstanceId} {ModelId}, exception {Exception}",
                 failure,
                 failure.ModelName,
+                failure.InstanceId,
                 failure.ModelId,
                 e.ToString());
 

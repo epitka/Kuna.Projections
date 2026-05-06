@@ -90,8 +90,9 @@ public class DataStore<TState, TDataContext>
         catch (Exception ex)
         {
             this.logger.LogError(
-                "LoadModel failed for modelName: {Model} id: {ModelId}, with {Exception}",
+                "LoadModel failed for modelName: {Model} instanceId: {InstanceId} id: {ModelId}, with {Exception}",
                 this.modelName,
+                this.instanceId,
                 modelId,
                 ex.ToString());
 
@@ -170,8 +171,9 @@ public class DataStore<TState, TDataContext>
         if (this.logger.IsEnabled(LogLevel.Debug))
         {
             this.logger.LogDebug(
-                "Projection EF sink persisted for {Model}: batchChanges={BatchChanges}, persisted={Persisted}, inserted={Inserted}, updated={Updated}, excluded={Excluded}, modelPersistMs={ModelPersistMs:F0}, insertMs={InsertMs:F0}, updateMs={UpdateMs:F0}, commitMs={CommitMs:F0}, markPersistedGraphMs={MarkPersistedGraphMs:F0}, totalMs={TotalMs:F0}",
+                "Projection EF sink persisted for {Model} instance {InstanceId}: batchChanges={BatchChanges}, persisted={Persisted}, inserted={Inserted}, updated={Updated}, excluded={Excluded}, modelPersistMs={ModelPersistMs:F0}, insertMs={InsertMs:F0}, updateMs={UpdateMs:F0}, commitMs={CommitMs:F0}, markPersistedGraphMs={MarkPersistedGraphMs:F0}, totalMs={TotalMs:F0}",
                 this.modelName,
+                this.instanceId,
                 batch.Changes.Count,
                 toPersist.Length,
                 insertCount,
@@ -580,8 +582,9 @@ public class DataStore<TState, TDataContext>
     {
         this.logger.LogWarning(
             ex,
-            "Failed to persist stream projection {ModelName} {@Model}",
+            "Failed to persist stream projection {ModelName} instance {InstanceId} {@Model}",
             this.modelName,
+            this.instanceId,
             model);
 
         var failure = new ProjectionFailure(

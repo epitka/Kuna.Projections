@@ -22,6 +22,7 @@ public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
     private readonly ICheckpointSerializer<Position> checkpointSerializer;
     private readonly SubscriptionFilterOptions filterOptions;
     private readonly ILogger logger;
+    private readonly string instanceId;
 
     /// <summary>
     /// Initializes the Kurrent-backed event source for the specified projection
@@ -32,12 +33,14 @@ public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
         IEventEnvelopeFactory envelopeFactory,
         ICheckpointSerializer<Position> checkpointSerializer,
         KurrentDbSourceSettings sourceSettings,
+        IProjectionSettings<TState> projectionSettings,
         ILogger<KurrentDbEventSource<TState>> logger)
     {
         this.eventStoreClient = eventStoreClient;
         this.envelopeFactory = envelopeFactory;
         this.checkpointSerializer = checkpointSerializer;
         this.filterOptions = KurrentDbSubscriptionFilterFactory.Create(sourceSettings.Filter);
+        this.instanceId = projectionSettings.InstanceId;
         this.logger = logger;
     }
 
@@ -148,7 +151,7 @@ public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
 
                     break;
                 case StreamMessage.CaughtUp:
-                    this.logger.LogInformation("KurrentDB subscription caught up for {ModelName}", ProjectionModelName.For<TState>());
+                    this.logger.LogInformation("KurrentDB subscription caught up for {ModelName} instance {InstanceId}", ProjectionModelName.For<TState>(), this.instanceId);
 
                     yield return new EventEnvelope(
                         eventNumber: -1,

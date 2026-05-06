@@ -664,6 +664,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                     envelopeFactory,
                     sp.GetRequiredService<ICheckpointSerializer<Position>>(),
                     sourceSettings,
+                    projectionSettings,
                     sp.GetRequiredService<ILogger<KurrentDbEventSource<Order>>>());
 
                 return new TestProjectionEventSource<Order>(source);
