@@ -360,37 +360,28 @@ services.AddProjectionHost(typeof(Program).Assembly);
 services.AddDbContext<AccountProjectionDbContext>(
     options => options.UseNpgsql(configuration.GetConnectionString("PostgreSql")));
 
-services.AddKurrentDBSource<Account>(configuration, loggerFactory, "AccountProjection");
-services.AddNpgsqlProjectionsDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
-services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
+services.AddProjection<Account>(configuration, "AccountProjection")
+        .UseKurrentDbSource(loggerFactory)
+        .UseNpgsqlDataStore<Account, AccountProjectionDbContext>(schema: "dbo")
         .WithInitialEvent<AccountCreated>();
 ```
 
 Note that the relational sink requires a projection namespace value to be passed in through `schema`. On schema-capable providers that becomes a real database schema; on providers such as MySQL it is used as a table-name prefix. For more information see [configuration-reference.md](configuration-reference.md#when-to-use-a-projection-specific-schema).
 
-For the MongoDB path:
+This builder flow does the heavy lifting:
 
-- `AddKurrentDBSource<TState>(...)` wires the current KurrentDB-backed implementation of `IEventSource<EventEnvelope>`
-- `AddMongoProjectionsDataStore<TState>(...)` wires MongoDB-backed state loading, persistence, checkpointing, and failure handling
-- `AddProjection<TState>(...)` wires projection creation, transformation, caching, and the runtime pipeline
-- `WithInitialEvent<TEvent>()` tells the runtime which event creates a new projection instance for that model type; use the event that starts the aggregate or stream, such as `AccountCreated`
-- `AddProjectionHost(...)` runs all registered pipelines and startup tasks
-- `AddHostedService<TWorker>()` is the manual alternative if you are not using `AddProjectionHost(...)`
-
-For the relational path:
-
-- `AddKurrentDBSource<TState>(...)` wires the current KurrentDB-backed implementation of `IEventSource<EventEnvelope>`
-- `AddNpgsqlProjectionsDataStore<TState, TDataContext>(schema: ...)` wires Npgsql-backed state loading, persistence, checkpointing, and failure handling
-- `AddProjection<TState>(...)` wires projection creation, transformation, caching, and the runtime pipeline
+- `AddProjection<TState>(configuration, settingsSectionName)` anchors one projection definition
+- `UseKurrentDbSource(...)` wires the current KurrentDB-backed implementation of `IEventSource<EventEnvelope>` for that projection definition
+- `UseNpgsqlDataStore<TState, TDataContext>(schema: ...)` wires Npgsql-backed state loading, persistence, checkpointing, and failure handling for that projection definition
 - `WithInitialEvent<TEvent>()` tells the runtime which event creates a new projection instance for that model type; use the event that starts the aggregate or stream, such as `AccountCreated`
 - `AddProjectionHost(...)` runs all registered pipelines and startup tasks
 - `AddHostedService<TWorker>()` is the manual alternative if you are not using `AddProjectionHost(...)`
 
 If you are not using PostgreSQL, use the matching provider adapter and registration method instead:
 
-- SQL Server: `Kuna.Projections.Sink.EF.SqlServer` with `AddSqlServerProjectionsDataStore<TState, TDataContext>(schema: ...)`
-- MySQL: `Kuna.Projections.Sink.EF.MySql` with `AddMySqlProjectionsDataStore<TState, TDataContext>(schema: ...)`
-- `AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)` remains available as the shared low-level registration path when you need custom composition
+- SQL Server: `UseSqlServerDataStore<TState, TDataContext>(schema: ...)`
+- MySQL: `UseMySqlDataStore<TState, TDataContext>(schema: ...)`
+- `UseSqlDataStore<TState, TDataContext>(schema: ...)` remains available as the shared low-level builder path when you need custom composition
 
 ## 10. Add Configuration
 
@@ -425,6 +416,7 @@ At minimum you need connection strings and one projection section that contains 
     "PostgreSql": "Host=localhost;Port=5432;Database=accounts_projection;Username=postgres;Password=postgres"
   },
   "AccountProjection": {
+    "InstanceId": "accounts-v1",
     "Source": "KurrentDB",
     "KurrentDB": {
       "Filter": {
@@ -438,11 +430,14 @@ At minimum you need connection strings and one projection section that contains 
 
 Useful settings notes:
 
+- `InstanceId` is required and should be a stable deployment-scoped identifier such as `accounts-v1`
+- when projection logic changes, create a new `InstanceId` such as `accounts-v2` so the new deployment replays from the beginning instead of resuming the old checkpoint
+- the usual rollout is blue/green: keep `accounts-v1` serving reads, let `accounts-v2` rebuild and catch up in parallel, validate it, then switch readers
 - `Source` defaults to `KurrentDB`, but the section is still shown explicitly here because the worker must contain a matching nested `KurrentDB` section
 - `KurrentDB.Filter.Prefixes` currently requires exactly one prefix and is used as the prefix filter for the Kurrent subscription
 - the default `ModelIdResolutionStrategy` on the root projection section is `PreferAttribute`
-- projection settings can be bound from a named section by calling `AddProjection<TState>(configuration, settingsSectionName: "AccountProjection")`
-- source settings are bound by calling `AddKurrentDBSource<TState>(configuration, loggerFactory, "AccountProjection")`
+- the recommended API is `AddProjection<TState>(configuration, "AccountProjection")` followed by fluent `Use...` methods on the returned builder
+- the section name identifies one projection definition in DI; `InstanceId` inside that section identifies the deployed runtime instance for checkpoints, failures, and diagnostics
 
 For the full set of available settings and defaults, see [configuration-reference.md](configuration-reference.md).
 

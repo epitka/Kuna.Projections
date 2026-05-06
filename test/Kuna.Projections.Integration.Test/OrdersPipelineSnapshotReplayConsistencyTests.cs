@@ -105,7 +105,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
             testCase.CatchUpStrategy,
             testCase.LivePersistenceStrategy);
 
-        var pipeline = provider.GetRequiredService<IProjectionPipeline<Order>>();
+        var pipeline = provider.GetRequiredKeyedService<IProjectionPipeline<Order>>(ProjectionRegistration.GetKey<Order>(ProjectionSettingsSection.Name));
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
         var pipelineTask = pipeline.RunAsync(cts.Token);
@@ -631,16 +631,13 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                     GetOrderEventTypes(),
                     sp.GetRequiredService<ILogger<EventDeserializer>>()));
 
-        services.AddSingleton<IProjectionSettings<Order>>(
-            new ProjectionSettings<Order>
-            {
-                ModelIdResolutionStrategy = ModelIdResolutionStrategy.PreferAttribute,
-            });
+        var registrationKey = ProjectionRegistration.GetKey<Order>(ProjectionSettingsSection.Name);
 
-        services.AddSingleton<IProjectionEventSource<Order>>(
-            sp =>
+        services.AddKeyedSingleton<IProjectionEventSource<Order>>(
+            registrationKey,
+            (sp, _) =>
             {
-                var projectionSettings = sp.GetRequiredService<IProjectionSettings<Order>>();
+                var projectionSettings = sp.GetRequiredKeyedService<IProjectionSettings<Order>>(registrationKey);
                 var sourceSettings = new KurrentDbSourceSettings
                 {
                     Filter = new KurrentDbFilterSettings
@@ -663,17 +660,19 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                     envelopeFactory,
                     sp.GetRequiredService<ICheckpointSerializer<Position>>(),
                     sourceSettings,
+                    projectionSettings,
                     sp.GetRequiredService<ILogger<KurrentDbEventSource<Order>>>());
 
                 return new TestProjectionEventSource<Order>(source);
             });
 
-        services.AddNpgsqlProjectionsDataStore<Order, OrdersDbContext>(schema: "dbo");
+        services.AddNpgsqlProjectionsDataStore<Order, OrdersDbContext>(ProjectionSettingsSection.Name, schema: "dbo");
 
         var config = new ConfigurationBuilder()
                      .AddInMemoryCollection(
                          new Dictionary<string, string?>
                          {
+                             ["Projections:InstanceId"] = "orders-integration",
                              ["Projections:CatchUpFlush:Strategy"] = catchUpPersistenceStrategy.ToString(),
                              ["Projections:LiveProcessingFlush:Strategy"] = livePersistenceStrategy.ToString(),
                              ["Projections:CatchUpFlush:ModelCountThreshold"] = modelCountFlushThreshold.ToString(CultureInfo.InvariantCulture),
@@ -684,7 +683,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                          })
                      .Build();
 
-        services.AddProjection<Order>(config)
+        services.AddProjection<Order>(config, ProjectionSettingsSection.Name)
                 .WithInitialEvent<OrderCreatedEvent>();
 
         return services.BuildServiceProvider();
@@ -700,7 +699,13 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
     private async Task EnsureCheckpointExists()
     {
         await using var ctx = CreateOrdersDbContext(this.postgresFixture.ConnectionString);
-        var existing = await ctx.CheckPoint.Where(x => x.ModelName == ProjectionModelName.For<Order>()).SingleOrDefaultAsync();
+        var existing = await ctx.CheckPoint.FindAsync(
+                           new object[]
+                           {
+                               ProjectionModelName.For<Order>(),
+                               "orders-integration",
+                           },
+                           CancellationToken.None);
 
         if (existing == null)
         {
@@ -708,6 +713,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                 new CheckPoint
                 {
                     ModelName = ProjectionModelName.For<Order>(),
+                    InstanceId = "orders-integration",
                     GlobalEventPosition = Position.Start.ToGlobalEventPosition(),
                 });
 

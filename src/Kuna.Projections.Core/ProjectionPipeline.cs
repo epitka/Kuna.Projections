@@ -97,7 +97,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         var cumulativeFlushMs = 0d;
         var runtimeStopwatch = Stopwatch.StartNew();
 
-        var checkPoint = await this.checkpointStore.GetCheckpoint(this.modelName, cancellationToken);
+        var checkPoint = await this.checkpointStore.GetCheckpoint(this.modelName, this.settings.InstanceId, cancellationToken);
         var start = checkPoint.GlobalEventPosition;
         var lastObservedPosition = start;
         var lastFlushedPosition = start;
@@ -118,8 +118,9 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         try
         {
             this.logger.LogInformation(
-                "Projection pipeline starting for {ModelName}: startPosition={StartPosition}, catchUpStrategy={CatchUpStrategy}, liveStrategy={LiveStrategy}, catchUpModelCountThreshold={CatchUpModelCountThreshold}, liveModelCountThreshold={LiveModelCountThreshold}, catchUpFlushDelay={CatchUpFlushDelay}, liveFlushDelay={LiveFlushDelay}",
+                "Projection pipeline starting for {ModelName} instance {InstanceId}: startPosition={StartPosition}, catchUpStrategy={CatchUpStrategy}, liveStrategy={LiveStrategy}, catchUpModelCountThreshold={CatchUpModelCountThreshold}, liveModelCountThreshold={LiveModelCountThreshold}, catchUpFlushDelay={CatchUpFlushDelay}, liveFlushDelay={LiveFlushDelay}",
                 this.modelName,
+                this.settings.InstanceId,
                 start,
                 this.settings.CatchUpFlush.Strategy,
                 this.settings.LiveProcessingFlush.Strategy,
@@ -231,8 +232,9 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
             else
             {
                 this.logger.LogInformation(
-                    "Projection pipeline completed for {ModelName}: seen={SeenEvents}, transformed={TransformedEvents}, flushCount={FlushCount}, cumulativeFlushMs={CumulativeFlushMs:F0}, lastFlushInsertedModels={LastFlushInsertedModels}, lastFlushUpdatedModels={LastFlushUpdatedModels}, lastFlushDeletedModels={LastFlushDeletedModels}, lastFlushModelStateCacheHits={LastFlushModelStateCacheHits}, lastFlushModelStateCacheMisses={LastFlushModelStateCacheMisses}, lastObservedPosition={LastObservedPosition}, lastFlushedPosition={LastFlushedPosition}",
+                    "Projection pipeline completed for {ModelName} instance {InstanceId}: seen={SeenEvents}, transformed={TransformedEvents}, flushCount={FlushCount}, cumulativeFlushMs={CumulativeFlushMs:F0}, lastFlushInsertedModels={LastFlushInsertedModels}, lastFlushUpdatedModels={LastFlushUpdatedModels}, lastFlushDeletedModels={LastFlushDeletedModels}, lastFlushModelStateCacheHits={LastFlushModelStateCacheHits}, lastFlushModelStateCacheMisses={LastFlushModelStateCacheMisses}, lastObservedPosition={LastObservedPosition}, lastFlushedPosition={LastFlushedPosition}",
                     this.modelName,
+                    this.settings.InstanceId,
                     seenEvents,
                     transformedEvents,
                     flushCount,
@@ -516,6 +518,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                 new CheckPoint
                 {
                     ModelName = this.modelName,
+                    InstanceId = this.settings.InstanceId,
                     GlobalEventPosition = flush.Position,
                 },
                 flushCancellationToken);
@@ -563,8 +566,9 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                 if (this.logger.IsEnabled(LogLevel.Debug))
                 {
                     this.logger.LogDebug(
-                        "Projection pipeline flush persisted for {ModelName}: batchModels={BatchModels}, inserted={Inserted}, updated={Updated}, deleted={Deleted}, sinkPersistMs={SinkPersistMs:F0}, cachePublishMs={CachePublishMs:F0}, checkpointPersistMs={CheckpointPersistMs:F0}, lifecycleMs={LifecycleMs:F0}, runtimeProjectionHits={RuntimeProjectionHits}, modelStateCacheRestores={ModelStateCacheRestores}, storeProjectionLoads={StoreProjectionLoads}, storeProjectionMisses={StoreProjectionMisses}, newProjectionCreates={NewProjectionCreates}, modelStateCacheHits={ModelStateCacheHits}, modelStateCacheMisses={ModelStateCacheMisses}, flushedPosition={FlushedPosition}, phase={Phase}, strategy={Strategy}",
+                        "Projection pipeline flush persisted for {ModelName} instance {InstanceId}: batchModels={BatchModels}, inserted={Inserted}, updated={Updated}, deleted={Deleted}, sinkPersistMs={SinkPersistMs:F0}, cachePublishMs={CachePublishMs:F0}, checkpointPersistMs={CheckpointPersistMs:F0}, lifecycleMs={LifecycleMs:F0}, runtimeProjectionHits={RuntimeProjectionHits}, modelStateCacheRestores={ModelStateCacheRestores}, storeProjectionLoads={StoreProjectionLoads}, storeProjectionMisses={StoreProjectionMisses}, newProjectionCreates={NewProjectionCreates}, modelStateCacheHits={ModelStateCacheHits}, modelStateCacheMisses={ModelStateCacheMisses}, flushedPosition={FlushedPosition}, phase={Phase}, strategy={Strategy}",
                         this.modelName,
+                        this.settings.InstanceId,
                         flushResult.BatchModels,
                         lastFlushInsertedModels,
                         lastFlushUpdatedModels,

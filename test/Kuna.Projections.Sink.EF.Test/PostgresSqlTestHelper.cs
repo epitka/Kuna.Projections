@@ -1,4 +1,5 @@
 using Kuna.Projections.Pipeline.EF.Test.Items;
+using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Sink.EF.Npgsql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +28,10 @@ public static class PostgresSqlTestHelper
         services.AddDbContext<TestProjectionDbContext>(
             options => Configure(options, fixture.ConnectionString),
             ServiceLifetime.Scoped);
+
+        services.AddSingleton<IProjectionSettings<TestModel>>(new ProjectionSettings<TestModel> { InstanceId = "test-model", });
+        services.AddSingleton<IProjectionSettings<TestChildModel>>(new ProjectionSettings<TestChildModel> { InstanceId = "test-child-model", });
+        services.AddSingleton<IProjectionSettings<InvalidChildModel>>(new ProjectionSettings<InvalidChildModel> { InstanceId = "invalid-child-model", });
 
         return services.BuildServiceProvider();
     }

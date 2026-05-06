@@ -15,7 +15,8 @@ public class ProjectionFailure
         DateTime failureCreatedOn,
         string exception,
         string failureType,
-        string modelName)
+        string modelName,
+        string instanceId)
     {
         this.ModelId = modelId;
         this.EventNumber = eventNumber;
@@ -24,6 +25,7 @@ public class ProjectionFailure
         this.Exception = exception;
         this.FailureType = failureType;
         this.ModelName = modelName;
+        this.InstanceId = instanceId;
     }
 
     public Guid ModelId { get; set; }
@@ -45,6 +47,8 @@ public class ProjectionFailure
     public required string FailureType { get; set; } = string.Empty;
 
     public required string ModelName { get; set; } = string.Empty;
+
+    public required string InstanceId { get; set; } = string.Empty;
 }
 
 public enum FailureType

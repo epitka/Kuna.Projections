@@ -6,6 +6,8 @@ namespace Kuna.Projections.Abstractions.Services;
 public interface IProjectionSettings<TState>
     where TState : class, Models.IModel, new()
 {
+    string InstanceId { get; set; }
+
     ProjectionFlushSettings CatchUpFlush { get; set; }
 
     ProjectionFlushSettings LiveProcessingFlush { get; set; }
@@ -78,6 +80,11 @@ public class ProjectionBackpressureSettings
 public class ProjectionSettings<TState> : IProjectionSettings<TState>
     where TState : class, Models.IModel, new()
 {
+    /// <summary>
+    /// Explicit deployment identity for this projection instance.
+    /// </summary>
+    public string InstanceId { get; set; } = string.Empty;
+
     /// <summary>
     /// Flush behavior used while the projection is catching up from an existing checkpoint.
     /// </summary>

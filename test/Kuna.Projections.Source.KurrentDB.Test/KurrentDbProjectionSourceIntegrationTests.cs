@@ -925,6 +925,10 @@ public class KurrentDbProjectionSourceIntegrationTests
                     Prefixes = [streamPrefix,],
                 },
             },
+            new ProjectionSettings<SourceIntegrationModel>
+            {
+                InstanceId = "source-integration",
+            },
             loggerFactory.CreateLogger<KurrentDbEventSource<SourceIntegrationModel>>());
     }
 

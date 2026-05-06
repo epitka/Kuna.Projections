@@ -6,11 +6,11 @@ namespace Kuna.Projections.Core.Test.ProjectionPipelineTests.Fakes;
 
 internal sealed class InMemoryCheckpointStore : ICheckpointStore
 {
-    private readonly Dictionary<string, CheckPoint> checkPoints = new();
+    private readonly Dictionary<(string ModelName, string InstanceId), CheckPoint> checkPoints = new();
 
-    public Task<CheckPoint> GetCheckpoint(string modelName, CancellationToken cancellationToken)
+    public Task<CheckPoint> GetCheckpoint(string modelName, string instanceId, CancellationToken cancellationToken)
     {
-        if (this.checkPoints.TryGetValue(modelName, out var checkPoint))
+        if (this.checkPoints.TryGetValue((modelName, instanceId), out var checkPoint))
         {
             return Task.FromResult(checkPoint);
         }
@@ -19,13 +19,14 @@ internal sealed class InMemoryCheckpointStore : ICheckpointStore
             new CheckPoint
             {
                 ModelName = modelName,
+                InstanceId = instanceId,
                 GlobalEventPosition = new GlobalEventPosition(string.Empty),
             });
     }
 
     public Task PersistCheckpoint(CheckPoint checkPoint, CancellationToken cancellationToken)
     {
-        this.checkPoints[checkPoint.ModelName] = checkPoint;
+        this.checkPoints[(checkPoint.ModelName, checkPoint.InstanceId)] = checkPoint;
         return Task.CompletedTask;
     }
 }

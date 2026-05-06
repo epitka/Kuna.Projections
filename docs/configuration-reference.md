@@ -24,11 +24,11 @@ The projection section name is application-defined. The tables below list the fu
 The library-owned names are:
 
 - `KurrentDB`
-  Required by `AddKurrentDBSource<TState>(...)`.
+  Required when the projection registration uses `UseKurrentDbSource(...)`.
 - `PostgreSql`
   Not required by the library itself, but used by the example application when constructing the EF Core `DbContext`.
 
-If `KurrentDB` is missing or empty, `AddKurrentDBSource<TState>(...)` throws during registration.
+If `KurrentDB` is missing or empty, `UseKurrentDbSource(...)` throws during registration.
 
 ## MongoDB Sink Options
 
@@ -46,12 +46,11 @@ Target type: `ProjectionSettings<TState>`
 
 The section itself is required because `AddProjection<TState>(...)` calls `configuration.GetRequiredSection(...)`.
 
-If you omit `settingsSectionName`, the default section name is `Projections`. That section is still required.
-
 ### Settings Summary
 
 | Key | Type | Default | Required | Notes                                                                   |
 | --- | --- | --- | --- |-------------------------------------------------------------------------|
+| `InstanceId` | `string` | None | Yes | Stable deployment identity for one projection instance.                 |
 | `CatchUpFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior before the source reaches live processing.               |
 | `LiveProcessingFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior after the source catches up.                             |
 | `Backpressure` | `ProjectionBackpressureSettings` | See below | No | Backpressure buffer capacities between projection pipeline stages.      |
@@ -59,6 +58,32 @@ If you omit `settingsSectionName`, the default section name is `Projections`. Th
 | `ModelIdResolutionStrategy` | `ModelIdResolutionStrategy` | `PreferAttribute` | No | Controls how model ids are derived from events and stream ids.          |
 | `ModelStateCacheCapacity` | `int` | `10000` | No | Number of model states retained in memory.                              |
 | `EventVersionCheckStrategy` | `EventVersionCheckStrategy` | `Consecutive` | No | Controls event ordering validation before `Apply(...)`.                 |
+
+### `InstanceId`
+
+Type: `string`
+
+Required: yes
+
+Meaning:
+
+- explicit identity for one deployed projection instance
+- part of the checkpoint key together with the model name
+- written to projection failures and used in runtime diagnostics
+
+Operational guidance:
+
+- treat `InstanceId` as deployment lineage, not as a cosmetic label
+- when the projection code changes and you need a full replay, deploy the new code with a new `InstanceId`
+- that causes the new deployment to start from an empty checkpoint lineage and rebuild from the beginning
+- keep the old deployment serving reads until the new one has caught up and been validated
+- switch readers or configuration only after validation, then retire the old deployment
+
+Examples:
+
+- `orders-v1`
+- `orders-v2`
+- `orders-green-2026-05-05`
 
 ### `CatchUpFlush`
 
@@ -337,7 +362,7 @@ Guidance:
 
 Section name: `KurrentDB`
 
-Bound by: `AddKurrentDBSource<TState>(configuration, loggerFactory, settingsSectionName)`
+Bound by: `UseKurrentDbSource(...)` on a projection registration builder
 
 Target type: `KurrentDbSourceSettings`
 
@@ -394,7 +419,7 @@ Examples from the runnable worker:
 
 - `ConnectionStrings:PostgreSql`
   Used by the host app when configuring `OrdersDbContext`.
-- schema passed to `AddSqlProjectionsDataStore<TState, TDataContext>(schema: ...)`
+- schema passed to `UseNpgsqlDataStore<TState, TDataContext>(schema: ...)`, `UseSqlServerDataStore<TState, TDataContext>(schema: ...)`, `UseMySqlDataStore<TState, TDataContext>(schema: ...)`, or `UseSqlDataStore<TState, TDataContext>(schema: ...)`
   Chosen in code, not from library-owned configuration.
 
 Those are valid application decisions, but they are not part of the shared runtime settings contract documented above.
@@ -431,6 +456,7 @@ For a first production-like setup, start with the library defaults and add only 
 ```json
 {
   "OrdersProjection": {
+    "InstanceId": "orders-v1",
     "Source": "KurrentDB",
     "KurrentDB": {
       "Filter": {

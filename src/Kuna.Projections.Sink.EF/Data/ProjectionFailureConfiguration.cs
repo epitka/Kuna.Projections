@@ -34,9 +34,10 @@ public class ProjectionFailureConfiguration : IEntityTypeConfiguration<Projectio
             builder.ToTable(tableName, this.schema);
         }
 
-        builder.HasKey(nameof(ProjectionFailure.ModelName), nameof(ProjectionFailure.ModelId));
+        builder.HasKey(nameof(ProjectionFailure.ModelName), nameof(ProjectionFailure.InstanceId), nameof(ProjectionFailure.ModelId));
         builder.Property(x => x.ModelId).IsRequired();
         builder.Property(x => x.ModelName).IsRequired();
+        builder.Property(x => x.InstanceId).IsRequired();
         builder.Property(x => x.EventNumber).IsRequired();
         builder.Property(x => x.Exception).IsRequired();
         builder.Property(x => x.FailureCreatedOn).IsRequired();

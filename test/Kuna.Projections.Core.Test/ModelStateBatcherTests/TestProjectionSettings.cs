@@ -6,6 +6,8 @@ namespace Kuna.Projections.Core.Test.ModelStateBatcherTests;
 
 internal sealed class TestProjectionSettings : IProjectionSettings<ItemModel>
 {
+    public string InstanceId { get; set; } = "test-instance";
+
     public ProjectionFlushSettings CatchUpFlush { get; set; } = new()
     {
         Strategy = PersistenceStrategy.ModelCountBatching,

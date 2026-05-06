@@ -51,11 +51,11 @@ public static class ServiceCollectionExtensions
                 builder.AddSerilog();
             });
 
-        services.AddKurrentDBSource<Order>(configuration, factory, "OrdersProjection");
-        services.AddNpgsqlProjectionsDataStore<Order, OrdersDbContext>(schema: ProjectionSchema);
         services.AddProjection<Order>(
                     configuration,
                     settingsSectionName: "OrdersProjection")
+                .UseKurrentDbSource(factory)
+                .UseNpgsqlDataStore<Order, OrdersDbContext>(schema: ProjectionSchema)
                 .WithInitialEvent<OrderCreatedEvent>();
 
         services.AddScoped<OrdersReplayConsistencyDiagnostics>();

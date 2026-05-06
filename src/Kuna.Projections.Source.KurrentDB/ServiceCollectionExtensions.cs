@@ -27,13 +27,12 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration,
         ILoggerFactory loggerFactory,
-        string? settingsSectionName = null)
+        string settingsSectionName)
         where TState : class, IModel, new()
     {
-        var eventTypes = ResolveEventTypes(Assembly.GetEntryAssembly(), typeof(TState).Assembly);
-        var resolvedSettingsSectionName = string.IsNullOrWhiteSpace(settingsSectionName)
-                                              ? ProjectionSettingsSection.Name
-                                              : settingsSectionName;
+        var assembly = Assembly.GetEntryAssembly();
+        var exportedTypes = assembly!.GetExportedTypes();
+        var registrationKey = ProjectionRegistration.GetKey<TState>(settingsSectionName);
 
         services.AddSingleton<IEventDeserializer>(
             provider =>
@@ -41,12 +40,6 @@ public static class ServiceCollectionExtensions
                 return new EventDeserializer(eventTypes, loggerFactory.CreateLogger<EventDeserializer>());
             });
 
-        var projectionSettings = configuration
-                                 .GetRequiredSection(resolvedSettingsSectionName)
-                                 .Get<ProjectionSettings<TState>>()
-                                 ?? throw new InvalidOperationException($"Missing configuration section: {resolvedSettingsSectionName}");
-
-        services.TryAddSingleton<IProjectionSettings<TState>>(projectionSettings);
         services.TryAddSingleton<ICheckpointSerializer<Position>, KurrentDbCheckpointSerializer>();
 
         services.TryAddSingleton(
@@ -67,18 +60,19 @@ public static class ServiceCollectionExtensions
         services.AddHealthChecks()
                 .AddCheck<KurrentDbHealthCheck>("KurrentDB", HealthStatus.Unhealthy);
 
-        services.AddSingleton<IProjectionEventSource<TState>>(
-            provider =>
+        services.AddKeyedSingleton<IProjectionEventSource<TState>>(
+            registrationKey,
+            (provider, _) =>
             {
-                var resolvedProjectionSettings = provider.GetRequiredService<IProjectionSettings<TState>>();
+                var resolvedProjectionSettings = provider.GetRequiredKeyedService<IProjectionSettings<TState>>(registrationKey);
 
                 if (resolvedProjectionSettings.Source != ProjectionSourceKind.KurrentDB)
                 {
                     throw new InvalidOperationException(
-                        $"Unsupported projection source '{resolvedProjectionSettings.Source}' for section '{resolvedSettingsSectionName}'.");
+                        $"Unsupported projection source '{resolvedProjectionSettings.Source}' for section '{settingsSectionName}'.");
                 }
 
-                var kurrentSectionPath = $"{resolvedSettingsSectionName}:{KurrentDbSourceSettings.SectionName}";
+                var kurrentSectionPath = $"{settingsSectionName}:{KurrentDbSourceSettings.SectionName}";
                 var kurrentSection = configuration.GetSection(kurrentSectionPath);
 
                 if (!kurrentSection.Exists())
@@ -104,6 +98,7 @@ public static class ServiceCollectionExtensions
                     envelopeFactory,
                     provider.GetRequiredService<ICheckpointSerializer<Position>>(),
                     sourceSettings,
+                    resolvedProjectionSettings,
                     provider.GetRequiredService<ILogger<KurrentDbEventSource<TState>>>());
 
                 return new ProjectionEventSource<TState>(source);
@@ -111,6 +106,15 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+    public static IProjectionRegistrationBuilder<TState> UseKurrentDbSource<TState>(
+        this IProjectionRegistrationBuilder<TState> builder,
+        ILoggerFactory loggerFactory)
+        where TState : class, IModel, new()
+    {
+        builder.Services.AddKurrentDBSource<TState>(builder.Configuration, loggerFactory, builder.SettingsSectionName);
+        return builder;
+    }
+
 
     private static Type[] ResolveEventTypes(Assembly? entryAssembly, Assembly stateAssembly)
     {
