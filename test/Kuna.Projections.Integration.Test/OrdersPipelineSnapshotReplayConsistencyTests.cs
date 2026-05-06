@@ -704,12 +704,12 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
     {
         await using var ctx = CreateOrdersDbContext(this.postgresFixture.ConnectionString);
         var existing = await ctx.CheckPoint.FindAsync(
-            new object[]
-            {
-                ProjectionModelName.For<Order>(),
-                "orders-integration",
-            },
-            CancellationToken.None);
+                           new object[]
+                           {
+                               ProjectionModelName.For<Order>(),
+                               "orders-integration",
+                           },
+                           CancellationToken.None);
 
         if (existing == null)
         {

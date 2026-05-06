@@ -162,8 +162,7 @@ public class ServiceCollectionExtensionsTests
                                 })
                             .Build();
 
-        var exception = Should.Throw<InvalidOperationException>(
-            () => services.AddProjection<CoreServiceTestModel>(configuration));
+        var exception = Should.Throw<InvalidOperationException>(() => services.AddProjection<CoreServiceTestModel>(configuration));
 
         exception.Message.ShouldContain(nameof(IProjectionSettings<CoreServiceTestModel>.InstanceId));
         exception.Message.ShouldContain(ProjectionSettingsSection.Name);

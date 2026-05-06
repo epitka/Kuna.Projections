@@ -65,9 +65,10 @@ public class ProjectionFailureHandlerIntegrationTests
         using var scope = provider.CreateScope();
         await using var dbContext = scope.ServiceProvider.GetRequiredService<TestProjectionDbContext>();
         var failures = await dbContext.ProjectionFailures
-                                      .Where(x => x.ModelId == modelId
-                                                  && x.ModelName == ProjectionModelName.For<TestModel>()
-                                                  && x.InstanceId == "test-model")
+                                      .Where(
+                                          x => x.ModelId == modelId
+                                               && x.ModelName == ProjectionModelName.For<TestModel>()
+                                               && x.InstanceId == "test-model")
                                       .ToListAsync(CancellationToken.None);
 
         failures.Count.ShouldBe(1);

@@ -151,7 +151,10 @@ public class KurrentDbEventSource<TState> : IEventSource<EventEnvelope>
 
                     break;
                 case StreamMessage.CaughtUp:
-                    this.logger.LogInformation("KurrentDB subscription caught up for {ModelName} instance {InstanceId}", ProjectionModelName.For<TState>(), this.instanceId);
+                    this.logger.LogInformation(
+                        "KurrentDB subscription caught up for {ModelName} instance {InstanceId}",
+                        ProjectionModelName.For<TState>(),
+                        this.instanceId);
 
                     yield return new EventEnvelope(
                         eventNumber: -1,

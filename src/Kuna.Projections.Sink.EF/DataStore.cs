@@ -223,8 +223,9 @@ public class DataStore<TState, TDataContext>
 
         var currentCheckpoint = await transientContext!
                                       .CheckPoint
-                                      .Where(x => x.ModelName == checkPoint.ModelName
-                                                  && x.InstanceId == checkPoint.InstanceId)
+                                      .Where(
+                                          x => x.ModelName == checkPoint.ModelName
+                                               && x.InstanceId == checkPoint.InstanceId)
                                       .SingleOrDefaultAsync(cancellationToken);
 
         if (currentCheckpoint == null)
