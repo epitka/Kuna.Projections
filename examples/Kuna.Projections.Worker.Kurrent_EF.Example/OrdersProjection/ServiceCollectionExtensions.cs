@@ -6,7 +6,6 @@ using Kuna.Projections.Sink.EF;
 using Kuna.Projections.Sink.EF.Data;
 using Kuna.Projections.Sink.EF.Npgsql;
 using Kuna.Projections.Source.KurrentDB;
-using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Events;
 using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection.Model;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -56,8 +55,7 @@ public static class ServiceCollectionExtensions
                     configuration,
                     settingsSectionName: "OrdersProjection")
                 .UseKurrentDbSource(factory)
-                .UseNpgsqlDataStore<Order, OrdersDbContext>(schema: ProjectionSchema)
-                .WithInitialEvent<OrderCreatedEvent>();
+                .UseNpgsqlDataStore<Order, OrdersDbContext>(schema: ProjectionSchema);
 
         services.AddScoped<OrdersReplayConsistencyDiagnostics>();
 

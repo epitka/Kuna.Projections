@@ -1,8 +1,10 @@
+using Kuna.Projections.Abstractions.Attributes;
 using Kuna.Projections.Core.Test.Shared.Events;
 using Kuna.Projections.Core.Test.Shared.Models;
 
 namespace Kuna.Projections.Core.Test.Shared.Projections;
 
+[InitialEvent<ItemCreated>]
 public class ItemProjection : Projection<ItemModel>
 {
     public ItemProjection(Guid modelId)

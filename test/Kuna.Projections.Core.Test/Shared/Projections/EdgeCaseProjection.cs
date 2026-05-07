@@ -1,9 +1,11 @@
+using Kuna.Projections.Abstractions.Attributes;
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Core.Test.Shared.Events;
 using Kuna.Projections.Core.Test.Shared.Models;
 
 namespace Kuna.Projections.Core.Test.Shared.Projections;
 
+[InitialEvent<EdgeCaseCreated>]
 public class EdgeCaseProjection : Projection<EdgeCaseModel>
 {
     public EdgeCaseProjection(Guid modelId)

@@ -1,3 +1,4 @@
+using Kuna.Projections.Abstractions.Attributes;
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
@@ -217,7 +218,7 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddProjectionCore_Should_Allow_Registering_Initial_Event()
+    public void AddProjectionCore_Should_Register_Initial_Event_From_Projection_Attribute()
     {
         var services = new ServiceCollection();
         var configuration = new ConfigurationBuilder()
@@ -229,8 +230,7 @@ public class ServiceCollectionExtensionsTests
                                 })
                             .Build();
 
-        services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name)
-                .WithInitialEvent<TestInitialEvent>();
+        services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name);
 
         using var provider = services.BuildServiceProvider();
         var registration = GetProjectionCreationRegistration<CoreServiceTestModel>(provider, ProjectionSettingsSection.Name);
@@ -239,7 +239,7 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddProjectionCore_Should_Throw_When_Initial_Event_Is_Registered_Twice()
+    public void AddProjectionCore_Should_Throw_When_Projection_Is_Missing_Initial_Event_Attribute()
     {
         var services = new ServiceCollection();
         var configuration = new ConfigurationBuilder()
@@ -251,13 +251,10 @@ public class ServiceCollectionExtensionsTests
                                 })
                             .Build();
 
-        var builder = services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name)
-                              .WithInitialEvent<TestInitialEvent>();
+        var ex = Should.Throw<InvalidOperationException>(() => services.AddProjection<MissingInitialEventModel>(configuration, ProjectionSettingsSection.Name));
 
-        var ex = Should.Throw<InvalidOperationException>(() => builder.WithInitialEvent<AnotherInitialEvent>());
-
-        ex.Message.ShouldContain(typeof(CoreServiceTestModel).FullName!);
-        ex.Message.ShouldContain(typeof(TestInitialEvent).FullName!);
+        ex.Message.ShouldContain(typeof(MissingInitialEventProjection).FullName!);
+        ex.Message.ShouldContain(nameof(InitialEventAttribute));
     }
 
     [Fact]
@@ -296,11 +293,9 @@ public class ServiceCollectionExtensionsTests
 
         services.AddKeyedSingleton<ICheckpointStore>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"), checkpointStore);
 
-        services.AddProjection<CoreServiceTestModel>(configuration, settingsSectionName: "OrdersProjection")
-                .WithInitialEvent<TestInitialEvent>();
+        services.AddProjection<CoreServiceTestModel>(configuration, settingsSectionName: "OrdersProjection");
 
-        services.AddProjection<SecondaryServiceTestModel>(configuration, settingsSectionName: "InvoicesProjection")
-                .WithInitialEvent<SecondaryInitialEvent>();
+        services.AddProjection<SecondaryServiceTestModel>(configuration, settingsSectionName: "InvoicesProjection");
 
         using var provider = services.BuildServiceProvider();
 
@@ -392,6 +387,7 @@ public class ServiceCollectionExtensionsTests
     {
     }
 
+    [InitialEvent<TestInitialEvent>]
     public sealed class CoreServiceTestProjection : Projection<CoreServiceTestModel>
     {
         public CoreServiceTestProjection(Guid id)
@@ -416,10 +412,15 @@ public class ServiceCollectionExtensionsTests
     {
     }
 
+    public sealed class MissingInitialEventModel : Model
+    {
+    }
+
     public sealed class SecondaryServiceTestModel : Model
     {
     }
 
+    [InitialEvent<AnotherInitialEvent>]
     public sealed class BadCtorProjection : Projection<BadCtorModel>
     {
         public BadCtorProjection(string id)
@@ -428,6 +429,15 @@ public class ServiceCollectionExtensionsTests
         }
     }
 
+    public sealed class MissingInitialEventProjection : Projection<MissingInitialEventModel>
+    {
+        public MissingInitialEventProjection(Guid id)
+            : base(id)
+        {
+        }
+    }
+
+    [InitialEvent<SecondaryInitialEvent>]
     public sealed class SecondaryServiceTestProjection : Projection<SecondaryServiceTestModel>
     {
         public SecondaryServiceTestProjection(Guid id)

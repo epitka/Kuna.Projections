@@ -1,4 +1,5 @@
 using System.Reflection;
+using Kuna.Projections.Abstractions.Attributes;
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
@@ -41,15 +42,16 @@ public static class ServiceCollectionExtensions
     {
         var exportedTypes = typeof(TState).Assembly.GetExportedTypes();
         var registrationKey = ProjectionRegistration.GetKey<TState>(settingsSectionName);
+        var projectionType = ResolveProjectionType<TState>(exportedTypes);
+        var initialEventType = ResolveInitialEventType(projectionType);
+
+        services.AddKeyedSingleton(registrationKey, new ProjectionCreationRegistration<TState>(initialEventType));
 
         services.AddKeyedSingleton<IProjectionFactory<TState>>(
             registrationKey,
             (sp, _) =>
             {
                 var stateStore = sp.GetRequiredKeyedService<IModelStateStore<TState>>(registrationKey);
-
-                var projectionType = exportedTypes
-                    .Single(x => x.BaseType == typeof(Projection<TState>));
 
                 var projectionCtorFunc = projectionType
                     .CreateConstructorFunc(new[] { typeof(Guid), });
@@ -117,5 +119,24 @@ public static class ServiceCollectionExtensions
         services.AddKeyedSingleton<IProjectionSettings<TState>>(registrationKey, projectionSettings);
 
         return new ProjectionRegistrationBuilder<TState>(services, configuration, settingsSectionName, registrationKey);
+    }
+
+    private static Type ResolveProjectionType<TState>(IEnumerable<Type> exportedTypes)
+        where TState : class, IModel, new()
+    {
+        return exportedTypes.Single(x => x.BaseType == typeof(Projection<TState>));
+    }
+
+    private static Type ResolveInitialEventType(Type projectionType)
+    {
+        var initialEventAttribute = projectionType.GetCustomAttributes<InitialEventAttribute>(inherit: false)
+                                                  .SingleOrDefault();
+
+        if (initialEventAttribute == null)
+        {
+            throw new InvalidOperationException($"Projection type {projectionType.FullName} must be annotated with [{nameof(InitialEventAttribute)}<TEvent>].");
+        }
+
+        return initialEventAttribute.InitialEventType;
     }
 }
