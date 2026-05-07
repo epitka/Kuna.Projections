@@ -1,7 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using Kuna.Examples.Events;
 using Kuna.Examples.Projections.Orders.Model;
-using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Core;
 using Kuna.Projections.Sink.MongoDB;
 using Kuna.Projections.Source.KurrentDB;
@@ -40,8 +38,7 @@ public static class ServiceCollectionExtensions
                     options =>
                     {
                         options.CollectionPrefix = "orders";
-                    })
-                .WithInitialEvent<OrderCreatedEvent>();
+                    });
 
         services.AddScoped<OrdersReplayConsistencyDiagnostics>();
 
