@@ -1,4 +1,3 @@
-using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
 using Microsoft.Extensions.Configuration;
@@ -29,29 +28,4 @@ public sealed class ProjectionRegistrationBuilder<TState>
     public string SettingsSectionName { get; }
 
     public string RegistrationKey { get; }
-
-    public IProjectionRegistrationBuilder<TState> WithInitialEvent<TEvent>()
-        where TEvent : Event
-    {
-        var existingRegistration = this.Services
-                                       .Where(
-                                           x => x.ServiceType == typeof(ProjectionCreationRegistration<TState>)
-                                                && Equals(x.ServiceKey, this.RegistrationKey))
-                                       .Select(
-                                           x => x.IsKeyedService
-                                                    ? x.KeyedImplementationInstance
-                                                    : x.ImplementationInstance)
-                                       .OfType<ProjectionCreationRegistration<TState>>()
-                                       .LastOrDefault();
-
-        if (existingRegistration != null)
-        {
-            throw new InvalidOperationException(
-                $"Projection {typeof(TState).FullName} already has initial event {existingRegistration.InitialEventType.FullName} configured.");
-        }
-
-        this.Services.AddKeyedSingleton(this.RegistrationKey, new ProjectionCreationRegistration<TState>(typeof(TEvent)));
-
-        return this;
-    }
 }

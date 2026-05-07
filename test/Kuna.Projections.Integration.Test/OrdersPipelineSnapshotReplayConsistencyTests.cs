@@ -683,8 +683,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                          })
                      .Build();
 
-        services.AddProjection<Order>(config, ProjectionSettingsSection.Name)
-                .WithInitialEvent<OrderCreatedEvent>();
+        services.AddProjection<Order>(config, ProjectionSettingsSection.Name);
 
         return services.BuildServiceProvider();
     }
