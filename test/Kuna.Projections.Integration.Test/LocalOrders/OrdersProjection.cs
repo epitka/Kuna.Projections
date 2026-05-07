@@ -1,8 +1,10 @@
+using Kuna.Projections.Abstractions.Attributes;
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Core;
 
 namespace Kuna.Projections.Pipeline.Integration.Test.LocalOrders;
 
+[InitialEvent<OrderCreatedEvent>]
 public sealed class OrdersProjection : Projection<Order>
 {
     internal OrdersProjection(Guid modelId)

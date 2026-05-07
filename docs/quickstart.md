@@ -326,7 +326,7 @@ There are two supported hosting patterns:
 
 ## 9. Register Services For DI
 
-Important: `WithInitialEvent<TEvent>()` is required here. Without it, the runtime does not know which event is allowed to create a new projection instance. Use the event that creates the model or starts the aggregate stream, such as `AccountCreated`.
+Important: the projection class must be annotated with `[InitialEvent<TEvent>]`. That tells the runtime which event is allowed to create a new projection instance. Use the event that creates the model or starts the aggregate stream, such as `AccountCreated`.
 
 ### 9A. NoSQL Example: MongoDB
 
@@ -364,8 +364,16 @@ services.AddDbContext<AccountProjectionDbContext>(
 
 services.AddProjection<Account>(configuration, "AccountProjection")
         .UseKurrentDbSource(loggerFactory)
-        .UseNpgsqlDataStore<Account, AccountProjectionDbContext>(schema: "dbo")
-        .WithInitialEvent<AccountCreated>();
+        .UseNpgsqlDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
+```
+
+```csharp
+using Kuna.Projections.Abstractions.Attributes;
+
+[InitialEvent<AccountCreated>]
+public sealed class AccountProjection : Projection<Account>
+{
+}
 ```
 
 Note that the relational sink requires a projection namespace value to be passed in through `schema`. On schema-capable providers that becomes a real database schema; on providers such as MySQL it is used as a table-name prefix. For more information see [configuration-reference.md](configuration-reference.md#when-to-use-a-projection-specific-schema).
@@ -375,7 +383,7 @@ This builder flow does the heavy lifting:
 - `AddProjection<TState>(configuration, settingsSectionName)` anchors one projection definition
 - `UseKurrentDbSource(...)` wires the current KurrentDB-backed implementation of `IEventSource<EventEnvelope>` for that projection definition
 - `UseNpgsqlDataStore<TState, TDataContext>(schema: ...)` wires Npgsql-backed state loading, persistence, checkpointing, and failure handling for that projection definition
-- `WithInitialEvent<TEvent>()` tells the runtime which event creates a new projection instance for that model type; use the event that starts the aggregate or stream, such as `AccountCreated`
+- `[InitialEvent<TEvent>]` on the projection type tells the runtime which event creates a new projection instance for that model type; use the event that starts the aggregate or stream, such as `AccountCreated`
 - `AddProjectionHost(...)` runs all registered pipelines and startup tasks
 - `AddHostedService<TWorker>()` is the manual alternative if you are not using `AddProjectionHost(...)`
 

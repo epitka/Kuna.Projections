@@ -49,6 +49,7 @@ This is the smallest accurate picture of how the libraries fit together. It omit
 
 ```csharp
 using Kuna.Projections.Abstractions.Models;
+using Kuna.Projections.Abstractions.Attributes;
 using Kuna.Projections.Core;
 using Kuna.Projections.Sink.EF;
 using Kuna.Projections.Source.KurrentDB;
@@ -68,6 +69,7 @@ public sealed class EmailVerified : Event
 {
 }
 
+[InitialEvent<AccountCreated>]
 public sealed class AccountProjection : Projection<Account>
 {
     internal AccountProjection(Guid modelId)

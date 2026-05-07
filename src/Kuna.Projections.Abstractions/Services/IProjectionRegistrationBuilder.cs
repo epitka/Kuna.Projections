@@ -17,7 +17,4 @@ public interface IProjectionRegistrationBuilder<TState>
     string SettingsSectionName { get; }
 
     string RegistrationKey { get; }
-
-    IProjectionRegistrationBuilder<TState> WithInitialEvent<TEvent>()
-        where TEvent : Event;
 }

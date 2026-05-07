@@ -14,3 +14,6 @@
 
 # macOS
 .DS_Store
+
+# Example artifacts
+examples/Kuna.Projections.Worker.Kurrent_EF.Example/projection-run-log

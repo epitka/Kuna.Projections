@@ -1,11 +1,13 @@
 using Kuna.Examples.Events;
 using Kuna.Examples.Projections.Orders.Model;
+using Kuna.Projections.Abstractions.Attributes;
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Core;
 using Model_Address = Kuna.Examples.Projections.Orders.Model.Address;
 
 namespace Kuna.Examples.Projections.Orders;
 
+[InitialEvent<OrderCreatedEvent>]
 public class OrdersProjection : Projection<Order>
 {
     private static readonly HashSet<string> IgnoredEvents = ["OrderDeclined",];

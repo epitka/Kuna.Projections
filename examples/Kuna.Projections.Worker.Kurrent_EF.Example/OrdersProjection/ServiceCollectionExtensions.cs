@@ -55,8 +55,7 @@ public static class ServiceCollectionExtensions
                     configuration,
                     settingsSectionName: "OrdersProjection")
                 .UseKurrentDbSource(factory)
-                .UseNpgsqlDataStore<Order, OrdersDbContext>(schema: ProjectionSchema)
-                .WithInitialEvent<OrderCreatedEvent>();
+                .UseNpgsqlDataStore<Order, OrdersDbContext>(schema: ProjectionSchema);
 
         services.AddScoped<OrdersReplayConsistencyDiagnostics>();
 

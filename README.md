@@ -190,8 +190,18 @@ services.AddDbContext<AccountProjectionDbContext>(
 
 services.AddProjection<Account>(configuration, "AccountProjection")
         .UseKurrentDbSource(loggerFactory)
-        .UseNpgsqlDataStore<Account, AccountProjectionDbContext>(schema: "dbo")
-        .WithInitialEvent<AccountCreated>();
+        .UseNpgsqlDataStore<Account, AccountProjectionDbContext>(schema: "dbo");
+```
+
+The projection type declares its own creation event:
+
+```csharp
+using Kuna.Projections.Abstractions.Attributes;
+
+[InitialEvent<AccountCreated>]
+public sealed class AccountProjection : Projection<Account>
+{
+}
 ```
 
 If you are not using PostgreSQL, swap the provider adapter and registration method:
