@@ -63,10 +63,10 @@ Check the checkpoint document:
 db.projection_checkpoints.find().pretty()
 ```
 
-Check faulted orders with embedded failures:
+Check persisted failures:
 
 ```javascript
-db.orders_order.find({ HasStreamProcessingFaulted: true }).pretty()
+db.projection_failures.find().pretty()
 ```
 
 ## Restart Projection State Without Reseeding Events
@@ -95,4 +95,4 @@ docker compose up -d
 - The worker uses `ConnectionStrings:MongoDB` and `ConnectionStrings:KurrentDB` from `appsettings.json`.
 - The MongoDB sink stores orders in `orders_order`.
 - Checkpoints remain in `projection_checkpoints`.
-- Projection failures are stored on the order document itself under `ProjectionFailure`.
+- Projection failures are stored in `projection_failures`.

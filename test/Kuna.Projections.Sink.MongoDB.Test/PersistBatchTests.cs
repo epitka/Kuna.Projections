@@ -196,7 +196,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         await sink.PersistBatch(batch, CancellationToken.None);
 
         var document = await this.GetModelDocument(provider, modelId);
-        var failureDocument = await this.GetProjectionFailureDocument(provider, modelId);
+        var failureDocument = await this.GetFailureDocument(provider, modelId);
 
         document.ShouldNotBeNull();
         document["Name"].AsString.ShouldBe("before");
@@ -376,7 +376,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         var staleDocument = await this.GetModelDocument(provider, staleModelId);
         var validDocument = await this.GetModelDocument(provider, validModelId);
-        var staleFailureDocument = await this.GetProjectionFailureDocument(provider, staleModelId);
+        var staleFailureDocument = await this.GetFailureDocument(provider, staleModelId);
 
         staleDocument.ShouldNotBeNull();
         staleDocument["Name"].AsString.ShouldBe("stale-before");
@@ -485,7 +485,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         var failedDocument = await this.GetModelDocument(provider, failedModelId);
         var validDocument = await this.GetModelDocument(provider, validModelId);
-        var failureDocument = await this.GetProjectionFailureDocument(provider, failedModelId);
+        var failureDocument = await this.GetFailureDocument(provider, failedModelId);
 
         failedDocument.ShouldNotBeNull();
         failedDocument["_id"].AsString.ShouldBe(failedModelId.ToString("D"));
@@ -543,7 +543,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         var failedDocument = await this.GetModelDocument(provider, failedModelId);
         var validDocument = await this.GetModelDocument(provider, validModelId);
-        var failureDocument = await this.GetProjectionFailureDocument(provider, failedModelId);
+        var failureDocument = await this.GetFailureDocument(provider, failedModelId);
 
         failedDocument.ShouldNotBeNull();
         failedDocument["Name"].AsString.ShouldBe("failed-before");

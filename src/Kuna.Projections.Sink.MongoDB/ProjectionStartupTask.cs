@@ -10,6 +10,7 @@ internal sealed class ProjectionStartupTask<TState> : IProjectionStartupTask
     private readonly IMongoDatabase database;
     private readonly string modelCollectionName;
     private readonly string checkpointCollectionName;
+    private readonly string failureCollectionName;
 
     public ProjectionStartupTask(ProjectionContext<TState> context)
     {
@@ -17,6 +18,7 @@ internal sealed class ProjectionStartupTask<TState> : IProjectionStartupTask
 
         this.modelCollectionName = context.CollectionNamer.GetModelCollectionName<TState>();
         this.checkpointCollectionName = context.CollectionNamer.GetCheckpointCollectionName();
+        this.failureCollectionName = context.CollectionNamer.GetFailureCollectionName();
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
@@ -25,6 +27,20 @@ internal sealed class ProjectionStartupTask<TState> : IProjectionStartupTask
 
         await this.EnsureCollectionExists(this.modelCollectionName, existingCollectionNames, cancellationToken);
         await this.EnsureCollectionExists(this.checkpointCollectionName, existingCollectionNames, cancellationToken);
+        await this.EnsureCollectionExists(this.failureCollectionName, existingCollectionNames, cancellationToken);
+
+        CreateIndexModel<ProjectionFailureDocument> failureModelIndex = new(
+            Builders<ProjectionFailureDocument>.IndexKeys
+                                               .Ascending(x => x.ModelName)
+                                               .Ascending(x => x.ModelId),
+            new CreateIndexOptions
+            {
+                Name = "ux_projection_failure_model_name_model_id",
+                Unique = true,
+            });
+
+        var failureCollection = this.database.GetCollection<ProjectionFailureDocument>(this.failureCollectionName);
+        await failureCollection.Indexes.CreateOneAsync(failureModelIndex, cancellationToken: cancellationToken);
     }
 
     private async Task<HashSet<string>> GetExistingCollectionNames(CancellationToken cancellationToken)

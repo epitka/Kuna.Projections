@@ -1,3 +1,4 @@
+using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Sink.MongoDB.Test.Items;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +43,5 @@ public sealed class LoadTests : MongoDbIntegrationTestBase
         result.EventNumber.ShouldBe(42);
         result.GlobalEventPosition.ShouldBe(new Kuna.Projections.Abstractions.Models.GlobalEventPosition("101"));
         result.HasStreamProcessingFaulted.ShouldBeFalse();
-        result.ProjectionFailure.ShouldBeNull();
     }
 }

@@ -88,18 +88,12 @@ public abstract class MongoDbIntegrationTestBase
         return await collection.Find(x => x["_id"] == modelId.ToString("D")).SingleOrDefaultAsync();
     }
 
-    protected async Task<BsonDocument?> GetProjectionFailureDocument(ServiceProvider provider, Guid modelId)
+    protected async Task<BsonDocument?> GetFailureDocument(ServiceProvider provider, Guid modelId)
     {
-        var modelDocument = await this.GetModelDocument(provider, modelId);
-
-        if (modelDocument is null
-            || !modelDocument.TryGetValue("ProjectionFailure", out var projectionFailure)
-            || projectionFailure.IsBsonNull)
-        {
-            return null;
-        }
-
-        return projectionFailure.AsBsonDocument;
+        var failureId = $"{typeof(TestModel).FullName}:{modelId:D}";
+        var database = this.CreateDatabase();
+        var collection = database.GetCollection<BsonDocument>("projection_failures");
+        return await collection.Find(x => x["_id"] == failureId).SingleOrDefaultAsync();
     }
 
     protected async Task<long> GetModelDocumentCount(ServiceProvider provider, Guid modelId)

@@ -18,8 +18,6 @@ public interface IModel
     /// A flag indicating whether the stream has faulted.
     /// </summary>
     bool HasStreamProcessingFaulted { get; set; }
-
-    ProjectionFailure? ProjectionFailure { get; set; }
 }
 
 public abstract class Model
@@ -32,6 +30,4 @@ public abstract class Model
     public GlobalEventPosition GlobalEventPosition { get; set; }
 
     public bool HasStreamProcessingFaulted { get; set; }
-
-    public ProjectionFailure? ProjectionFailure { get; set; }
 }
