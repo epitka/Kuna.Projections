@@ -7,7 +7,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{98AB8DB0-B
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{380D4DB8-7167-4D86-83A5-D88907D33823}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kuna.Projections.Worker.Kurrent_EF.Example", "examples\Kuna.Projections.Worker.Kurrent_EF.Example\Kuna.Projections.Worker.Kurrent_EF.Example.csproj", "{838FBBD6-EB57-44F8-A9F5-6F74B610FAFA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kuna.Projections.Worker.Kurrent_Postgres.Example", "examples\Kuna.Projections.Worker.Kurrent_Postgres.Example\Kuna.Projections.Worker.Kurrent_Postgres.Example.csproj", "{838FBBD6-EB57-44F8-A9F5-6F74B610FAFA}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kuna.Examples.Events", "examples\Kuna.Examples.Events\Kuna.Examples.Events.csproj", "{55F8A1D1-3A3A-4A60-A5DA-B1D25B588C20}"
 EndProject

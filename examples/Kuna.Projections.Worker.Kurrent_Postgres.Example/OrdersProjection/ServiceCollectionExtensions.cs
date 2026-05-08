@@ -1,16 +1,13 @@
 using System.Diagnostics.CodeAnalysis;
-using Kuna.Examples.Events;
 using Kuna.Examples.Projections.Orders.Model;
 using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Core;
-using Kuna.Projections.Sink.EF;
-using Kuna.Projections.Sink.EF.Data;
 using Kuna.Projections.Sink.EF.Npgsql;
 using Kuna.Projections.Source.KurrentDB;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
-namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection;
+namespace Kuna.Projections.Worker.Kurrent_Postgres.Example.OrdersProjection;
 
 /// <summary>
 /// Extensions for the IServiceCollection

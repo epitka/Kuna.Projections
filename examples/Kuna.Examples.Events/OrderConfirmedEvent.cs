@@ -28,26 +28,6 @@ public class OrderConfirmedEvent : Event
 
     public DateTimeOffset? CompletedDateTime { get; set; }
 
-    public DateTimeOffset OrderCreatedDateTime { get; set; }
-
-    public decimal? EstablishmentFee { get; set; }
-
-    public decimal? InstallmentServiceFee { get; set; }
-
-    public decimal FirstInstallmentPercentage { get; set; }
-
-    public decimal? InterestRate { get; set; }
-
-    public int NumberOfInstallments { get; set; }
-
-    public bool? DeferMerchantFundsCapture { get; set; }
-
-    public decimal FirstInstallmentPaymentAuthorizationAmount { get; set; }
-
-    public string FirstInstallmentPaymentAuthorizationId { get; set; }
-
-    public string FirstInstallmentCustomerPaymentSourceId { get; set; }
-
     public decimal DownPaymentAmount { get; set; }
 
     public decimal? TaxAmount { get; set; }

@@ -46,6 +46,6 @@ public sealed class PersistCheckpointTests : MongoDbIntegrationTestBase
 
         result.ModelName.ShouldBe(ProjectionModelName.For<TestModel>());
         result.InstanceId.ShouldBe(SettingsSectionName);
-        result.GlobalEventPosition.ShouldBe(new GlobalEventPosition("0"));
+        result.GlobalEventPosition.ShouldBe(new GlobalEventPosition(string.Empty));
     }
 }

@@ -21,8 +21,6 @@ public class OrderCreatedEvent : Event
 
     public DateTimeOffset CreatedDateTime { get; set; }
 
-    public DateTime? StartDate { get; set; }
-
     public string MerchantReference { get; set; }
 
     public string Email { get; set; }
@@ -37,8 +35,6 @@ public class OrderCreatedEvent : Event
 
     public Address PostalAddress { get; set; }
 
-    public decimal? AuthorizationAmount { get; set; }
-
     public string PaymentAuthorizationId { get; set; }
 
     public decimal? Amount { get; set; }
@@ -51,37 +47,7 @@ public class OrderCreatedEvent : Event
 
     public Guid? CustomerId { get; set; }
 
-    public string PaymentSourceId { get; set; }
-
     public string Source { get; set; }
-
-    public string LocationAuthorizationMethod { get; set; }
-
-    public string LocationId { get; set; }
-
-    public string LocationName { get; set; }
-
-    public string LocationCategories { get; set; }
-
-    public string LocationPhone { get; set; }
-
-    public string LocationAddressLine1 { get; set; }
-
-    public string LocationAddressLine2 { get; set; }
-
-    public string LocationAddressCity { get; set; }
-
-    public string LocationAddressState { get; set; }
-
-    public string LocationAddressPostalCode { get; set; }
-
-    public string LocationAddressCountry { get; set; }
-
-    public double? LocationAddressLatitude { get; set; }
-
-    public double? LocationAddressLongitude { get; set; }
-
-    public bool? DeferMerchantFundsCapture { get; set; }
 
     public string ProductType { get; set; }
 }

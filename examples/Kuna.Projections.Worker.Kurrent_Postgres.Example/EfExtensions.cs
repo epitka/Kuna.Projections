@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Kuna.Projections.Worker.Kurrent_EF.Example;
+namespace Kuna.Projections.Worker.Kurrent_Postgres.Example;
 
 public static class EfExtensions
 {

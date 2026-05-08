@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Kuna.Projections.Core;
-using Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection;
+using Kuna.Projections.Worker.Kurrent_Postgres.Example.OrdersProjection;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -70,7 +70,7 @@ finally
 }
 
 // Enables the class to be visible to integration tests by Microsoft.AspNetCore.Mvc.Testing
-namespace Kuna.Projections.Worker.Kurrent_EF.Example
+namespace Kuna.Projections.Worker.Kurrent_Postgres.Example
 {
     [ExcludeFromCodeCoverage]
     public partial class Program

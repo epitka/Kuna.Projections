@@ -26,7 +26,7 @@ internal sealed class ProjectionCheckpointStore<TState> : ICheckpointStore
             {
                 ModelName = modelName,
                 InstanceId = instanceId,
-                GlobalEventPosition = new GlobalEventPosition(0L),
+                GlobalEventPosition = new GlobalEventPosition(string.Empty),
             };
         }
 

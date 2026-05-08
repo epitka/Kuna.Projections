@@ -13,7 +13,8 @@ public sealed class KurrentDbCheckpointSerializer : ICheckpointSerializer<Positi
 
     public Position Deserialize(GlobalEventPosition checkpoint)
     {
-        if (string.IsNullOrEmpty(checkpoint.Value))
+        if (string.IsNullOrEmpty(checkpoint.Value)
+            || checkpoint.Value == "0")
         {
             return Position.Start;
         }

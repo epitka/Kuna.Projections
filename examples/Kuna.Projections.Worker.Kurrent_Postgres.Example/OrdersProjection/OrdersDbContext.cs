@@ -2,7 +2,7 @@ using Kuna.Examples.Projections.Orders.Model;
 using Kuna.Projections.Sink.EF.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection;
+namespace Kuna.Projections.Worker.Kurrent_Postgres.Example.OrdersProjection;
 
 public class OrdersDbContext : SqlProjectionsDbContext
 {

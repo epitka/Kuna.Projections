@@ -31,7 +31,6 @@ public sealed class OrdersReplayConsistencyDiagnostics
     public OrdersReplayConsistencyDiagnostics(
         KurrentDBClient eventStoreClient,
         IEventDeserializer eventDeserializer,
-        IProjectionSettings<Order> projectionSettings,
         IConfiguration configuration,
         ILogger<EventModelIdResolver> modelIdResolverLogger,
         ILogger<OrdersReplayConsistencyDiagnostics> logger)
@@ -48,6 +47,16 @@ public sealed class OrdersReplayConsistencyDiagnostics
 
         this.ordersCollection = mongoDatabase.GetCollection<Order>(OrdersCollectionName);
         this.eventStoreClient = eventStoreClient;
+        var projectionSection = configuration.GetSection(SettingsSectionName);
+
+        if (!projectionSection.Exists())
+        {
+            throw new InvalidOperationException($"Missing required configuration section: {SettingsSectionName}");
+        }
+
+        var projectionSettings = projectionSection.Get<ProjectionSettings<Order>>()
+                                 ?? throw new InvalidOperationException($"Missing configuration section: {SettingsSectionName}");
+
         var sectionPath = $"{SettingsSectionName}:{KurrentDbSourceSettings.SectionName}";
         var section = configuration.GetSection(sectionPath);
 

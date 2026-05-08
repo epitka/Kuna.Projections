@@ -11,9 +11,12 @@ public readonly record struct GlobalEventPosition(string Value)
 
     public static GlobalEventPosition From(string value)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+        if (value == string.Empty)
+        {
+            return new GlobalEventPosition(string.Empty);
+        }
 
-        _ = long.Parse(value, CultureInfo.InvariantCulture);
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
         return new GlobalEventPosition(value);
     }
 

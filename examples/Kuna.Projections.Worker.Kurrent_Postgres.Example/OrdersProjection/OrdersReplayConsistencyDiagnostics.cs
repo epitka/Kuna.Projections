@@ -7,7 +7,7 @@ using Kuna.Projections.Source.KurrentDB.Extensions;
 using KurrentDB.Client;
 using Microsoft.EntityFrameworkCore;
 
-namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection;
+namespace Kuna.Projections.Worker.Kurrent_Postgres.Example.OrdersProjection;
 
 public sealed class OrdersReplayConsistencyDiagnostics
 {

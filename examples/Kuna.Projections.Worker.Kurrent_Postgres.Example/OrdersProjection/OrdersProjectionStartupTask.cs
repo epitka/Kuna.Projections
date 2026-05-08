@@ -1,6 +1,6 @@
 using Kuna.Projections.Abstractions.Services;
 
-namespace Kuna.Projections.Worker.Kurrent_EF.Example.OrdersProjection;
+namespace Kuna.Projections.Worker.Kurrent_Postgres.Example.OrdersProjection;
 
 public sealed class OrdersProjectionStartupTask : IProjectionStartupTask
 {
