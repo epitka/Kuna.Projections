@@ -32,12 +32,17 @@ namespace Kuna.Projections.Worker.Kurrent_EF.Example.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("InstanceId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("GlobalEventPosition")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
-                    b.HasKey("ModelName");
+                    b.HasKey("ModelName", "InstanceId");
 
                     b.ToTable("CheckPoints", "dbo");
                 });
@@ -45,6 +50,9 @@ namespace Kuna.Projections.Worker.Kurrent_EF.Example.Migrations
             modelBuilder.Entity("Kuna.Projections.Abstractions.Models.ProjectionFailure", b =>
                 {
                     b.Property<string>("ModelName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("InstanceId")
                         .HasColumnType("text");
 
                     b.Property<Guid>("ModelId")
@@ -69,7 +77,7 @@ namespace Kuna.Projections.Worker.Kurrent_EF.Example.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
-                    b.HasKey("ModelName", "ModelId");
+                    b.HasKey("ModelName", "InstanceId", "ModelId");
 
                     b.ToTable("ProjectionFailures", "dbo");
                 });

@@ -20,11 +20,12 @@ namespace Kuna.Projections.Worker.Kurrent_EF.Example.Migrations
                 columns: table => new
                 {
                     ModelName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    InstanceId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     GlobalEventPosition = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_CheckPoints", x => x.ModelName);
+                    table.PrimaryKey("PK_CheckPoints", x => new { x.ModelName, x.InstanceId });
                 });
 
             migrationBuilder.CreateTable(
@@ -86,8 +87,9 @@ namespace Kuna.Projections.Worker.Kurrent_EF.Example.Migrations
                 schema: "dbo",
                 columns: table => new
                 {
-                    ModelId = table.Column<Guid>(type: "uuid", nullable: false),
                     ModelName = table.Column<string>(type: "text", nullable: false),
+                    InstanceId = table.Column<string>(type: "text", nullable: false),
+                    ModelId = table.Column<Guid>(type: "uuid", nullable: false),
                     EventNumber = table.Column<long>(type: "bigint", nullable: false),
                     GlobalEventPosition = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     FailureCreatedOn = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -96,7 +98,7 @@ namespace Kuna.Projections.Worker.Kurrent_EF.Example.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ProjectionFailures", x => new { x.ModelName, x.ModelId });
+                    table.PrimaryKey("PK_ProjectionFailures", x => new { x.ModelName, x.InstanceId, x.ModelId });
                 });
 
             migrationBuilder.CreateTable(
