@@ -16,8 +16,9 @@ internal sealed class ProjectionCheckpointStore<TState> : ICheckpointStore
 
     public async Task<CheckPoint> GetCheckpoint(string modelName, string instanceId, CancellationToken cancellationToken)
     {
+        var checkpointId = GetId(modelName, instanceId);
         var document = await this.collection
-                                 .Find(x => x.ModelName == modelName && x.InstanceId == instanceId)
+                                 .Find(x => x.Id == checkpointId)
                                  .SingleOrDefaultAsync(cancellationToken);
 
         if (document is null)
