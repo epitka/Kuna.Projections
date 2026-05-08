@@ -33,6 +33,25 @@ internal sealed class ProjectionFailureHandler<TState> : IProjectionFailureHandl
         await this.UpdateExistingDocument(existingDocument, modelId, failure, cancellationToken);
     }
 
+    private static BsonDocument CreateProjectionFailureDocument(ProjectionFailure failure)
+    {
+        return new BsonDocument
+        {
+            { nameof(ProjectionFailure.EventNumber), failure.EventNumber },
+            { nameof(ProjectionFailure.GlobalEventPosition), failure.GlobalEventPosition.ToString() },
+            { nameof(ProjectionFailure.FailureCreatedOn), failure.FailureCreatedOn },
+            { nameof(ProjectionFailure.Exception), Truncate(failure.Exception) },
+            { nameof(ProjectionFailure.FailureType), failure.FailureType },
+        };
+    }
+
+    private static string Truncate(string value)
+    {
+        return value.Length <= MaxExceptionLength
+                   ? value
+                   : value[..MaxExceptionLength];
+    }
+
     private async Task InsertStubDocument(string modelId, ProjectionFailure failure, CancellationToken cancellationToken)
     {
         try
@@ -90,24 +109,5 @@ internal sealed class ProjectionFailureHandler<TState> : IProjectionFailureHandl
             missingFailureFilter,
             missingFailureUpdate,
             cancellationToken: cancellationToken);
-    }
-
-    private static BsonDocument CreateProjectionFailureDocument(ProjectionFailure failure)
-    {
-        return new BsonDocument
-        {
-            { nameof(ProjectionFailure.EventNumber), failure.EventNumber },
-            { nameof(ProjectionFailure.GlobalEventPosition), failure.GlobalEventPosition.ToString() },
-            { nameof(ProjectionFailure.FailureCreatedOn), failure.FailureCreatedOn },
-            { nameof(ProjectionFailure.Exception), Truncate(failure.Exception) },
-            { nameof(ProjectionFailure.FailureType), failure.FailureType },
-        };
-    }
-
-    private static string Truncate(string value)
-    {
-        return value.Length <= MaxExceptionLength
-                   ? value
-                   : value[..MaxExceptionLength];
     }
 }
