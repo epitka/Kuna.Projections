@@ -45,6 +45,9 @@ internal static class ClassMapRegistry
                 var idMemberMap = classMap.GetMemberMap(nameof(Model.Id));
                 idMemberMap.SetSerializer(new IdSerializer());
                 classMap.SetIdMember(idMemberMap);
+
+                var projectionFailureMemberMap = classMap.GetMemberMap(nameof(Model.ProjectionFailure));
+                projectionFailureMemberMap.SetIgnoreIfNull(true);
             });
 
         baseModelInitialized = true;

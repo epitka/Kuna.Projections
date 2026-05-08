@@ -16,7 +16,7 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
     }
 
     [Fact]
-    public async Task Handle_Should_Mark_Model_As_Faulted_And_Persist_Failure()
+    public async Task Handle_Should_Mark_Model_As_Faulted_And_Persist_Failure_On_Model_Document()
     {
         var modelId = Guid.NewGuid();
         ProjectionFailure failure = new(
@@ -36,14 +36,12 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
         await handler.Handle(failure, CancellationToken.None);
 
         var modelDocument = await this.GetModelDocument(provider, modelId);
-        var failureDocument = await this.GetFailureDocument(provider, modelId);
+        var failureDocument = await this.GetProjectionFailureDocument(provider, modelId);
 
         modelDocument.ShouldNotBeNull();
         modelDocument["HasStreamProcessingFaulted"].AsBoolean.ShouldBeTrue();
 
         failureDocument.ShouldNotBeNull();
-        failureDocument["ModelName"].AsString.ShouldBe(ProjectionModelName.For<TestModel>());
-        failureDocument["ModelId"].AsString.ShouldBe(modelId.ToString("D"));
         failureDocument["EventNumber"].AsInt64.ShouldBe(7);
         failureDocument["GlobalEventPosition"].AsString.ShouldBe("42");
         failureDocument["Exception"].AsString.ShouldBe("boom");
@@ -51,7 +49,7 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
     }
 
     [Fact]
-    public async Task Handle_Should_Replace_Existing_Failure_Text_And_Metadata()
+    public async Task Handle_Should_Keep_First_Failure_When_Model_Already_Has_One()
     {
         var modelId = Guid.NewGuid();
         ProjectionFailure firstFailure = new(
@@ -81,13 +79,13 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
         await handler.Handle(firstFailure, CancellationToken.None);
         await handler.Handle(secondFailure, CancellationToken.None);
 
-        var failureDocument = await this.GetFailureDocument(provider, modelId);
+        var failureDocument = await this.GetProjectionFailureDocument(provider, modelId);
 
         failureDocument.ShouldNotBeNull();
-        failureDocument["EventNumber"].AsInt64.ShouldBe(8);
-        failureDocument["GlobalEventPosition"].AsString.ShouldBe("43");
-        failureDocument["Exception"].AsString.ShouldBe("second");
-        failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.EventProcessing));
+        failureDocument["EventNumber"].AsInt64.ShouldBe(7);
+        failureDocument["GlobalEventPosition"].AsString.ShouldBe("42");
+        failureDocument["Exception"].AsString.ShouldBe("first");
+        failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
     }
 
     [Fact]
@@ -111,9 +109,39 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
 
         await handler.Handle(failure, CancellationToken.None);
 
-        var failureDocument = await this.GetFailureDocument(provider, modelId);
+        var failureDocument = await this.GetProjectionFailureDocument(provider, modelId);
 
         failureDocument.ShouldNotBeNull();
         failureDocument["Exception"].AsString.Length.ShouldBe(500);
+    }
+
+    [Fact]
+    public async Task Handle_Should_Create_Stub_Model_Document_When_Model_Is_Not_Persisted_Yet()
+    {
+        var modelId = Guid.NewGuid();
+        ProjectionFailure failure = new(
+            modelId: modelId,
+            eventNumber: 11,
+            streamPosition: new GlobalEventPosition(55L),
+            failureCreatedOn: new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+            exception: "first-event-failure",
+            failureType: nameof(FailureType.EventProcessing),
+            modelName: ProjectionModelName.For<TestModel>(),
+            instanceId: SettingsSectionName);
+
+        await using var provider = this.CreateProvider();
+        var handler = provider.GetRequiredKeyedService<IProjectionFailureHandler<TestModel>>(GetRegistrationKey<TestModel>());
+
+        await handler.Handle(failure, CancellationToken.None);
+
+        var modelDocument = await this.GetModelDocument(provider, modelId);
+        var failureDocument = await this.GetProjectionFailureDocument(provider, modelId);
+
+        modelDocument.ShouldNotBeNull();
+        modelDocument["_id"].AsString.ShouldBe(modelId.ToString("D"));
+        modelDocument["HasStreamProcessingFaulted"].AsBoolean.ShouldBeTrue();
+        failureDocument.ShouldNotBeNull();
+        failureDocument["EventNumber"].AsInt64.ShouldBe(11);
+        failureDocument["Exception"].AsString.ShouldBe("first-event-failure");
     }
 }

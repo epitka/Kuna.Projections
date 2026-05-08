@@ -8,8 +8,6 @@ public interface ICollectionNamer
         where TState : class, IModel, new();
 
     string GetCheckpointCollectionName();
-
-    string GetFailureCollectionName();
 }
 
 public sealed class CollectionNamer : ICollectionNamer
@@ -36,11 +34,6 @@ public sealed class CollectionNamer : ICollectionNamer
     public string GetCheckpointCollectionName()
     {
         return this.options.CheckpointCollectionName;
-    }
-
-    public string GetFailureCollectionName()
-    {
-        return this.options.FailureCollectionName;
     }
 
     private static string NormalizeTypeName(string typeName)

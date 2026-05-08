@@ -29,8 +29,6 @@ public sealed class ProjectionOptions
 
     public string CheckpointCollectionName => "projection_checkpoints";
 
-    public string FailureCollectionName => "projection_failures";
-
     public IDictionary<Type, string> ModelCollectionNames { get; } = new Dictionary<Type, string>();
 
     public void SetModelCollectionName<TState>(string collectionName)

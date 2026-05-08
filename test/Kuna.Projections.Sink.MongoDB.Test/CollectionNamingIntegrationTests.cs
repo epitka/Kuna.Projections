@@ -43,8 +43,7 @@ public sealed class CollectionNamingIntegrationTests : MongoDbIntegrationTestBas
             },
             options => new FixedCollectionNamer(
                 modelCollectionName: "custom_models",
-                checkpointCollectionName: "custom_checkpoints",
-                failureCollectionName: "custom_failures"));
+                checkpointCollectionName: "custom_checkpoints"));
 
         await using var provider = services.BuildServiceProvider();
 
@@ -54,7 +53,6 @@ public sealed class CollectionNamingIntegrationTests : MongoDbIntegrationTestBas
 
         collectionNames.ShouldContain("custom_models");
         collectionNames.ShouldContain("custom_checkpoints");
-        collectionNames.ShouldContain("custom_failures");
         collectionNames.ShouldNotContain("projection_test_model");
         collectionNames.ShouldNotContain("projection_checkpoints");
         collectionNames.ShouldNotContain("projection_failures");
@@ -64,16 +62,13 @@ public sealed class CollectionNamingIntegrationTests : MongoDbIntegrationTestBas
     {
         private readonly string modelCollectionName;
         private readonly string checkpointCollectionName;
-        private readonly string failureCollectionName;
 
         public FixedCollectionNamer(
             string modelCollectionName,
-            string checkpointCollectionName,
-            string failureCollectionName)
+            string checkpointCollectionName)
         {
             this.modelCollectionName = modelCollectionName;
             this.checkpointCollectionName = checkpointCollectionName;
-            this.failureCollectionName = failureCollectionName;
         }
 
         public string GetModelCollectionName<TState>()
@@ -85,11 +80,6 @@ public sealed class CollectionNamingIntegrationTests : MongoDbIntegrationTestBas
         public string GetCheckpointCollectionName()
         {
             return this.checkpointCollectionName;
-        }
-
-        public string GetFailureCollectionName()
-        {
-            return this.failureCollectionName;
         }
     }
 }

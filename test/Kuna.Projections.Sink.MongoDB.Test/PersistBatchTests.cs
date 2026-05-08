@@ -475,13 +475,15 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         var failedDocument = await this.GetModelDocument(provider, failedModelId);
         var validDocument = await this.GetModelDocument(provider, validModelId);
-        var failureDocument = await this.GetFailureDocument(provider, failedModelId);
+        var failureDocument = await this.GetProjectionFailureDocument(provider, failedModelId);
 
-        failedDocument.ShouldBeNull();
+        failedDocument.ShouldNotBeNull();
+        failedDocument["_id"].AsString.ShouldBe(failedModelId.ToString("D"));
+        failedDocument["HasStreamProcessingFaulted"].AsBoolean.ShouldBeTrue();
         validDocument.ShouldNotBeNull();
         validDocument["Name"].AsString.ShouldBe("valid");
         failureDocument.ShouldNotBeNull();
-        failureDocument["ModelId"].AsString.ShouldBe(failedModelId.ToString("D"));
+        failureDocument["EventNumber"].AsInt64.ShouldBe(1);
         failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
     }
 
@@ -531,16 +533,17 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         var failedDocument = await this.GetModelDocument(provider, failedModelId);
         var validDocument = await this.GetModelDocument(provider, validModelId);
-        var failureDocument = await this.GetFailureDocument(provider, failedModelId);
+        var failureDocument = await this.GetProjectionFailureDocument(provider, failedModelId);
 
         failedDocument.ShouldNotBeNull();
         failedDocument["Name"].AsString.ShouldBe("failed-before");
         failedDocument["EventNumber"].AsInt64.ShouldBe(3);
+        failedDocument["HasStreamProcessingFaulted"].AsBoolean.ShouldBeTrue();
         validDocument.ShouldNotBeNull();
         validDocument["Name"].AsString.ShouldBe("valid-after");
         validDocument["EventNumber"].AsInt64.ShouldBe(6);
         failureDocument.ShouldNotBeNull();
-        failureDocument["ModelId"].AsString.ShouldBe(failedModelId.ToString("D"));
+        failureDocument["EventNumber"].AsInt64.ShouldBe(4);
         failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
     }
 }

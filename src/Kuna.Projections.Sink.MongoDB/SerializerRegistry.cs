@@ -19,6 +19,7 @@ internal static class SerializerRegistry
 
             BsonSerializer.RegisterSerializer(new IdSerializer());
             BsonSerializer.RegisterSerializer(new GlobalEventPositionSerializer());
+            BsonSerializer.RegisterSerializer(new ProjectionFailureSerializer());
 
             initialized = true;
         }
