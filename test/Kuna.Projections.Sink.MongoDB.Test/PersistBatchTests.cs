@@ -166,7 +166,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     }
 
     [Fact]
-    public async Task PersistBatch_Should_Skip_Stale_Update()
+    public async Task PersistBatch_Should_Record_Failure_For_Stale_Update()
     {
         var modelId = Guid.NewGuid();
 
@@ -196,10 +196,15 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         await sink.PersistBatch(batch, CancellationToken.None);
 
         var document = await this.GetModelDocument(provider, modelId);
+        var failureDocument = await this.GetProjectionFailureDocument(provider, modelId);
 
         document.ShouldNotBeNull();
         document["Name"].AsString.ShouldBe("before");
         document["EventNumber"].AsInt64.ShouldBe(3);
+        document["HasStreamProcessingFaulted"].AsBoolean.ShouldBeTrue();
+        failureDocument.ShouldNotBeNull();
+        failureDocument["EventNumber"].AsInt64.ShouldBe(4);
+        failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
     }
 
     [Fact]
@@ -326,7 +331,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     }
 
     [Fact]
-    public async Task PersistBatch_Should_Persist_Healthy_Update_When_Sibling_Update_Is_Stale()
+    public async Task PersistBatch_Should_Record_Failure_And_Persist_Healthy_Update_When_Sibling_Update_Is_Stale()
     {
         var staleModelId = Guid.NewGuid();
         var validModelId = Guid.NewGuid();
@@ -371,12 +376,17 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         var staleDocument = await this.GetModelDocument(provider, staleModelId);
         var validDocument = await this.GetModelDocument(provider, validModelId);
+        var staleFailureDocument = await this.GetProjectionFailureDocument(provider, staleModelId);
 
         staleDocument.ShouldNotBeNull();
         staleDocument["Name"].AsString.ShouldBe("stale-before");
+        staleDocument["HasStreamProcessingFaulted"].AsBoolean.ShouldBeTrue();
         validDocument.ShouldNotBeNull();
         validDocument["Name"].AsString.ShouldBe("valid-after");
         validDocument["EventNumber"].AsInt64.ShouldBe(6);
+        staleFailureDocument.ShouldNotBeNull();
+        staleFailureDocument["EventNumber"].AsInt64.ShouldBe(4);
+        staleFailureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
     }
 
     [Fact]
