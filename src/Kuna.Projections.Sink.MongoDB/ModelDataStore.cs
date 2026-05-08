@@ -43,14 +43,33 @@ internal sealed class ModelDataStore<TState>
                       .Select(x => x.Model);
 
         var updates = changesToPersist
-                      .Where(x => !x.IsNew && !x.ShouldDelete);
+            .Where(x => !x.IsNew && !x.ShouldDelete);
 
         var deletes = changesToPersist
-                      .Where(x => !x.IsNew && x.ShouldDelete);
+            .Where(x => !x.IsNew && x.ShouldDelete);
 
         await this.InsertBatch(inserts, cancellationToken);
         await this.PersistUpdatesBatch(updates, cancellationToken);
         await this.PersistDeletesBatch(deletes, cancellationToken);
+    }
+
+    private static bool WasBulkOperationApplied(
+        ModelState<TState> modelState,
+        IReadOnlyDictionary<Guid, TState> persistedDocuments)
+    {
+        if (modelState.ShouldDelete)
+        {
+            return !persistedDocuments.ContainsKey(modelState.Model.Id);
+        }
+
+        return persistedDocuments.TryGetValue(modelState.Model.Id, out var persistedModel)
+               && persistedModel.EventNumber == modelState.Model.EventNumber;
+    }
+
+    private static InvalidOperationException CreateOptimisticConcurrencyException(ModelState<TState> modelState)
+    {
+        return new InvalidOperationException(
+            $"MongoDB projection persistence matched no document for model {modelState.Model.Id} with expected event number {modelState.ExpectedEventNumber?.ToString() ?? "<null>"}.");
     }
 
     private async Task InsertBatch(IEnumerable<TState> models, CancellationToken cancellationToken)
@@ -108,12 +127,12 @@ internal sealed class ModelDataStore<TState>
         try
         {
             var result = await this.collection.BulkWriteAsync(
-                writes,
-                new BulkWriteOptions
-                {
-                    IsOrdered = false,
-                },
-                cancellationToken);
+                             writes,
+                             new BulkWriteOptions
+                             {
+                                 IsOrdered = false,
+                             },
+                             cancellationToken);
 
             var expectedAffectedDocuments = (long)modelStatesArray.Length;
             var actualAffectedDocuments = result.MatchedCount;
@@ -420,24 +439,5 @@ internal sealed class ModelDataStore<TState>
                                   .ToListAsync(cancellationToken);
 
         return documents.ToDictionary(x => x.Id);
-    }
-
-    private static bool WasBulkOperationApplied(
-        ModelState<TState> modelState,
-        IReadOnlyDictionary<Guid, TState> persistedDocuments)
-    {
-        if (modelState.ShouldDelete)
-        {
-            return !persistedDocuments.ContainsKey(modelState.Model.Id);
-        }
-
-        return persistedDocuments.TryGetValue(modelState.Model.Id, out var persistedModel)
-               && persistedModel.EventNumber == modelState.Model.EventNumber;
-    }
-
-    private static InvalidOperationException CreateOptimisticConcurrencyException(ModelState<TState> modelState)
-    {
-        return new InvalidOperationException(
-            $"MongoDB projection persistence matched no document for model {modelState.Model.Id} with expected event number {modelState.ExpectedEventNumber?.ToString() ?? "<null>"}.");
     }
 }
