@@ -22,6 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\examples\Kuna.Examples.Events\Kuna.Examples.Events.csproj" />
     <ProjectReference Include="..\..\src\Kuna.Projections.Source.KurrentDB\Kuna.Projections.Source.KurrentDB.csproj" />
   </ItemGroup>
 

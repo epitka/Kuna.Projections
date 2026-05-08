@@ -1,6 +1,7 @@
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
+using Kuna.Examples.Events;
 using Kuna.Projections.Source.KurrentDB;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -176,6 +177,37 @@ public class ServiceCollectionExtensionsTests
         provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>("OrdersProjection")).ShouldNotBeNull();
         provider.GetRequiredKeyedService<IProjectionSettings<TestModel>>(GetRegistrationKey<TestModel>("OrdersProjection"))
                 .ModelIdResolutionStrategy.ShouldBe(ModelIdResolutionStrategy.RequireStreamId);
+    }
+
+    [Fact]
+    public void AddKurrentDBSource_Should_Discover_Event_Types_From_Referenced_Assemblies()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var configuration = BuildConfiguration(CreateValidSettings());
+
+        services.AddKurrentDBSource<TestModel>(
+            configuration,
+            LoggerFactory.Create(
+                _ =>
+                {
+                }),
+            ProjectionSettingsSection.Name);
+
+        using var provider = services.BuildServiceProvider();
+
+        var eventDeserializer = provider.GetRequiredService<IEventDeserializer>();
+        var payload = System.Text.Encoding.UTF8.GetBytes(
+            """
+            {
+              "id":"9f977887-4265-4638-b0c1-0bcceea33ed7",
+              "orderNumber":"ORD-0000001"
+            }
+            """);
+
+        var @event = eventDeserializer.Deserialize(payload, nameof(OrderCreatedEvent), 0);
+
+        @event.ShouldBeOfType<OrderCreatedEvent>();
     }
 
     private static IConfiguration BuildConfiguration(IDictionary<string, string?> values)

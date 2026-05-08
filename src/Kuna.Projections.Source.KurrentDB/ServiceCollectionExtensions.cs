@@ -31,16 +31,12 @@ public static class ServiceCollectionExtensions
         where TState : class, IModel, new()
     {
         var assembly = Assembly.GetEntryAssembly();
-        var exportedTypes = assembly!.GetExportedTypes();
+        var eventTypes = ResolveEventTypes(assembly, typeof(TState).Assembly);
         var registrationKey = ProjectionRegistration.GetKey<TState>(settingsSectionName);
 
         services.AddSingleton<IEventDeserializer>(
             provider =>
             {
-                var eventTypes = exportedTypes
-                                 .Where(x => x.IsSubclassOf(typeof(Event)))
-                                 .ToArray();
-
                 return new EventDeserializer(eventTypes, loggerFactory.CreateLogger<EventDeserializer>());
             });
 
@@ -110,7 +106,6 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
-
     public static IProjectionRegistrationBuilder<TState> UseKurrentDbSource<TState>(
         this IProjectionRegistrationBuilder<TState> builder,
         ILoggerFactory loggerFactory)
@@ -118,6 +113,67 @@ public static class ServiceCollectionExtensions
     {
         builder.Services.AddKurrentDBSource<TState>(builder.Configuration, loggerFactory, builder.SettingsSectionName);
         return builder;
+    }
+
+    private static Type[] ResolveEventTypes(Assembly? entryAssembly, Assembly stateAssembly)
+    {
+        var candidateAssemblies = ResolveCandidateAssemblies(entryAssembly, stateAssembly);
+
+        return candidateAssemblies
+               .SelectMany(SafeGetExportedTypes)
+               .Where(x => x.IsSubclassOf(typeof(Event)))
+               .Distinct()
+               .ToArray();
+    }
+
+    private static IReadOnlyCollection<Assembly> ResolveCandidateAssemblies(Assembly? entryAssembly, Assembly stateAssembly)
+    {
+        var assemblies = new Dictionary<string, Assembly>(StringComparer.Ordinal);
+        var toVisit = new Queue<Assembly>();
+
+        if (entryAssembly != null)
+        {
+            toVisit.Enqueue(entryAssembly);
+        }
+
+        toVisit.Enqueue(stateAssembly);
+
+        while (toVisit.Count > 0)
+        {
+            var assembly = toVisit.Dequeue();
+
+            if (!assemblies.TryAdd(assembly.FullName ?? assembly.GetName().Name ?? assembly.ToString(), assembly))
+            {
+                continue;
+            }
+
+            foreach (var referencedAssembly in assembly.GetReferencedAssemblies())
+            {
+                try
+                {
+                    toVisit.Enqueue(Assembly.Load(referencedAssembly));
+                }
+                catch
+                {
+                    // Ignore optional or unavailable assemblies. Event discovery only
+                    // needs the assemblies that can be loaded in the current app.
+                }
+            }
+        }
+
+        return assemblies.Values;
+    }
+
+    private static IEnumerable<Type> SafeGetExportedTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetExportedTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            return ex.Types.Where(x => x != null).Cast<Type>();
+        }
     }
 
     private static void ValidateSourceSettings(
