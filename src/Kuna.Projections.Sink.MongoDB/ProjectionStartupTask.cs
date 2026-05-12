@@ -12,13 +12,12 @@ internal sealed class ProjectionStartupTask<TState> : IProjectionStartupTask
     private readonly string checkpointCollectionName;
     private readonly string failureCollectionName;
 
-    public ProjectionStartupTask(ProjectionContext<TState> context)
+    public ProjectionStartupTask(IMongoDatabase database, ICollectionNamer collectionNamer)
     {
-        this.database = context.Database;
-
-        this.modelCollectionName = context.CollectionNamer.GetModelCollectionName<TState>();
-        this.checkpointCollectionName = context.CollectionNamer.GetCheckpointCollectionName();
-        this.failureCollectionName = context.CollectionNamer.GetFailureCollectionName();
+        this.database = database;
+        this.modelCollectionName = collectionNamer.GetModelCollectionName<TState>();
+        this.checkpointCollectionName = collectionNamer.GetCheckpointCollectionName();
+        this.failureCollectionName = collectionNamer.GetFailureCollectionName();
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)

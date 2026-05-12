@@ -191,7 +191,7 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddProjectionCore_Should_Require_Initial_Event_Registration_For_Runtime_Resolution()
+    public void AddProjectionCore_Should_Register_Initial_Event_For_Runtime_Resolution()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -210,11 +210,13 @@ public class ServiceCollectionExtensionsTests
         services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name);
 
         using var provider = services.BuildServiceProvider();
-        var ex = Should.Throw<InvalidOperationException>(
-            () => provider.GetRequiredKeyedService<ProjectionEngine<CoreServiceTestModel>>(
-                GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name)));
+        var engine = provider.GetRequiredKeyedService<ProjectionEngine<CoreServiceTestModel>>(
+            GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name));
 
-        ex.Message.ShouldContain(nameof(ProjectionCreationRegistration<CoreServiceTestModel>));
+        var registration = GetProjectionCreationRegistration<CoreServiceTestModel>(provider, ProjectionSettingsSection.Name);
+
+        engine.ShouldNotBeNull();
+        GetInitialEventType(registration).ShouldBe(typeof(TestInitialEvent));
     }
 
     [Fact]

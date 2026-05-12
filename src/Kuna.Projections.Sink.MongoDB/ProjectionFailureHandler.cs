@@ -12,10 +12,10 @@ internal sealed class ProjectionFailureHandler<TState> : IProjectionFailureHandl
     private readonly IMongoCollection<TState> modelCollection;
     private readonly IMongoCollection<ProjectionFailureDocument> failureCollection;
 
-    public ProjectionFailureHandler(ProjectionContext<TState> context)
+    public ProjectionFailureHandler(IMongoDatabase database, ICollectionNamer collectionNamer)
     {
-        this.modelCollection = context.Database.GetCollection<TState>(context.CollectionNamer.GetModelCollectionName<TState>());
-        this.failureCollection = context.Database.GetCollection<ProjectionFailureDocument>(context.CollectionNamer.GetFailureCollectionName());
+        this.modelCollection = database.GetCollection<TState>(collectionNamer.GetModelCollectionName<TState>());
+        this.failureCollection = database.GetCollection<ProjectionFailureDocument>(collectionNamer.GetFailureCollectionName());
     }
 
     public async Task Handle(ProjectionFailure failure, CancellationToken cancellationToken)

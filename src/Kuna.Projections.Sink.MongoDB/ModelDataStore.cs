@@ -16,11 +16,12 @@ internal sealed class ModelDataStore<TState>
     private readonly string modelName;
 
     public ModelDataStore(
-        ProjectionContext<TState> context,
+        IMongoDatabase database,
+        ICollectionNamer collectionNamer,
         IProjectionFailureHandler<TState> failureHandler,
         string instanceId)
     {
-        this.collection = context.Database.GetCollection<TState>(context.CollectionNamer.GetModelCollectionName<TState>());
+        this.collection = database.GetCollection<TState>(collectionNamer.GetModelCollectionName<TState>());
         this.failureHandler = failureHandler;
         this.instanceId = instanceId;
 

@@ -487,12 +487,11 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         var validDocument = await this.GetModelDocument(provider, validModelId);
         var failureDocument = await this.GetFailureDocument(provider, failedModelId);
 
-        failedDocument.ShouldNotBeNull();
-        failedDocument["_id"].AsString.ShouldBe(failedModelId.ToString("D"));
-        failedDocument["HasStreamProcessingFaulted"].AsBoolean.ShouldBeTrue();
+        failedDocument.ShouldBeNull();
         validDocument.ShouldNotBeNull();
         validDocument["Name"].AsString.ShouldBe("valid");
         failureDocument.ShouldNotBeNull();
+        failureDocument["ModelId"].AsString.ShouldBe(failedModelId.ToString("D"));
         failureDocument["EventNumber"].AsInt64.ShouldBe(1);
         failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
     }

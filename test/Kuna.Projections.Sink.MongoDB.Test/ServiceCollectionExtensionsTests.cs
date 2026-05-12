@@ -1,6 +1,7 @@
 using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Sink.MongoDB.Test.Items;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Driver;
 using Shouldly;
 using Xunit;
 
@@ -113,6 +114,39 @@ public sealed class ServiceCollectionExtensionsTests
             });
 
         factoryCalled.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void AddMongoProjectionsDataStore_Should_Reuse_Mongo_Client_For_Same_Connection_String()
+    {
+        ServiceCollection services = new();
+        const string connectionString = "mongodb://localhost:27017";
+
+        services.AddMongoProjectionsDataStore<TestModel>(
+            OrdersSectionName,
+            connectionString,
+            "orders-db",
+            options =>
+            {
+            });
+
+        services.AddMongoProjectionsDataStore<SecondaryTestModel>(
+            InvoicesSectionName,
+            connectionString,
+            "invoices-db",
+            options =>
+            {
+            });
+
+        using var provider = services.BuildServiceProvider();
+
+        var sharedClient = provider.GetRequiredKeyedService<IMongoClient>(connectionString);
+        var firstDatabase = provider.GetRequiredKeyedService<IMongoDatabase>(GetProjectionKey<TestModel>(OrdersSectionName));
+        var secondDatabase = provider.GetRequiredKeyedService<IMongoDatabase>(GetProjectionKey<SecondaryTestModel>(InvoicesSectionName));
+
+        ReferenceEquals(firstDatabase.Client, sharedClient).ShouldBeTrue();
+        ReferenceEquals(secondDatabase.Client, sharedClient).ShouldBeTrue();
+        ReferenceEquals(firstDatabase.Client, secondDatabase.Client).ShouldBeTrue();
     }
 
     private static string GetProjectionKey<TState>(string settingsSectionName)

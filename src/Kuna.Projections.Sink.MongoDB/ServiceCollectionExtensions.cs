@@ -1,6 +1,7 @@
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Driver;
 
 namespace Kuna.Projections.Sink.MongoDB;
 
@@ -49,32 +50,44 @@ public static class ServiceCollectionExtensions
         ProjectionOptions options = new(connectionString, databaseName);
         configure?.Invoke(options);
         SerializerRegistry.EnsureInitialized();
+        ClassMapRegistry.EnsureInitialized<TState>();
 
         var collectionNamer = collectionNamerFactory(options);
         ArgumentNullException.ThrowIfNull(collectionNamer);
 
-        services.AddKeyedSingleton<ProjectionContext<TState>>(
+        RegisterMongoClient(services, options.ConnectionString);
+        services.AddKeyedSingleton(registrationKey, options);
+        services.AddKeyedSingleton<ICollectionNamer>(registrationKey, collectionNamer);
+        services.AddKeyedSingleton<IMongoDatabase>(
             registrationKey,
-            (sp, _) => new ProjectionContext<TState>(options, collectionNamer));
+            (sp, _) => sp.GetRequiredKeyedService<IMongoClient>(options.ConnectionString)
+                         .GetDatabase(options.DatabaseName));
 
         services.AddKeyedSingleton<ModelDataStore<TState>>(
             registrationKey,
             (sp, _) => new ModelDataStore<TState>(
-                sp.GetRequiredKeyedService<ProjectionContext<TState>>(registrationKey),
+                sp.GetRequiredKeyedService<IMongoDatabase>(registrationKey),
+                sp.GetRequiredKeyedService<ICollectionNamer>(registrationKey),
                 sp.GetRequiredKeyedService<IProjectionFailureHandler<TState>>(registrationKey),
                 settingsSectionName));
 
         services.AddKeyedSingleton<ProjectionCheckpointStore<TState>>(
             registrationKey,
-            (sp, _) => new ProjectionCheckpointStore<TState>(sp.GetRequiredKeyedService<ProjectionContext<TState>>(registrationKey)));
+            (sp, _) => new ProjectionCheckpointStore<TState>(
+                sp.GetRequiredKeyedService<IMongoDatabase>(registrationKey),
+                sp.GetRequiredKeyedService<ICollectionNamer>(registrationKey)));
 
         services.AddKeyedSingleton<ProjectionStartupTask<TState>>(
             registrationKey,
-            (sp, _) => new ProjectionStartupTask<TState>(sp.GetRequiredKeyedService<ProjectionContext<TState>>(registrationKey)));
+            (sp, _) => new ProjectionStartupTask<TState>(
+                sp.GetRequiredKeyedService<IMongoDatabase>(registrationKey),
+                sp.GetRequiredKeyedService<ICollectionNamer>(registrationKey)));
 
         services.AddKeyedSingleton<IProjectionFailureHandler<TState>>(
             registrationKey,
-            (sp, _) => new ProjectionFailureHandler<TState>(sp.GetRequiredKeyedService<ProjectionContext<TState>>(registrationKey)));
+            (sp, _) => new ProjectionFailureHandler<TState>(
+                sp.GetRequiredKeyedService<IMongoDatabase>(registrationKey),
+                sp.GetRequiredKeyedService<ICollectionNamer>(registrationKey)));
 
         services.AddKeyedSingleton<IModelStateSink<TState>>(
             registrationKey,
@@ -125,5 +138,22 @@ public static class ServiceCollectionExtensions
             collectionNamerFactory);
 
         return builder;
+    }
+
+    private static void RegisterMongoClient(IServiceCollection services, string connectionString)
+    {
+        var alreadyRegistered = services.Any(
+            descriptor => descriptor.ServiceType == typeof(IMongoClient)
+                          && descriptor.IsKeyedService
+                          && Equals(descriptor.ServiceKey, connectionString));
+
+        if (alreadyRegistered)
+        {
+            return;
+        }
+
+        services.AddKeyedSingleton<IMongoClient>(
+            connectionString,
+            (_, _) => new MongoClient(connectionString));
     }
 }

@@ -9,9 +9,9 @@ internal sealed class ProjectionCheckpointStore<TState> : ICheckpointStore
 {
     private readonly IMongoCollection<ProjectionCheckpointDocument> collection;
 
-    public ProjectionCheckpointStore(ProjectionContext<TState> context)
+    public ProjectionCheckpointStore(IMongoDatabase database, ICollectionNamer collectionNamer)
     {
-        this.collection = context.Database.GetCollection<ProjectionCheckpointDocument>(context.CollectionNamer.GetCheckpointCollectionName());
+        this.collection = database.GetCollection<ProjectionCheckpointDocument>(collectionNamer.GetCheckpointCollectionName());
     }
 
     public async Task<CheckPoint> GetCheckpoint(string modelName, string instanceId, CancellationToken cancellationToken)
