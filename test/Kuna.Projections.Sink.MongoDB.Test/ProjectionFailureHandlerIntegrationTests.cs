@@ -1,0 +1,200 @@
+using Kuna.Projections.Abstractions.Models;
+using Kuna.Projections.Abstractions.Services;
+using Kuna.Projections.Sink.MongoDB.Test.Items;
+using Microsoft.Extensions.DependencyInjection;
+using Shouldly;
+using Xunit;
+
+namespace Kuna.Projections.Sink.MongoDB.Test;
+
+[Collection(MongoDbCollection.Name)]
+public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegrationTestBase
+{
+    public ProjectionFailureHandlerIntegrationTests(MongoDbContainerFixture fixture)
+        : base(fixture)
+    {
+    }
+
+    [Fact]
+    public async Task Handle_Should_Mark_Model_As_Faulted_And_Persist_Failure()
+    {
+        var modelId = Guid.NewGuid();
+        ProjectionFailure failure = new(
+            modelId: modelId,
+            eventNumber: 7,
+            streamPosition: new GlobalEventPosition("42"),
+            failureCreatedOn: new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+            exception: "boom",
+            failureType: nameof(FailureType.Persistence),
+            modelName: ProjectionModelName.For<TestModel>(),
+            instanceId: SettingsSectionName);
+
+        await using var provider = this.CreateProvider();
+        await this.SeedModel(provider, modelId, "fault-target", 7, "42");
+        var handler = provider.GetRequiredKeyedService<IProjectionFailureHandler<TestModel>>(GetRegistrationKey<TestModel>());
+
+        await handler.Handle(failure, CancellationToken.None);
+
+        var modelDocument = await this.GetModelDocument(provider, modelId);
+        var failureDocument = await this.GetFailureDocument(provider, modelId);
+
+        modelDocument.ShouldNotBeNull();
+        modelDocument["HasStreamProcessingFaulted"].AsBoolean.ShouldBeTrue();
+
+        failureDocument.ShouldNotBeNull();
+        failureDocument["ModelName"].AsString.ShouldBe(ProjectionModelName.For<TestModel>());
+        failureDocument["InstanceId"].AsString.ShouldBe(SettingsSectionName);
+        failureDocument["ModelId"].AsString.ShouldBe(modelId.ToString("D"));
+        failureDocument["EventNumber"].AsInt64.ShouldBe(7);
+        failureDocument["GlobalEventPosition"].AsString.ShouldBe("42");
+        failureDocument["Exception"].AsString.ShouldBe("boom");
+        failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
+    }
+
+    [Fact]
+    public async Task Handle_Should_Preserve_Original_Failure_When_Duplicate_Failure_Is_Recorded()
+    {
+        var modelId = Guid.NewGuid();
+        ProjectionFailure firstFailure = new(
+            modelId: modelId,
+            eventNumber: 7,
+            streamPosition: new GlobalEventPosition("42"),
+            failureCreatedOn: new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+            exception: "first",
+            failureType: nameof(FailureType.Persistence),
+            modelName: ProjectionModelName.For<TestModel>(),
+            instanceId: SettingsSectionName);
+
+        ProjectionFailure secondFailure = new(
+            modelId: modelId,
+            eventNumber: 8,
+            streamPosition: new GlobalEventPosition("43"),
+            failureCreatedOn: new DateTime(2026, 1, 2, 3, 5, 5, DateTimeKind.Utc),
+            exception: "second",
+            failureType: nameof(FailureType.EventProcessing),
+            modelName: ProjectionModelName.For<TestModel>(),
+            instanceId: SettingsSectionName);
+
+        await using var provider = this.CreateProvider();
+        await this.SeedModel(provider, modelId, "fault-target", 8, "43");
+        var handler = provider.GetRequiredKeyedService<IProjectionFailureHandler<TestModel>>(GetRegistrationKey<TestModel>());
+
+        await handler.Handle(firstFailure, CancellationToken.None);
+        await handler.Handle(secondFailure, CancellationToken.None);
+
+        var failureDocument = await this.GetFailureDocument(provider, modelId);
+
+        failureDocument.ShouldNotBeNull();
+        failureDocument["EventNumber"].AsInt64.ShouldBe(7);
+        failureDocument["GlobalEventPosition"].AsString.ShouldBe("42");
+        failureDocument["Exception"].AsString.ShouldBe("first");
+        failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
+    }
+
+    [Fact]
+    public async Task Handle_Should_Truncate_Exception_Text_To_500_Characters()
+    {
+        var modelId = Guid.NewGuid();
+        var exceptionText = new string('x', 600);
+        ProjectionFailure failure = new(
+            modelId: modelId,
+            eventNumber: 7,
+            streamPosition: new GlobalEventPosition("42"),
+            failureCreatedOn: new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+            exception: exceptionText,
+            failureType: nameof(FailureType.Persistence),
+            modelName: ProjectionModelName.For<TestModel>(),
+            instanceId: SettingsSectionName);
+
+        await using var provider = this.CreateProvider();
+        await this.SeedModel(provider, modelId, "fault-target", 7, "42");
+        var handler = provider.GetRequiredKeyedService<IProjectionFailureHandler<TestModel>>(GetRegistrationKey<TestModel>());
+
+        await handler.Handle(failure, CancellationToken.None);
+
+        var failureDocument = await this.GetFailureDocument(provider, modelId);
+
+        failureDocument.ShouldNotBeNull();
+        failureDocument["Exception"].AsString.Length.ShouldBe(500);
+    }
+
+    [Fact]
+    public async Task Handle_Should_Persist_Independent_Failures_For_Different_Instance_Ids()
+    {
+        var modelId = Guid.NewGuid();
+        const string firstInstanceId = "orders-v1";
+        const string secondInstanceId = "orders-v2";
+
+        ProjectionFailure firstFailure = new(
+            modelId: modelId,
+            eventNumber: 7,
+            streamPosition: new GlobalEventPosition("42"),
+            failureCreatedOn: new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+            exception: "first",
+            failureType: nameof(FailureType.Persistence),
+            modelName: ProjectionModelName.For<TestModel>(),
+            instanceId: firstInstanceId);
+
+        ProjectionFailure secondFailure = new(
+            modelId: modelId,
+            eventNumber: 8,
+            streamPosition: new GlobalEventPosition("43"),
+            failureCreatedOn: new DateTime(2026, 1, 2, 3, 5, 5, DateTimeKind.Utc),
+            exception: "second",
+            failureType: nameof(FailureType.EventProcessing),
+            modelName: ProjectionModelName.For<TestModel>(),
+            instanceId: secondInstanceId);
+
+        await using var firstProvider = this.CreateProvider(firstInstanceId);
+        await using var secondProvider = this.CreateProvider(secondInstanceId);
+
+        await this.SeedModel(firstProvider, modelId, "fault-target", 7, "42");
+
+        var firstHandler = firstProvider.GetRequiredKeyedService<IProjectionFailureHandler<TestModel>>(GetRegistrationKey<TestModel>());
+        var secondHandler = secondProvider.GetRequiredKeyedService<IProjectionFailureHandler<TestModel>>(GetRegistrationKey<TestModel>());
+
+        await firstHandler.Handle(firstFailure, CancellationToken.None);
+        await secondHandler.Handle(secondFailure, CancellationToken.None);
+
+        var firstFailureDocument = await this.GetFailureDocument(firstProvider, modelId, firstInstanceId);
+        var secondFailureDocument = await this.GetFailureDocument(secondProvider, modelId, secondInstanceId);
+
+        firstFailureDocument.ShouldNotBeNull();
+        firstFailureDocument["InstanceId"].AsString.ShouldBe(firstInstanceId);
+        firstFailureDocument["EventNumber"].AsInt64.ShouldBe(7);
+
+        secondFailureDocument.ShouldNotBeNull();
+        secondFailureDocument["InstanceId"].AsString.ShouldBe(secondInstanceId);
+        secondFailureDocument["EventNumber"].AsInt64.ShouldBe(8);
+    }
+
+    [Fact]
+    public async Task Handle_Should_Persist_Failure_When_Model_Is_Not_Persisted_Yet()
+    {
+        var modelId = Guid.NewGuid();
+        ProjectionFailure failure = new(
+            modelId: modelId,
+            eventNumber: 11,
+            streamPosition: new GlobalEventPosition("55"),
+            failureCreatedOn: new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+            exception: "first-event-failure",
+            failureType: nameof(FailureType.EventProcessing),
+            modelName: ProjectionModelName.For<TestModel>(),
+            instanceId: SettingsSectionName);
+
+        await using var provider = this.CreateProvider();
+        var handler = provider.GetRequiredKeyedService<IProjectionFailureHandler<TestModel>>(GetRegistrationKey<TestModel>());
+
+        await handler.Handle(failure, CancellationToken.None);
+
+        var modelDocument = await this.GetModelDocument(provider, modelId);
+        var failureDocument = await this.GetFailureDocument(provider, modelId);
+
+        modelDocument.ShouldBeNull();
+        failureDocument.ShouldNotBeNull();
+        failureDocument["InstanceId"].AsString.ShouldBe(SettingsSectionName);
+        failureDocument["ModelId"].AsString.ShouldBe(modelId.ToString("D"));
+        failureDocument["EventNumber"].AsInt64.ShouldBe(11);
+        failureDocument["Exception"].AsString.ShouldBe("first-event-failure");
+    }
+}
