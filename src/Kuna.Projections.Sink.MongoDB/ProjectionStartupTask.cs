@@ -22,11 +22,9 @@ internal sealed class ProjectionStartupTask<TState> : IProjectionStartupTask
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        var existingCollectionNames = await this.GetExistingCollectionNames(cancellationToken);
-
-        await this.EnsureCollectionExists(this.modelCollectionName, existingCollectionNames, cancellationToken);
-        await this.EnsureCollectionExists(this.checkpointCollectionName, existingCollectionNames, cancellationToken);
-        await this.EnsureCollectionExists(this.failureCollectionName, existingCollectionNames, cancellationToken);
+        await this.EnsureCollectionExists(this.modelCollectionName, cancellationToken);
+        await this.EnsureCollectionExists(this.checkpointCollectionName, cancellationToken);
+        await this.EnsureCollectionExists(this.failureCollectionName, cancellationToken);
 
         CreateIndexModel<ProjectionFailureDocument> failureModelIndex = new(
             Builders<ProjectionFailureDocument>.IndexKeys
@@ -43,29 +41,16 @@ internal sealed class ProjectionStartupTask<TState> : IProjectionStartupTask
         await failureCollection.Indexes.CreateOneAsync(failureModelIndex, cancellationToken: cancellationToken);
     }
 
-    private async Task<HashSet<string>> GetExistingCollectionNames(CancellationToken cancellationToken)
-    {
-        using var collectionNames = await this.database.ListCollectionNamesAsync(cancellationToken: cancellationToken);
-        var existingCollectionNames = await collectionNames.ToListAsync(cancellationToken);
-        return existingCollectionNames.ToHashSet(StringComparer.Ordinal);
-    }
-
     private async Task EnsureCollectionExists(
         string collectionName,
-        ISet<string> existingCollectionNames,
         CancellationToken cancellationToken)
     {
-        if (!existingCollectionNames.Contains(collectionName))
+        try
         {
-            try
-            {
-                await this.database.CreateCollectionAsync(collectionName, cancellationToken: cancellationToken);
-                existingCollectionNames.Add(collectionName);
-            }
-            catch (MongoCommandException ex) when (ex.Code == 48 || string.Equals(ex.CodeName, "NamespaceExists", StringComparison.Ordinal))
-            {
-                existingCollectionNames.Add(collectionName);
-            }
+            await this.database.CreateCollectionAsync(collectionName, cancellationToken: cancellationToken);
+        }
+        catch (MongoCommandException ex) when (ex.Code == 48 || string.Equals(ex.CodeName, "NamespaceExists", StringComparison.Ordinal))
+        {
         }
     }
 }

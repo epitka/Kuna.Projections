@@ -30,15 +30,15 @@ internal sealed class ProjectionFailureHandler<TState> : IProjectionFailureHandl
             var failureId = $"{failure.ModelName}:{failure.InstanceId}:{failure.ModelId:D}";
             var failureFilter = Builders<ProjectionFailureDocument>.Filter.Eq(x => x.Id, failureId);
             var failureUpdate = Builders<ProjectionFailureDocument>.Update
-                                                                  .SetOnInsert(x => x.Id, failureId)
-                                                                  .SetOnInsert(x => x.ModelName, failure.ModelName)
-                                                                  .SetOnInsert(x => x.InstanceId, failure.InstanceId)
-                                                                  .SetOnInsert(x => x.ModelId, failure.ModelId.ToString("D"))
-                                                                  .SetOnInsert(x => x.EventNumber, failure.EventNumber)
-                                                                  .SetOnInsert(x => x.GlobalEventPosition, failure.GlobalEventPosition.ToString())
-                                                                  .SetOnInsert(x => x.FailureCreatedOn, failure.FailureCreatedOn)
-                                                                  .SetOnInsert(x => x.Exception, Truncate(failure.Exception))
-                                                                  .SetOnInsert(x => x.FailureType, failure.FailureType);
+                                                                   .SetOnInsert(x => x.Id, failureId)
+                                                                   .SetOnInsert(x => x.ModelName, failure.ModelName)
+                                                                   .SetOnInsert(x => x.InstanceId, failure.InstanceId)
+                                                                   .SetOnInsert(x => x.ModelId, failure.ModelId.ToString("D"))
+                                                                   .SetOnInsert(x => x.EventNumber, failure.EventNumber)
+                                                                   .SetOnInsert(x => x.GlobalEventPosition, failure.GlobalEventPosition.ToString())
+                                                                   .SetOnInsert(x => x.FailureCreatedOn, failure.FailureCreatedOn)
+                                                                   .SetOnInsert(x => x.Exception, Truncate(failure.Exception))
+                                                                   .SetOnInsert(x => x.FailureType, failure.FailureType);
 
             await this.failureCollection.UpdateOneAsync(
                 session,
