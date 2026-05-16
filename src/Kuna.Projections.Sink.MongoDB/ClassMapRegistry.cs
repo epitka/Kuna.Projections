@@ -45,6 +45,9 @@ internal static class ClassMapRegistry
                 var idMemberMap = classMap.GetMemberMap(nameof(Model.Id));
                 idMemberMap.SetSerializer(new IdSerializer());
                 classMap.SetIdMember(idMemberMap);
+
+                var globalEventPositionMemberMap = classMap.GetMemberMap(nameof(Model.GlobalEventPosition));
+                globalEventPositionMemberMap.SetSerializer(new GlobalEventPositionSerializer());
             });
 
         baseModelInitialized = true;

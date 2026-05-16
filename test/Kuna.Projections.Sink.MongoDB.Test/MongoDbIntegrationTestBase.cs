@@ -29,6 +29,16 @@ public abstract class MongoDbIntegrationTestBase
     protected ServiceProvider CreateProvider()
     {
         return this.CreateProvider(
+            SettingsSectionName,
+            _ =>
+            {
+            });
+    }
+
+    protected ServiceProvider CreateProvider(string instanceId)
+    {
+        return this.CreateProvider(
+            instanceId,
             _ =>
             {
             });
@@ -36,7 +46,23 @@ public abstract class MongoDbIntegrationTestBase
 
     protected ServiceProvider CreateProvider(Action<Kuna.Projections.Sink.MongoDB.ProjectionOptions> configure)
     {
+        return this.CreateProvider(SettingsSectionName, configure);
+    }
+
+    protected ServiceProvider CreateProvider(
+        string instanceId,
+        Action<Kuna.Projections.Sink.MongoDB.ProjectionOptions> configure)
+    {
         var services = new ServiceCollection();
+        var registrationKey = GetRegistrationKey<TestModel>();
+
+        services.AddKeyedSingleton<IProjectionSettings<TestModel>>(
+            registrationKey,
+            new ProjectionSettings<TestModel>
+            {
+                InstanceId = instanceId,
+            });
+
         services.AddMongoProjectionsDataStore<TestModel>(
             SettingsSectionName,
             this.Fixture.ConnectionString,
@@ -90,7 +116,12 @@ public abstract class MongoDbIntegrationTestBase
 
     protected async Task<BsonDocument?> GetFailureDocument(ServiceProvider provider, Guid modelId)
     {
-        var failureId = $"{typeof(TestModel).FullName}:{modelId:D}";
+        return await this.GetFailureDocument(provider, modelId, SettingsSectionName);
+    }
+
+    protected async Task<BsonDocument?> GetFailureDocument(ServiceProvider provider, Guid modelId, string instanceId)
+    {
+        var failureId = $"{typeof(TestModel).FullName}:{instanceId}:{modelId:D}";
         var database = this.CreateDatabase();
         var collection = database.GetCollection<BsonDocument>("projection_failures");
         return await collection.Find(x => x["_id"] == failureId).SingleOrDefaultAsync();

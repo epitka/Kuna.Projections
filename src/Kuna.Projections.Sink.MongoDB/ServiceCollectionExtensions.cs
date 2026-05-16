@@ -49,7 +49,6 @@ public static class ServiceCollectionExtensions
         var registrationKey = ProjectionRegistration.GetKey<TState>(settingsSectionName);
         ProjectionOptions options = new(connectionString, databaseName);
         configure?.Invoke(options);
-        SerializerRegistry.EnsureInitialized();
         ClassMapRegistry.EnsureInitialized<TState>();
 
         var collectionNamer = collectionNamerFactory(options);
@@ -69,7 +68,7 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredKeyedService<IMongoDatabase>(registrationKey),
                 sp.GetRequiredKeyedService<ICollectionNamer>(registrationKey),
                 sp.GetRequiredKeyedService<IProjectionFailureHandler<TState>>(registrationKey),
-                settingsSectionName));
+                sp.GetKeyedService<IProjectionSettings<TState>>(registrationKey)?.InstanceId ?? settingsSectionName));
 
         services.AddKeyedSingleton<ProjectionCheckpointStore<TState>>(
             registrationKey,

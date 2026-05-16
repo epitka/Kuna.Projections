@@ -9,6 +9,8 @@ internal sealed class ProjectionFailureDocument
 
     public required string ModelName { get; init; }
 
+    public required string InstanceId { get; init; }
+
     public required string ModelId { get; init; }
 
     public required long EventNumber { get; init; }

@@ -1,6 +1,7 @@
 using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Sink.MongoDB.Test.Items;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using Shouldly;
 using Xunit;
@@ -147,6 +148,22 @@ public sealed class ServiceCollectionExtensionsTests
         ReferenceEquals(firstDatabase.Client, sharedClient).ShouldBeTrue();
         ReferenceEquals(secondDatabase.Client, sharedClient).ShouldBeTrue();
         ReferenceEquals(firstDatabase.Client, secondDatabase.Client).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void AddMongoProjectionsDataStore_Should_Not_Replace_Global_Guid_Serializer()
+    {
+        ServiceCollection services = new();
+
+        services.AddMongoProjectionsDataStore<TestModel>(
+            OrdersSectionName,
+            "mongodb://localhost:27017",
+            "testdb",
+            options =>
+            {
+            });
+
+        BsonSerializer.LookupSerializer<Guid>().GetType().Name.ShouldNotBe("IdSerializer");
     }
 
     private static string GetProjectionKey<TState>(string settingsSectionName)

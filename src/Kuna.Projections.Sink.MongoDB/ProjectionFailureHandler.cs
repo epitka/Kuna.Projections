@@ -27,8 +27,9 @@ internal sealed class ProjectionFailureHandler<TState> : IProjectionFailureHandl
 
         ProjectionFailureDocument document = new()
         {
-            Id = $"{failure.ModelName}:{failure.ModelId:D}",
+            Id = $"{failure.ModelName}:{failure.InstanceId}:{failure.ModelId:D}",
             ModelName = failure.ModelName,
+            InstanceId = failure.InstanceId,
             ModelId = failure.ModelId.ToString("D"),
             EventNumber = failure.EventNumber,
             GlobalEventPosition = failure.GlobalEventPosition.ToString(),

@@ -204,7 +204,46 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         document["HasStreamProcessingFaulted"].AsBoolean.ShouldBeTrue();
         failureDocument.ShouldNotBeNull();
         failureDocument["EventNumber"].AsInt64.ShouldBe(4);
+        failureDocument["InstanceId"].AsString.ShouldBe(SettingsSectionName);
         failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
+    }
+
+    [Fact]
+    public async Task PersistBatch_Should_Record_Failure_With_Configured_Instance_Id()
+    {
+        const string instanceId = "orders-v2";
+        var modelId = Guid.NewGuid();
+
+        await using var provider = this.CreateProvider(instanceId);
+        await this.SeedModel(provider, modelId, "before", 3, "10");
+        var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
+        ModelStatesBatch<TestModel> batch = new()
+        {
+            Changes =
+            [
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = modelId,
+                        Name = "after",
+                        EventNumber = 4,
+                        GlobalEventPosition = new GlobalEventPosition("11"),
+                    },
+                    IsNew: false,
+                    ShouldDelete: false,
+                    GlobalEventPosition: new GlobalEventPosition("11"),
+                    ExpectedEventNumber: 2),
+            ],
+            GlobalEventPosition = new GlobalEventPosition("11"),
+        };
+
+        await sink.PersistBatch(batch, CancellationToken.None);
+
+        var failureDocument = await this.GetFailureDocument(provider, modelId, instanceId);
+
+        failureDocument.ShouldNotBeNull();
+        failureDocument["InstanceId"].AsString.ShouldBe(instanceId);
+        failureDocument["EventNumber"].AsInt64.ShouldBe(4);
     }
 
     [Fact]

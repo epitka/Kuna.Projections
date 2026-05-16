@@ -31,10 +31,11 @@ internal sealed class ProjectionStartupTask<TState> : IProjectionStartupTask
         CreateIndexModel<ProjectionFailureDocument> failureModelIndex = new(
             Builders<ProjectionFailureDocument>.IndexKeys
                                                .Ascending(x => x.ModelName)
+                                               .Ascending(x => x.InstanceId)
                                                .Ascending(x => x.ModelId),
             new CreateIndexOptions
             {
-                Name = "ux_projection_failure_model_name_model_id",
+                Name = "ux_projection_failure_model_name_instance_id_model_id",
                 Unique = true,
             });
 
@@ -56,8 +57,15 @@ internal sealed class ProjectionStartupTask<TState> : IProjectionStartupTask
     {
         if (!existingCollectionNames.Contains(collectionName))
         {
-            await this.database.CreateCollectionAsync(collectionName, cancellationToken: cancellationToken);
-            existingCollectionNames.Add(collectionName);
+            try
+            {
+                await this.database.CreateCollectionAsync(collectionName, cancellationToken: cancellationToken);
+                existingCollectionNames.Add(collectionName);
+            }
+            catch (MongoCommandException ex) when (ex.Code == 48 || string.Equals(ex.CodeName, "NamespaceExists", StringComparison.Ordinal))
+            {
+                existingCollectionNames.Add(collectionName);
+            }
         }
     }
 }
