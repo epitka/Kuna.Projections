@@ -27,6 +27,8 @@ The library-owned names are:
   Required when the projection registration uses `UseKurrentDbSource(...)`.
 - `PostgreSql`
   Not required by the library itself, but used by the example application when constructing the EF Core `DbContext`.
+- `MongoDB`
+  Not required by the library itself, but commonly used by applications and examples when passing `configuration.GetConnectionString("MongoDB")` into `UseMongoDataStore(...)`.
 
 If `KurrentDB` is missing or empty, `UseKurrentDbSource(...)` throws during registration.
 
