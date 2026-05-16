@@ -35,19 +35,31 @@ internal sealed class ModelDataStore<TState>
 
     public async Task PersistBatch(ModelStatesBatch<TState> batch, CancellationToken cancellationToken)
     {
-        var changesToPersist = batch.Changes
-                                    .Where(x => x is not { IsNew: true, ShouldDelete: true, })
-                                    .ToArray();
+        List<TState> inserts = [];
+        List<ModelState<TState>> updates = [];
+        List<ModelState<TState>> deletes = [];
 
-        var inserts = changesToPersist
-                      .Where(x => x is { IsNew: true, ShouldDelete: false, })
-                      .Select(x => x.Model);
+        foreach (var change in batch.Changes)
+        {
+            if (change is { IsNew: true, ShouldDelete: true, })
+            {
+                continue;
+            }
 
-        var updates = changesToPersist
-            .Where(x => !x.IsNew && !x.ShouldDelete);
+            if (change.IsNew)
+            {
+                inserts.Add(change.Model);
+                continue;
+            }
 
-        var deletes = changesToPersist
-            .Where(x => !x.IsNew && x.ShouldDelete);
+            if (change.ShouldDelete)
+            {
+                deletes.Add(change);
+                continue;
+            }
+
+            updates.Add(change);
+        }
 
         await this.InsertBatch(inserts, cancellationToken);
         await this.PersistUpdatesBatch(updates, cancellationToken);
@@ -65,6 +77,16 @@ internal sealed class ModelDataStore<TState>
 
         return persistedDocuments.TryGetValue(modelState.Model.Id, out var persistedModel)
                && persistedModel.EventNumber == modelState.Model.EventNumber;
+    }
+
+    private static bool IsStaleMiss(
+        ModelState<TState> modelState,
+        IReadOnlyDictionary<Guid, TState> persistedDocuments)
+    {
+        return !modelState.ShouldDelete
+               && persistedDocuments.TryGetValue(modelState.Model.Id, out var persistedModel)
+               && persistedModel.EventNumber != modelState.ExpectedEventNumber
+               && persistedModel.EventNumber != modelState.Model.EventNumber;
     }
 
     private static InvalidOperationException CreateOptimisticConcurrencyException(ModelState<TState> modelState)
@@ -427,6 +449,17 @@ internal sealed class ModelDataStore<TState>
             {
                 continue;
             }
+
+            if (IsStaleMiss(modelState, persistedDocuments))
+            {
+                continue;
+            }
+
+            var failure = this.CreateFailure(
+                modelState.Model,
+                CreateOptimisticConcurrencyException(modelState));
+
+            await this.failureHandler.Handle(failure, cancellationToken);
         }
     }
 
