@@ -61,7 +61,6 @@ services.AddProjection<Account>(configuration, settingsSectionName: "AccountProj
 `AddProjection<TState>(...)` resolves the initial event type from the projection class attribute:
 
 - annotate the projection with `[InitialEvent<TEvent>]`
-- do not call `WithInitialEvent(...)`; that API is no longer used
 
 ## Collection Naming
 
