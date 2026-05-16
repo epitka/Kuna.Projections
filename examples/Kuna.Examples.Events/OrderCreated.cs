@@ -5,9 +5,9 @@ using Kuna.Projections.Abstractions.Models;
 
 namespace Kuna.Examples.Events;
 
-public class OrderCreatedEvent : Event
+public class OrderCreated : Event
 {
-    public OrderCreatedEvent()
+    public OrderCreated()
     {
         this.CurrencyCode = "USD";
     }

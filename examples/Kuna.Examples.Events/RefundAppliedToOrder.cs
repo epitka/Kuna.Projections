@@ -5,7 +5,7 @@ using Kuna.Projections.Abstractions.Models;
 
 namespace Kuna.Examples.Events;
 
-public class RefundAppliedToOrderEvent : Event
+public class RefundAppliedToOrder : Event
 {
     [ModelId]
     public Guid OrderId { get; set; }

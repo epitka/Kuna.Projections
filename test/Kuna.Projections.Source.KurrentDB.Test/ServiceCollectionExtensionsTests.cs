@@ -205,9 +205,9 @@ public class ServiceCollectionExtensionsTests
             }
             """);
 
-        var @event = eventDeserializer.Deserialize(payload, nameof(OrderCreatedEvent), 0);
+        var @event = eventDeserializer.Deserialize(payload, nameof(OrderCreated), 0);
 
-        @event.ShouldBeOfType<OrderCreatedEvent>();
+        @event.ShouldBeOfType<OrderCreated>();
     }
 
     private static IConfiguration BuildConfiguration(IDictionary<string, string?> values)

@@ -24,7 +24,7 @@ public sealed class PersistCheckpointTests : MongoDbIntegrationTestBase
         {
             ModelName = ProjectionModelName.For<TestModel>(),
             InstanceId = SettingsSectionName,
-            GlobalEventPosition = new GlobalEventPosition(123L),
+            GlobalEventPosition = new GlobalEventPosition("123"),
         };
 
         await store.PersistCheckpoint(checkPoint, CancellationToken.None);

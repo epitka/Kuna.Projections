@@ -192,7 +192,7 @@ public sealed class OrderStreamGenerator
         var postalAddress = this.faker.Random.Bool(0.7f) ? billingAddress : CreateAddress(this.faker);
 
         var events = new List<OrderEventEnvelope>(4);
-        var created = new OrderCreatedEvent
+        var created = new OrderCreated
         {
             Id = orderId,
             OrderNumber = $"ORD-{orderSequence:D7}",
@@ -214,7 +214,7 @@ public sealed class OrderStreamGenerator
             Source = this.faker.PickRandom("web", "mobile", "store"),
             ProductType = this.faker.PickRandom(ProductTypes),
             CreatedOn = createdAt.UtcDateTime,
-            TypeName = nameof(OrderCreatedEvent),
+            TypeName = nameof(OrderCreated),
         };
 
         events.Add(new OrderEventEnvelope(streamName, 0, created));
@@ -236,13 +236,13 @@ public sealed class OrderStreamGenerator
         if (targetPhase >= 3)
         {
             Event terminal = isConfirmed
-                                 ? new OrderConfirmedEvent
+                                 ? new OrderConfirmed
                                  {
                                      OrderId = orderId,
                                      CurrencyCode = currencyCode,
                                      CompletedDateTime = terminalAt,
                                      CreatedOn = terminalAt.UtcDateTime,
-                                     TypeName = nameof(OrderConfirmedEvent),
+                                     TypeName = nameof(OrderConfirmed),
                                  }
                                  : new OrderAbandoned
                                  {
@@ -257,14 +257,14 @@ public sealed class OrderStreamGenerator
 
         if (targetPhase >= 4)
         {
-            var refund = new RefundAppliedToOrderEvent
+            var refund = new RefundAppliedToOrder
             {
                 OrderId = orderId,
                 Amount = 1.00m,
                 RefundId = Guid.NewGuid(),
                 MerchantReference = $"rfnd_{this.faker.Random.AlphaNumeric(12)}",
                 CreatedOn = refundAt.UtcDateTime,
-                TypeName = nameof(RefundAppliedToOrderEvent),
+                TypeName = nameof(RefundAppliedToOrder),
             };
 
             events.Add(new OrderEventEnvelope(streamName, 3, refund));

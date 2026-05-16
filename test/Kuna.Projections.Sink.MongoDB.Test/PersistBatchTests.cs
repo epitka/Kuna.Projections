@@ -33,14 +33,14 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = modelId,
                         Name = "created",
                         EventNumber = 1,
-                        GlobalEventPosition = new GlobalEventPosition(10),
+                        GlobalEventPosition = new GlobalEventPosition("10"),
                     },
                     IsNew: true,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(10),
+                    GlobalEventPosition: new GlobalEventPosition("10"),
                     ExpectedEventNumber: null),
             ],
-            GlobalEventPosition = new GlobalEventPosition(10),
+            GlobalEventPosition = new GlobalEventPosition("10"),
         };
 
         await sink.PersistBatch(batch, CancellationToken.None);
@@ -59,7 +59,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         var modelId = Guid.NewGuid();
 
         await using var provider = this.CreateProvider();
-        await this.SeedModel(provider, modelId, "before", 1, 10);
+        await this.SeedModel(provider, modelId, "before", 1, "10");
         var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
@@ -71,14 +71,14 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = modelId,
                         Name = "after",
                         EventNumber = 2,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                     },
                     IsNew: false,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: 1),
             ],
-            GlobalEventPosition = new GlobalEventPosition(11),
+            GlobalEventPosition = new GlobalEventPosition("11"),
         };
 
         await sink.PersistBatch(batch, CancellationToken.None);
@@ -97,7 +97,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         var modelId = Guid.NewGuid();
 
         await using var provider = this.CreateProvider();
-        await this.SeedModel(provider, modelId, "to-delete", 2, 10);
+        await this.SeedModel(provider, modelId, "to-delete", 2, "10");
         var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
@@ -109,14 +109,14 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = modelId,
                         Name = "to-delete",
                         EventNumber = 3,
-                        GlobalEventPosition = new GlobalEventPosition(12),
+                        GlobalEventPosition = new GlobalEventPosition("12"),
                     },
                     IsNew: false,
                     ShouldDelete: true,
-                    GlobalEventPosition: new GlobalEventPosition(12),
+                    GlobalEventPosition: new GlobalEventPosition("12"),
                     ExpectedEventNumber: 2),
             ],
-            GlobalEventPosition = new GlobalEventPosition(12),
+            GlobalEventPosition = new GlobalEventPosition("12"),
         };
 
         await sink.PersistBatch(batch, CancellationToken.None);
@@ -132,7 +132,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         var modelId = Guid.NewGuid();
 
         await using var provider = this.CreateProvider();
-        await this.SeedModel(provider, modelId, "existing", 1, 10);
+        await this.SeedModel(provider, modelId, "existing", 1, "10");
         var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
@@ -144,14 +144,14 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = modelId,
                         Name = "duplicate",
                         EventNumber = 2,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                     },
                     IsNew: true,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: null),
             ],
-            GlobalEventPosition = new GlobalEventPosition(11),
+            GlobalEventPosition = new GlobalEventPosition("11"),
         };
 
         await sink.PersistBatch(batch, CancellationToken.None);
@@ -171,7 +171,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         var modelId = Guid.NewGuid();
 
         await using var provider = this.CreateProvider();
-        await this.SeedModel(provider, modelId, "before", 3, 10);
+        await this.SeedModel(provider, modelId, "before", 3, "10");
         var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
@@ -183,14 +183,14 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = modelId,
                         Name = "after",
                         EventNumber = 4,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                     },
                     IsNew: false,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: 2),
             ],
-            GlobalEventPosition = new GlobalEventPosition(11),
+            GlobalEventPosition = new GlobalEventPosition("11"),
         };
 
         await sink.PersistBatch(batch, CancellationToken.None);
@@ -213,7 +213,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         var modelId = Guid.NewGuid();
 
         await using var provider = this.CreateProvider();
-        await this.SeedModel(provider, modelId, "existing", 5, 10);
+        await this.SeedModel(provider, modelId, "existing", 5, "10");
         var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
@@ -225,14 +225,14 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = modelId,
                         Name = "existing",
                         EventNumber = 6,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                     },
                     IsNew: false,
                     ShouldDelete: true,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: 4),
             ],
-            GlobalEventPosition = new GlobalEventPosition(11),
+            GlobalEventPosition = new GlobalEventPosition("11"),
         };
 
         await sink.PersistBatch(batch, CancellationToken.None);
@@ -261,14 +261,14 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = modelId,
                         Name = "skip-me",
                         EventNumber = 1,
-                        GlobalEventPosition = new GlobalEventPosition(10),
+                        GlobalEventPosition = new GlobalEventPosition("10"),
                     },
                     IsNew: true,
                     ShouldDelete: true,
-                    GlobalEventPosition: new GlobalEventPosition(10),
+                    GlobalEventPosition: new GlobalEventPosition("10"),
                     ExpectedEventNumber: null),
             ],
-            GlobalEventPosition = new GlobalEventPosition(10),
+            GlobalEventPosition = new GlobalEventPosition("10"),
         };
 
         await sink.PersistBatch(batch, CancellationToken.None);
@@ -285,7 +285,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         var newModelId = Guid.NewGuid();
 
         await using var provider = this.CreateProvider();
-        await this.SeedModel(provider, existingModelId, "existing", 1, 10);
+        await this.SeedModel(provider, existingModelId, "existing", 1, "10");
         var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
@@ -297,11 +297,11 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = existingModelId,
                         Name = "duplicate",
                         EventNumber = 2,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                     },
                     IsNew: true,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: null),
                 new ModelState<TestModel>(
                     new TestModel
@@ -309,14 +309,14 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = newModelId,
                         Name = "new",
                         EventNumber = 1,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                     },
                     IsNew: true,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: null),
             ],
-            GlobalEventPosition = new GlobalEventPosition(11),
+            GlobalEventPosition = new GlobalEventPosition("11"),
         };
 
         await sink.PersistBatch(batch, CancellationToken.None);
@@ -337,8 +337,8 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         var validModelId = Guid.NewGuid();
 
         await using var provider = this.CreateProvider();
-        await this.SeedModel(provider, staleModelId, "stale-before", 3, 10);
-        await this.SeedModel(provider, validModelId, "valid-before", 5, 10);
+        await this.SeedModel(provider, staleModelId, "stale-before", 3, "10");
+        await this.SeedModel(provider, validModelId, "valid-before", 5, "10");
         var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
@@ -350,11 +350,11 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = staleModelId,
                         Name = "stale-after",
                         EventNumber = 4,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                     },
                     IsNew: false,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: 2),
                 new ModelState<TestModel>(
                     new TestModel
@@ -362,14 +362,14 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = validModelId,
                         Name = "valid-after",
                         EventNumber = 6,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                     },
                     IsNew: false,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: 5),
             ],
-            GlobalEventPosition = new GlobalEventPosition(11),
+            GlobalEventPosition = new GlobalEventPosition("11"),
         };
 
         await sink.PersistBatch(batch, CancellationToken.None);
@@ -396,8 +396,8 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         var validModelId = Guid.NewGuid();
 
         await using var provider = this.CreateProvider();
-        await this.SeedModel(provider, staleModelId, "stale-existing", 3, 10);
-        await this.SeedModel(provider, validModelId, "valid-existing", 5, 10);
+        await this.SeedModel(provider, staleModelId, "stale-existing", 3, "10");
+        await this.SeedModel(provider, validModelId, "valid-existing", 5, "10");
         var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
@@ -409,11 +409,11 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = staleModelId,
                         Name = "stale-existing",
                         EventNumber = 4,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                     },
                     IsNew: false,
                     ShouldDelete: true,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: 2),
                 new ModelState<TestModel>(
                     new TestModel
@@ -421,14 +421,14 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = validModelId,
                         Name = "valid-existing",
                         EventNumber = 6,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                     },
                     IsNew: false,
                     ShouldDelete: true,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: 5),
             ],
-            GlobalEventPosition = new GlobalEventPosition(11),
+            GlobalEventPosition = new GlobalEventPosition("11"),
         };
 
         await sink.PersistBatch(batch, CancellationToken.None);
@@ -459,11 +459,11 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = failedModelId,
                         Name = new string('x', 17 * 1024 * 1024),
                         EventNumber = 1,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                     },
                     IsNew: true,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: null),
                 new ModelState<TestModel>(
                     new TestModel
@@ -471,14 +471,14 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = validModelId,
                         Name = "valid",
                         EventNumber = 1,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                     },
                     IsNew: true,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: null),
             ],
-            GlobalEventPosition = new GlobalEventPosition(11),
+            GlobalEventPosition = new GlobalEventPosition("11"),
         };
 
         await sink.PersistBatch(batch, CancellationToken.None);
@@ -503,8 +503,8 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         var validModelId = Guid.NewGuid();
 
         await using var provider = this.CreateProvider();
-        await this.SeedModel(provider, failedModelId, "failed-before", 3, 10);
-        await this.SeedModel(provider, validModelId, "valid-before", 5, 10);
+        await this.SeedModel(provider, failedModelId, "failed-before", 3, "10");
+        await this.SeedModel(provider, validModelId, "valid-before", 5, "10");
         var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
@@ -516,11 +516,11 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = failedModelId,
                         Name = new string('x', 17 * 1024 * 1024),
                         EventNumber = 4,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                     },
                     IsNew: false,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: 3),
                 new ModelState<TestModel>(
                     new TestModel
@@ -528,14 +528,14 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                         Id = validModelId,
                         Name = "valid-after",
                         EventNumber = 6,
-                        GlobalEventPosition = new GlobalEventPosition(11),
+                        GlobalEventPosition = new GlobalEventPosition("11"),
                     },
                     IsNew: false,
                     ShouldDelete: false,
-                    GlobalEventPosition: new GlobalEventPosition(11),
+                    GlobalEventPosition: new GlobalEventPosition("11"),
                     ExpectedEventNumber: 5),
             ],
-            GlobalEventPosition = new GlobalEventPosition(11),
+            GlobalEventPosition = new GlobalEventPosition("11"),
         };
 
         await sink.PersistBatch(batch, CancellationToken.None);

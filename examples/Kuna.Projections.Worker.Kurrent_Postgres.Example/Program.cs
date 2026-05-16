@@ -29,9 +29,6 @@ try
                    config
                        .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                        .AddJsonFile($"appsettings.{environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
-                       .AddKeyPerFile(directoryPath: "/keyvault", optional: true)
-                       .AddEnvironmentVariables()
-                       .AddEnvironmentVariables("EVENTSTORE_")
                        .AddCommandLine(args);
                });
 

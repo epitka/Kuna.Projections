@@ -32,7 +32,7 @@ public sealed class LoadTests : MongoDbIntegrationTestBase
         var modelId = Guid.NewGuid();
 
         await using var provider = this.CreateProvider();
-        await this.SeedModel(provider, modelId, "alpha", 42, 101);
+        await this.SeedModel(provider, modelId, "alpha", 42, "101");
         var store = provider.GetRequiredKeyedService<IModelStateStore<TestModel>>(GetRegistrationKey<TestModel>());
 
         var result = await store.Load(modelId, CancellationToken.None);

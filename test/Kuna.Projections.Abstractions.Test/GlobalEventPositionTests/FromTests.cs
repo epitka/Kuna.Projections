@@ -11,7 +11,7 @@ public class FromTests
     {
         var result = GlobalEventPosition.From("456");
 
-        result.ShouldBe(new GlobalEventPosition(456));
+        result.ShouldBe(new GlobalEventPosition("456"));
     }
 
     [Fact]

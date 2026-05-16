@@ -22,7 +22,7 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
         ProjectionFailure failure = new(
             modelId: modelId,
             eventNumber: 7,
-            streamPosition: new GlobalEventPosition(42L),
+            streamPosition: new GlobalEventPosition("42"),
             failureCreatedOn: new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
             exception: "boom",
             failureType: nameof(FailureType.Persistence),
@@ -30,7 +30,7 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
             instanceId: SettingsSectionName);
 
         await using var provider = this.CreateProvider();
-        await this.SeedModel(provider, modelId, "fault-target", 7, 42);
+        await this.SeedModel(provider, modelId, "fault-target", 7, "42");
         var handler = provider.GetRequiredKeyedService<IProjectionFailureHandler<TestModel>>(GetRegistrationKey<TestModel>());
 
         await handler.Handle(failure, CancellationToken.None);
@@ -51,13 +51,13 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
     }
 
     [Fact]
-    public async Task Handle_Should_Replace_Existing_Failure_Text_And_Metadata()
+    public async Task Handle_Should_Preserve_Original_Failure_When_Duplicate_Failure_Is_Recorded()
     {
         var modelId = Guid.NewGuid();
         ProjectionFailure firstFailure = new(
             modelId: modelId,
             eventNumber: 7,
-            streamPosition: new GlobalEventPosition(42L),
+            streamPosition: new GlobalEventPosition("42"),
             failureCreatedOn: new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
             exception: "first",
             failureType: nameof(FailureType.Persistence),
@@ -67,7 +67,7 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
         ProjectionFailure secondFailure = new(
             modelId: modelId,
             eventNumber: 8,
-            streamPosition: new GlobalEventPosition(43L),
+            streamPosition: new GlobalEventPosition("43"),
             failureCreatedOn: new DateTime(2026, 1, 2, 3, 5, 5, DateTimeKind.Utc),
             exception: "second",
             failureType: nameof(FailureType.EventProcessing),
@@ -75,7 +75,7 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
             instanceId: SettingsSectionName);
 
         await using var provider = this.CreateProvider();
-        await this.SeedModel(provider, modelId, "fault-target", 8, 43);
+        await this.SeedModel(provider, modelId, "fault-target", 8, "43");
         var handler = provider.GetRequiredKeyedService<IProjectionFailureHandler<TestModel>>(GetRegistrationKey<TestModel>());
 
         await handler.Handle(firstFailure, CancellationToken.None);
@@ -84,10 +84,10 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
         var failureDocument = await this.GetFailureDocument(provider, modelId);
 
         failureDocument.ShouldNotBeNull();
-        failureDocument["EventNumber"].AsInt64.ShouldBe(8);
-        failureDocument["GlobalEventPosition"].AsString.ShouldBe("43");
-        failureDocument["Exception"].AsString.ShouldBe("second");
-        failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.EventProcessing));
+        failureDocument["EventNumber"].AsInt64.ShouldBe(7);
+        failureDocument["GlobalEventPosition"].AsString.ShouldBe("42");
+        failureDocument["Exception"].AsString.ShouldBe("first");
+        failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
         ProjectionFailure failure = new(
             modelId: modelId,
             eventNumber: 7,
-            streamPosition: new GlobalEventPosition(42L),
+            streamPosition: new GlobalEventPosition("42"),
             failureCreatedOn: new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
             exception: exceptionText,
             failureType: nameof(FailureType.Persistence),
@@ -106,7 +106,7 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
             instanceId: SettingsSectionName);
 
         await using var provider = this.CreateProvider();
-        await this.SeedModel(provider, modelId, "fault-target", 7, 42);
+        await this.SeedModel(provider, modelId, "fault-target", 7, "42");
         var handler = provider.GetRequiredKeyedService<IProjectionFailureHandler<TestModel>>(GetRegistrationKey<TestModel>());
 
         await handler.Handle(failure, CancellationToken.None);
@@ -124,7 +124,7 @@ public sealed class ProjectionFailureHandlerIntegrationTests : MongoDbIntegratio
         ProjectionFailure failure = new(
             modelId: modelId,
             eventNumber: 11,
-            streamPosition: new GlobalEventPosition(55L),
+            streamPosition: new GlobalEventPosition("55"),
             failureCreatedOn: new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
             exception: "first-event-failure",
             failureType: nameof(FailureType.EventProcessing),

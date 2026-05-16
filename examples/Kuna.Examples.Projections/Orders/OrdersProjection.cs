@@ -7,7 +7,7 @@ using Model_Address = Kuna.Examples.Projections.Orders.Model.Address;
 
 namespace Kuna.Examples.Projections.Orders;
 
-[InitialEvent<OrderCreatedEvent>]
+[InitialEvent<OrderCreated>]
 public class OrdersProjection : Projection<Order>
 {
     private static readonly HashSet<string> IgnoredEvents = ["OrderDeclined",];
@@ -27,7 +27,7 @@ public class OrdersProjection : Projection<Order>
         base.Apply(@event);
     }
 
-    public void Apply(RefundAppliedToOrderEvent @event)
+    public void Apply(RefundAppliedToOrder @event)
     {
         this.ModelState.OrderRefunds.Add(
             new Refund
@@ -42,7 +42,7 @@ public class OrdersProjection : Projection<Order>
         this.ModelState.TotalFundsRefunded += @event.Amount;
     }
 
-    public void Apply(OrderCreatedEvent @event)
+    public void Apply(OrderCreated @event)
     {
         if (@event.BillingAddress != null)
         {
@@ -92,7 +92,7 @@ public class OrdersProjection : Projection<Order>
         this.ModelState.MerchantId = @event.MerchantId;
     }
 
-    public void Apply(OrderConfirmedEvent @event)
+    public void Apply(OrderConfirmed @event)
     {
         this.ModelState.CompletedDateTime = @event.CompletedDateTime;
         this.ModelState.OrderStatus = OrderStatus.Confirmed;

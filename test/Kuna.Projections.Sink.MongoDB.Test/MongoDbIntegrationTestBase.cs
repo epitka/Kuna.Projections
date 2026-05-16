@@ -63,7 +63,7 @@ public abstract class MongoDbIntegrationTestBase
         Guid modelId,
         string name,
         long eventNumber,
-        ulong globalEventPosition,
+        string globalEventPosition,
         bool hasStreamProcessingFaulted = false)
     {
         var database = this.CreateDatabase();
@@ -74,7 +74,7 @@ public abstract class MongoDbIntegrationTestBase
             new BsonElement("_id", modelId.ToString("D")),
             new BsonElement("Name", name),
             new BsonElement("EventNumber", eventNumber),
-            new BsonElement("GlobalEventPosition", globalEventPosition.ToString()),
+            new BsonElement("GlobalEventPosition", globalEventPosition),
             new BsonElement("HasStreamProcessingFaulted", hasStreamProcessingFaulted),
         ];
 

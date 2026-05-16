@@ -37,14 +37,14 @@ internal sealed class ProjectionFailureHandler<TState> : IProjectionFailureHandl
             FailureType = failure.FailureType,
         };
 
-        await this.failureCollection.ReplaceOneAsync(
-            x => x.Id == document.Id,
-            document,
-            new ReplaceOptions
-            {
-                IsUpsert = true,
-            },
-            cancellationToken);
+        try
+        {
+            await this.failureCollection.InsertOneAsync(document, cancellationToken: cancellationToken);
+        }
+        catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
+        {
+            // Preserve the original failure payload for this model.
+        }
     }
 
     private static string Truncate(string value)
