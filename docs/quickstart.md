@@ -217,8 +217,7 @@ services.AddProjection<Account>(configuration, settingsSectionName: "AccountProj
             "account_projection",
             options =>
             {
-            })
-        .WithInitialEvent<AccountCreated>();
+            });
 ```
 
 The MongoDB sink persists:
@@ -344,8 +343,7 @@ services.AddProjection<Account>(configuration, settingsSectionName: "AccountProj
             "account_projection",
             options =>
             {
-            })
-        .WithInitialEvent<AccountCreated>();
+            });
 ```
 
 ### 9B. Relational Example: PostgreSQL
