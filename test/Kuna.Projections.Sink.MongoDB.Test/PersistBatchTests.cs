@@ -166,7 +166,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     }
 
     [Fact]
-    public async Task PersistBatch_Should_Record_Failure_For_Stale_Update()
+    public async Task PersistBatch_Should_Skip_Stale_Update()
     {
         var modelId = Guid.NewGuid();
 
@@ -201,21 +201,18 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
         document.ShouldNotBeNull();
         document["Name"].AsString.ShouldBe("before");
         document["EventNumber"].AsInt64.ShouldBe(3);
-        document["HasStreamProcessingFaulted"].AsBoolean.ShouldBeTrue();
-        failureDocument.ShouldNotBeNull();
-        failureDocument["EventNumber"].AsInt64.ShouldBe(4);
-        failureDocument["InstanceId"].AsString.ShouldBe(SettingsSectionName);
-        failureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
+        document["HasStreamProcessingFaulted"].AsBoolean.ShouldBeFalse();
+        failureDocument.ShouldBeNull();
     }
 
     [Fact]
     public async Task PersistBatch_Should_Record_Failure_With_Configured_Instance_Id()
     {
         const string instanceId = "orders-v2";
-        var modelId = Guid.NewGuid();
+        var failedModelId = Guid.NewGuid();
+        var validModelId = Guid.NewGuid();
 
         await using var provider = this.CreateProvider(instanceId);
-        await this.SeedModel(provider, modelId, "before", 3, "10");
         var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
         ModelStatesBatch<TestModel> batch = new()
         {
@@ -224,26 +221,40 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
                 new ModelState<TestModel>(
                     new TestModel
                     {
-                        Id = modelId,
-                        Name = "after",
-                        EventNumber = 4,
+                        Id = failedModelId,
+                        Name = new string('x', 17 * 1024 * 1024),
+                        EventNumber = 1,
                         GlobalEventPosition = new GlobalEventPosition("11"),
                     },
-                    IsNew: false,
+                    IsNew: true,
                     ShouldDelete: false,
                     GlobalEventPosition: new GlobalEventPosition("11"),
-                    ExpectedEventNumber: 2),
+                    ExpectedEventNumber: null),
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = validModelId,
+                        Name = "valid",
+                        EventNumber = 1,
+                        GlobalEventPosition = new GlobalEventPosition("11"),
+                    },
+                    IsNew: true,
+                    ShouldDelete: false,
+                    GlobalEventPosition: new GlobalEventPosition("11"),
+                    ExpectedEventNumber: null),
             ],
             GlobalEventPosition = new GlobalEventPosition("11"),
         };
 
         await sink.PersistBatch(batch, CancellationToken.None);
 
-        var failureDocument = await this.GetFailureDocument(provider, modelId, instanceId);
+        var validDocument = await this.GetModelDocument(provider, validModelId);
+        var failureDocument = await this.GetFailureDocument(provider, failedModelId, instanceId);
 
+        validDocument.ShouldNotBeNull();
         failureDocument.ShouldNotBeNull();
         failureDocument["InstanceId"].AsString.ShouldBe(instanceId);
-        failureDocument["EventNumber"].AsInt64.ShouldBe(4);
+        failureDocument["EventNumber"].AsInt64.ShouldBe(1);
     }
 
     [Fact]
@@ -370,7 +381,7 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     }
 
     [Fact]
-    public async Task PersistBatch_Should_Record_Failure_And_Persist_Healthy_Update_When_Sibling_Update_Is_Stale()
+    public async Task PersistBatch_Should_Skip_Stale_Update_And_Persist_Healthy_Update_When_Sibling_Update_Is_Stale()
     {
         var staleModelId = Guid.NewGuid();
         var validModelId = Guid.NewGuid();
@@ -419,13 +430,11 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
 
         staleDocument.ShouldNotBeNull();
         staleDocument["Name"].AsString.ShouldBe("stale-before");
-        staleDocument["HasStreamProcessingFaulted"].AsBoolean.ShouldBeTrue();
+        staleDocument["HasStreamProcessingFaulted"].AsBoolean.ShouldBeFalse();
         validDocument.ShouldNotBeNull();
         validDocument["Name"].AsString.ShouldBe("valid-after");
         validDocument["EventNumber"].AsInt64.ShouldBe(6);
-        staleFailureDocument.ShouldNotBeNull();
-        staleFailureDocument["EventNumber"].AsInt64.ShouldBe(4);
-        staleFailureDocument["FailureType"].AsString.ShouldBe(nameof(FailureType.Persistence));
+        staleFailureDocument.ShouldBeNull();
     }
 
     [Fact]

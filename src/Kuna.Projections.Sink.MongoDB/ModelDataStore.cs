@@ -73,6 +73,14 @@ internal sealed class ModelDataStore<TState>
             $"MongoDB projection persistence matched no document for model {modelState.Model.Id} with expected event number {modelState.ExpectedEventNumber?.ToString() ?? "<null>"}.");
     }
 
+    private static bool IsOptimisticConcurrencyMiss(Exception exception)
+    {
+        return exception is InvalidOperationException invalidOperationException
+               && invalidOperationException.Message.StartsWith(
+                   "MongoDB projection persistence matched no document for model ",
+                   StringComparison.Ordinal);
+    }
+
     private async Task InsertBatch(IEnumerable<TState> models, CancellationToken cancellationToken)
     {
         var modelsArray = models.ToArray();
@@ -197,6 +205,10 @@ internal sealed class ModelDataStore<TState>
             try
             {
                 await this.Update(modelState, cancellationToken);
+            }
+            catch (Exception ex) when (IsOptimisticConcurrencyMiss(ex))
+            {
+                // A stale replay update is expected noise and should not fault the stream.
             }
             catch (Exception ex)
             {
@@ -415,12 +427,6 @@ internal sealed class ModelDataStore<TState>
             {
                 continue;
             }
-
-            var failure = this.CreateFailure(
-                modelState.Model,
-                CreateOptimisticConcurrencyException(modelState));
-
-            await this.failureHandler.Handle(failure, cancellationToken);
         }
     }
 

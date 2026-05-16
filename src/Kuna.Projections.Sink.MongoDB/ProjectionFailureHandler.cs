@@ -9,42 +9,58 @@ internal sealed class ProjectionFailureHandler<TState> : IProjectionFailureHandl
 {
     private const int MaxExceptionLength = 500;
 
+    private readonly IMongoDatabase database;
     private readonly IMongoCollection<TState> modelCollection;
     private readonly IMongoCollection<ProjectionFailureDocument> failureCollection;
 
     public ProjectionFailureHandler(IMongoDatabase database, ICollectionNamer collectionNamer)
     {
+        this.database = database;
         this.modelCollection = database.GetCollection<TState>(collectionNamer.GetModelCollectionName<TState>());
         this.failureCollection = database.GetCollection<ProjectionFailureDocument>(collectionNamer.GetFailureCollectionName());
     }
 
     public async Task Handle(ProjectionFailure failure, CancellationToken cancellationToken)
     {
-        var modelFilter = Builders<TState>.Filter.Eq(x => x.Id, failure.ModelId);
-        var modelUpdate = Builders<TState>.Update.Set(x => x.HasStreamProcessingFaulted, true);
-
-        await this.modelCollection.UpdateOneAsync(modelFilter, modelUpdate, cancellationToken: cancellationToken);
-
-        ProjectionFailureDocument document = new()
-        {
-            Id = $"{failure.ModelName}:{failure.InstanceId}:{failure.ModelId:D}",
-            ModelName = failure.ModelName,
-            InstanceId = failure.InstanceId,
-            ModelId = failure.ModelId.ToString("D"),
-            EventNumber = failure.EventNumber,
-            GlobalEventPosition = failure.GlobalEventPosition.ToString(),
-            FailureCreatedOn = failure.FailureCreatedOn,
-            Exception = Truncate(failure.Exception),
-            FailureType = failure.FailureType,
-        };
+        using var session = await this.database.Client.StartSessionAsync(cancellationToken: cancellationToken);
+        session.StartTransaction();
 
         try
         {
-            await this.failureCollection.InsertOneAsync(document, cancellationToken: cancellationToken);
+            var failureId = $"{failure.ModelName}:{failure.InstanceId}:{failure.ModelId:D}";
+            var failureFilter = Builders<ProjectionFailureDocument>.Filter.Eq(x => x.Id, failureId);
+            var failureUpdate = Builders<ProjectionFailureDocument>.Update
+                                                                  .SetOnInsert(x => x.Id, failureId)
+                                                                  .SetOnInsert(x => x.ModelName, failure.ModelName)
+                                                                  .SetOnInsert(x => x.InstanceId, failure.InstanceId)
+                                                                  .SetOnInsert(x => x.ModelId, failure.ModelId.ToString("D"))
+                                                                  .SetOnInsert(x => x.EventNumber, failure.EventNumber)
+                                                                  .SetOnInsert(x => x.GlobalEventPosition, failure.GlobalEventPosition.ToString())
+                                                                  .SetOnInsert(x => x.FailureCreatedOn, failure.FailureCreatedOn)
+                                                                  .SetOnInsert(x => x.Exception, Truncate(failure.Exception))
+                                                                  .SetOnInsert(x => x.FailureType, failure.FailureType);
+
+            await this.failureCollection.UpdateOneAsync(
+                session,
+                failureFilter,
+                failureUpdate,
+                new UpdateOptions
+                {
+                    IsUpsert = true,
+                },
+                cancellationToken);
+
+            var modelFilter = Builders<TState>.Filter.Eq(x => x.Id, failure.ModelId);
+            var modelUpdate = Builders<TState>.Update.Set(x => x.HasStreamProcessingFaulted, true);
+
+            await this.modelCollection.UpdateOneAsync(session, modelFilter, modelUpdate, cancellationToken: cancellationToken);
+
+            await session.CommitTransactionAsync(cancellationToken);
         }
-        catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
+        catch
         {
-            // Preserve the original failure payload for this model.
+            await session.AbortTransactionAsync(cancellationToken);
+            throw;
         }
     }
 

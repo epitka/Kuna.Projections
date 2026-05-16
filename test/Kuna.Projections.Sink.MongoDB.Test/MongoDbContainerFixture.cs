@@ -8,11 +8,14 @@ public sealed class MongoDbContainerFixture
     : TestContainerFixture,
       IAsyncLifetime
 {
+    private const string ReplicaSetName = "rs0";
+
     private readonly MongoDbContainer container;
 
     public MongoDbContainerFixture()
     {
         var builder = new MongoDbBuilder("mongo:8.0")
+                      .WithReplicaSet(ReplicaSetName)
                       .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(27017))
                       .WithExposedPort(27017);
 
