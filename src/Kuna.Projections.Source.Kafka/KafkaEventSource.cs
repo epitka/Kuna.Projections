@@ -1,16 +1,204 @@
 using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
+using Microsoft.Extensions.Logging;
 
 namespace Kuna.Projections.Source.Kafka;
 
 public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
     where TState : class, IModel, new()
 {
-    public IAsyncEnumerable<EventEnvelope> ReadAll(
-        GlobalEventPosition start,
-        CancellationToken cancellationToken)
+    private readonly IKafkaConsumerFactory consumerFactory;
+    private readonly IKafkaSourceTransformer transformer;
+    private readonly KafkaEventEnvelopeFactory envelopeFactory;
+    private readonly ICheckpointSerializer<KafkaCheckpointDocument> checkpointSerializer;
+    private readonly KafkaSourceSettings sourceSettings;
+    private readonly IProjectionSettings<TState> projectionSettings;
+    private readonly ILogger<KafkaEventSource<TState>> logger;
+
+    public KafkaEventSource(
+        IKafkaConsumerFactory consumerFactory,
+        IKafkaSourceTransformer transformer,
+        KafkaEventEnvelopeFactory envelopeFactory,
+        ICheckpointSerializer<KafkaCheckpointDocument> checkpointSerializer,
+        KafkaSourceSettings sourceSettings,
+        IProjectionSettings<TState> projectionSettings,
+        ILogger<KafkaEventSource<TState>> logger)
     {
-        throw new NotImplementedException();
+        this.consumerFactory = consumerFactory;
+        this.transformer = transformer;
+        this.envelopeFactory = envelopeFactory;
+        this.checkpointSerializer = checkpointSerializer;
+        this.sourceSettings = sourceSettings;
+        this.projectionSettings = projectionSettings;
+        this.logger = logger;
+    }
+
+    public async IAsyncEnumerable<EventEnvelope> ReadAll(
+        GlobalEventPosition start,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var checkpoint = this.checkpointSerializer.Deserialize(start);
+        ValidateCheckpointTopic(checkpoint, this.sourceSettings.Topic);
+
+        var consumerGroupId = ResolveConsumerGroupId();
+        using var consumer = this.consumerFactory.Create(this.sourceSettings, consumerGroupId);
+        var assignedPartitions = ResolveAssignedPartitions(consumer);
+        var currentOffsets = InitializeOffsets(checkpoint, assignedPartitions);
+        var caughtUpEmitted = false;
+
+        consumer.Assign(this.sourceSettings.Topic, assignedPartitions);
+
+        foreach (var partition in assignedPartitions)
+        {
+            if (currentOffsets.TryGetValue(partition, out var offset))
+            {
+                consumer.Seek(this.sourceSettings.Topic, partition, offset + 1);
+            }
+        }
+
+        this.logger.LogInformation(
+            "Kafka source starting for {ModelName} instance {InstanceId}: topic={Topic}, partitions=[{Partitions}], startCheckpoint={StartCheckpoint}",
+            ProjectionModelName.For<TState>(),
+            this.projectionSettings.InstanceId,
+            this.sourceSettings.Topic,
+            string.Join(", ", assignedPartitions),
+            start);
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var message = consumer.Consume(TimeSpan.FromMilliseconds(this.sourceSettings.PollTimeoutMs), cancellationToken);
+
+            if (message is null)
+            {
+                if (!caughtUpEmitted && IsCaughtUp(consumer, assignedPartitions, currentOffsets))
+                {
+                    caughtUpEmitted = true;
+
+                    yield return new EventEnvelope(
+                        eventNumber: -1,
+                        streamPosition: SerializeOffsets(currentOffsets),
+                        streamId: "$projection-caught-up",
+                        @event: new ProjectionCaughtUpEvent(),
+                        modelId: Guid.Empty,
+                        createdOn: DateTime.UtcNow);
+                }
+
+                await Task.Yield();
+                continue;
+            }
+
+            currentOffsets[message.Partition] = message.Offset;
+
+            var sourceRecord = this.transformer.Transform(
+                new KafkaSourceRecordContext
+                {
+                    Topic = message.Topic,
+                    Partition = message.Partition,
+                    Offset = message.Offset,
+                    KeyBytes = message.KeyBytes,
+                    ValueBytes = message.ValueBytes,
+                    Headers = message.Headers,
+                    TimestampUtc = message.TimestampUtc,
+                });
+
+            yield return this.envelopeFactory.Create(sourceRecord, SerializeOffsets(currentOffsets));
+            await Task.Yield();
+        }
+    }
+
+    private static void ValidateCheckpointTopic(
+        KafkaCheckpointDocument checkpoint,
+        string configuredTopic)
+    {
+        if (string.IsNullOrWhiteSpace(checkpoint.Topic))
+        {
+            return;
+        }
+
+        if (!string.Equals(checkpoint.Topic, configuredTopic, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Checkpoint topic '{checkpoint.Topic}' does not match configured topic '{configuredTopic}'.");
+        }
+    }
+
+    private string ResolveConsumerGroupId()
+    {
+        var modelName = ProjectionModelName.For<TState>().Replace(".", "-", StringComparison.Ordinal);
+        return $"kuna-projections-{modelName}-{this.projectionSettings.InstanceId}";
+    }
+
+    private IReadOnlyList<int> ResolveAssignedPartitions(IKafkaConsumer consumer)
+    {
+        if (this.sourceSettings.Partitions is { Length: > 0 })
+        {
+            return this.sourceSettings.Partitions.OrderBy(x => x).ToArray();
+        }
+
+        var discoveredPartitions = consumer.GetPartitions(this.sourceSettings.Topic);
+
+        if (discoveredPartitions.Count == 0)
+        {
+            throw new InvalidOperationException($"Kafka topic '{this.sourceSettings.Topic}' has no partitions.");
+        }
+
+        return discoveredPartitions;
+    }
+
+    private Dictionary<int, long> InitializeOffsets(
+        KafkaCheckpointDocument checkpoint,
+        IReadOnlyList<int> assignedPartitions)
+    {
+        var currentOffsets = checkpoint.Partitions
+                                       .Where(x => assignedPartitions.Contains(x.Key))
+                                       .ToDictionary(x => x.Key, x => x.Value);
+
+        foreach (var partition in assignedPartitions)
+        {
+            _ = currentOffsets.TryAdd(partition, -1);
+        }
+
+        return currentOffsets;
+    }
+
+    private GlobalEventPosition SerializeOffsets(IReadOnlyDictionary<int, long> currentOffsets)
+    {
+        return this.checkpointSerializer.Serialize(
+            new KafkaCheckpointDocument
+            {
+                Topic = this.sourceSettings.Topic,
+                Partitions = currentOffsets.ToDictionary(x => x.Key, x => x.Value),
+            });
+    }
+
+    private bool IsCaughtUp(
+        IKafkaConsumer consumer,
+        IReadOnlyList<int> assignedPartitions,
+        IReadOnlyDictionary<int, long> currentOffsets)
+    {
+        foreach (var partition in assignedPartitions)
+        {
+            var highWatermarkOffset = consumer.GetHighWatermarkOffset(this.sourceSettings.Topic, partition);
+            var lastObservedOffset = currentOffsets.TryGetValue(partition, out var offset) ? offset : -1;
+
+            if (highWatermarkOffset == 0)
+            {
+                continue;
+            }
+
+            if (lastObservedOffset < highWatermarkOffset - 1)
+            {
+                return false;
+            }
+        }
+
+        this.logger.LogInformation(
+            "Kafka source caught up for {ModelName} instance {InstanceId}: topic={Topic}",
+            ProjectionModelName.For<TState>(),
+            this.projectionSettings.InstanceId,
+            this.sourceSettings.Topic);
+
+        return true;
     }
 }

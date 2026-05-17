@@ -27,6 +27,7 @@ public static class ServiceCollectionExtensions
         var assembly = Assembly.GetEntryAssembly();
         var eventTypes = ResolveEventTypes(assembly, typeof(TState).Assembly);
         services.TryAddSingleton<ICheckpointSerializer<KafkaCheckpointDocument>, KafkaCheckpointSerializer>();
+        services.TryAddSingleton<IKafkaConsumerFactory, KafkaConsumerFactory>();
         services.TryAddSingleton<IKafkaEventDeserializer>(
             provider => new KafkaEventDeserializer(
                 eventTypes,
@@ -62,11 +63,17 @@ public static class ServiceCollectionExtensions
                 }
 
                 _ = ResolveSourceSettings(configuration, settingsSectionName);
-                _ = provider.GetRequiredKeyedService<IKafkaSourceTransformer>(registrationKey);
-                _ = provider.GetRequiredService<IKafkaEventDeserializer>();
-                _ = new KafkaEventEnvelopeFactory(provider.GetRequiredService<IKafkaEventDeserializer>());
+                var sourceSettings = ResolveSourceSettings(configuration, settingsSectionName);
 
-                return new ProjectionEventSource<TState>(new KafkaEventSource<TState>());
+                return new ProjectionEventSource<TState>(
+                    new KafkaEventSource<TState>(
+                        provider.GetRequiredService<IKafkaConsumerFactory>(),
+                        provider.GetRequiredKeyedService<IKafkaSourceTransformer>(registrationKey),
+                        new KafkaEventEnvelopeFactory(provider.GetRequiredService<IKafkaEventDeserializer>()),
+                        provider.GetRequiredService<ICheckpointSerializer<KafkaCheckpointDocument>>(),
+                        sourceSettings,
+                        projectionSettings,
+                        provider.GetRequiredService<ILogger<KafkaEventSource<TState>>>()));
             });
 
         return services;

@@ -25,7 +25,9 @@ public sealed class KafkaEventDeserializer : IKafkaEventDeserializer
         Type[] eventTypes,
         ILogger<KafkaEventDeserializer> logger)
     {
-        this.eventTypes = eventTypes.ToDictionary(x => x.Name, x => x, StringComparer.OrdinalIgnoreCase);
+        this.eventTypes = eventTypes
+                          .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                          .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
         this.logger = logger;
     }
 
