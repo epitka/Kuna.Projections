@@ -38,7 +38,7 @@ internal static class ModelStateBatcher
         }
     }
 
-    private static TimeSpan NormalizeDelay(int delayMilliseconds)
+    internal static TimeSpan NormalizeDelay(int delayMilliseconds)
     {
         return TimeSpan.FromMilliseconds(Math.Max(1, delayMilliseconds));
     }

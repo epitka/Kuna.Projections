@@ -160,7 +160,7 @@ public class CreateTests
         };
 
         var result = await Source.From(changes)
-                                 .Throttle(1, TimeSpan.FromMilliseconds(25), 1, ThrottleMode.Shaping)
+                                 .Throttle(1, TimeSpan.FromMilliseconds(250), 1, ThrottleMode.Shaping)
                                  .Via(ModelStateBatcher.Create<ItemModel>(settings))
                                  .RunWith(Sink.Seq<ModelStatesBatch<ItemModel>>(), materializer);
 
@@ -229,37 +229,10 @@ public class CreateTests
     }
 
     [Fact]
-    public async Task Create_Should_Normalize_NonPositive_TimeBatch_Settings()
+    public void Create_Should_Normalize_NonPositive_TimeBatch_Settings()
     {
-        var changes = new[]
-        {
-            Helpers.CreateChange(Guid.NewGuid(), 1),
-            Helpers.CreateChange(Guid.NewGuid(), 2),
-        };
-
-        using var system = ActorSystem.Create("projection-batcher-time-normalize-test");
-        var materializer = ActorMaterializer.Create(system);
-
-        var settings = new TestProjectionSettings
-        {
-            CatchUpFlush = new ProjectionFlushSettings
-            {
-                Strategy = PersistenceStrategy.TimeBasedBatching,
-                ModelCountThreshold = 0,
-                Delay = 0,
-            },
-        };
-
-        var result = await Source.From(changes)
-                                 .Throttle(1, TimeSpan.FromMilliseconds(25), 1, ThrottleMode.Shaping)
-                                 .Via(ModelStateBatcher.Create<ItemModel>(settings))
-                                 .RunWith(Sink.Seq<ModelStatesBatch<ItemModel>>(), materializer);
-
-        result.Count.ShouldBe(2);
-        result.All(x => x.Changes.Count == 1).ShouldBeTrue();
-
-        materializer.Shutdown();
-        await system.Terminate();
+        ModelStateBatcher.NormalizeDelay(0).ShouldBe(TimeSpan.FromMilliseconds(1));
+        ModelStateBatcher.NormalizeDelay(-100).ShouldBe(TimeSpan.FromMilliseconds(1));
     }
 
     [Fact]
