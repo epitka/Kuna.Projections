@@ -1,11 +1,11 @@
 namespace Kuna.Projections.Core;
 
-internal interface IProjectionRuntimeStats
+public interface IProjectionRuntimeStats
 {
     ProjectionRuntimeStats ReadAndResetRuntimeStats();
 }
 
-internal readonly record struct ProjectionRuntimeStats(
+public readonly record struct ProjectionRuntimeStats(
     long RuntimeProjectionHits,
     long ModelStateCacheRestores,
     long StoreProjectionLoads,

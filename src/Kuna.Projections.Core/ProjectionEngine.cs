@@ -12,7 +12,7 @@ namespace Kuna.Projections.Core;
 /// them from cache or store as needed, applies incoming envelopes, and tracks
 /// failed models across a flush window.
 /// </summary>
-internal sealed class ProjectionEngine<TState>
+public sealed class ProjectionEngine<TState>
     : IModelStateTransformer<EventEnvelope, TState>,
       IProjectionRuntimeStats,
       IProjectionLifecycle<TState>

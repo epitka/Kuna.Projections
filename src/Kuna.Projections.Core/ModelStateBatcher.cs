@@ -11,7 +11,7 @@ namespace Kuna.Projections.Core;
 /// configured persistence strategy. It also collapses multiple changes for the
 /// same model within a batch down to the last state that should be persisted.
 /// </summary>
-internal static class ModelStateBatcher
+public static class ModelStateBatcher
 {
     public static Flow<ModelState<TState>, ModelStatesBatch<TState>, NotUsed> Create<TState>(IProjectionSettings<TState> settings)
         where TState : class, IModel, new()
@@ -38,7 +38,7 @@ internal static class ModelStateBatcher
         }
     }
 
-    internal static TimeSpan NormalizeDelay(int delayMilliseconds)
+    public static TimeSpan NormalizeDelay(int delayMilliseconds)
     {
         return TimeSpan.FromMilliseconds(Math.Max(1, delayMilliseconds));
     }

@@ -35,7 +35,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
     private readonly IProjectionSettings<TState> settings;
     private readonly ILogger logger;
 
-    internal ProjectionPipeline(
+    public ProjectionPipeline(
         IEventSource<TEnvelope> source,
         IModelStateTransformer<TEnvelope, TState> transformer,
         IProjectionLifecycle<TState> lifecycle,

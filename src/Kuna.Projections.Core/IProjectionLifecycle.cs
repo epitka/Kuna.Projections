@@ -3,10 +3,10 @@ using Kuna.Projections.Abstractions.Models;
 namespace Kuna.Projections.Core;
 
 /// <summary>
-/// Defines internal lifecycle hooks that let the pipeline notify projection
-/// runtime components about significant processing state transitions.
+/// Defines lifecycle hooks that let the pipeline notify projection runtime
+/// components about significant processing state transitions.
 /// </summary>
-internal interface IProjectionLifecycle<TState>
+public interface IProjectionLifecycle<TState>
     where TState : class, IModel, new()
 {
     /// <summary>

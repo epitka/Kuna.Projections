@@ -281,7 +281,10 @@ public class TransformTests
     [Fact]
     public async Task Should_Recreate_From_Model_State_Cache_As_Update_After_Flush()
     {
-        var factory = A.Fake<IProjectionFactory<ItemModel>>(opt => opt.Strict());
+        var innerFactory = new ProjectionFactory<ItemModel>(
+            id => new ItemProjection(id),
+            A.Fake<IModelStateStore<ItemModel>>(opt => opt.Strict()));
+
         var handler = A.Fake<IProjectionFailureHandler<ItemModel>>(opt => opt.Strict());
         var settings = CreateSettings();
         var logger = LoggerFactory.Create(
@@ -292,7 +295,7 @@ public class TransformTests
 
         var modelId = Guid.NewGuid();
         var cache = new InMemoryModelStateCache<ItemModel>(settings);
-        var createFromModelIsNew = new List<bool>();
+        var factory = new RecordingProjectionFactory(innerFactory);
 
         cache.Set(
             new ModelState<ItemModel>(
@@ -308,20 +311,6 @@ public class TransformTests
                 GlobalEventPosition: new GlobalEventPosition("10"),
                 ExpectedEventNumber: null));
 
-        A.CallTo(() => factory.CreateFromModel(A<ItemModel>._, A<bool>._))
-         .ReturnsLazily(
-             (ItemModel model, bool isNew) =>
-             {
-                 createFromModelIsNew.Add(isNew);
-                 var projection = new ItemProjection(model.Id)
-                 {
-                     IsNew = isNew,
-                 };
-
-                 projection.SetModelState(model);
-                 return projection;
-             });
-
         var transformer = new ProjectionEngine<ItemModel>(factory, handler, cache, CreateRegistration<ItemCreated>(), settings, logger);
 
         var result = await transformer.Transform(
@@ -332,8 +321,7 @@ public class TransformTests
         result.IsNew.ShouldBeFalse();
         result.ExpectedEventNumber.ShouldBe(0);
         result.Model.Name.ShouldBe("updated");
-        createFromModelIsNew.ShouldBe([false,]);
-        A.CallTo(() => factory.Create(A<Guid>._, A<bool>._, A<CancellationToken>._)).MustNotHaveHappened();
+        factory.CreateFromModelIsNewValues.ShouldBe([false,]);
     }
 
     [Fact]
@@ -410,5 +398,28 @@ public class TransformTests
         where TEvent : Event
     {
         return new ProjectionCreationRegistration<ItemModel>(typeof(TEvent));
+    }
+
+    private sealed class RecordingProjectionFactory : IProjectionFactory<ItemModel>
+    {
+        private readonly IProjectionFactory<ItemModel> inner;
+
+        public RecordingProjectionFactory(IProjectionFactory<ItemModel> inner)
+        {
+            this.inner = inner;
+        }
+
+        public List<bool> CreateFromModelIsNewValues { get; } = [];
+
+        public ValueTask<Projection<ItemModel>?> Create(Guid modelId, bool loadModelFromStore, CancellationToken cancellationToken)
+        {
+            return this.inner.Create(modelId, loadModelFromStore, cancellationToken);
+        }
+
+        public Projection<ItemModel> CreateFromModel(ItemModel model, bool isNew)
+        {
+            this.CreateFromModelIsNewValues.Add(isNew);
+            return this.inner.CreateFromModel(model, isNew);
+        }
     }
 }

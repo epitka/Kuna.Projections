@@ -213,7 +213,8 @@ public class ServiceCollectionExtensionsTests
         var engine = provider.GetRequiredKeyedService<ProjectionEngine<CoreServiceTestModel>>(
             GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name));
 
-        var registration = GetProjectionCreationRegistration<CoreServiceTestModel>(provider, ProjectionSettingsSection.Name);
+        var registration = provider.GetRequiredKeyedService<ProjectionCreationRegistration<CoreServiceTestModel>>(
+            GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name));
 
         engine.ShouldNotBeNull();
         GetInitialEventType(registration).ShouldBe(typeof(TestInitialEvent));
@@ -235,7 +236,8 @@ public class ServiceCollectionExtensionsTests
         services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name);
 
         using var provider = services.BuildServiceProvider();
-        var registration = GetProjectionCreationRegistration<CoreServiceTestModel>(provider, ProjectionSettingsSection.Name);
+        var registration = provider.GetRequiredKeyedService<ProjectionCreationRegistration<CoreServiceTestModel>>(
+            GetProjectionKey<CoreServiceTestModel>(ProjectionSettingsSection.Name));
 
         GetInitialEventType(registration).ShouldBe(typeof(TestInitialEvent));
     }
@@ -260,7 +262,7 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddProjectionCore_Should_Isolate_Typed_Source_Lifecycle_And_Checkpoint_Dependencies()
+    public void AddProjectionCore_Should_Isolate_Typed_Engine_Lifecycle_And_Transformer_Dependencies()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -306,56 +308,43 @@ public class ServiceCollectionExtensionsTests
         var ordersPipeline =
             provider.GetRequiredKeyedService<IProjectionPipeline<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection"));
 
+        var ordersEngine =
+            provider.GetRequiredKeyedService<ProjectionEngine<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection"));
+
+        var ordersTransformer =
+            provider.GetRequiredKeyedService<IModelStateTransformer<EventEnvelope, CoreServiceTestModel>>(
+                GetProjectionKey<CoreServiceTestModel>("OrdersProjection"));
+
+        var ordersLifecycle =
+            provider.GetRequiredKeyedService<IProjectionLifecycle<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection"));
+
         var invoicesPipeline =
             provider.GetRequiredKeyedService<IProjectionPipeline<SecondaryServiceTestModel>>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"));
 
-        GetPrivateField<object>(ordersPipeline, "source")
-            .ShouldBeSameAs(
-                provider.GetRequiredKeyedService<IProjectionEventSource<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection"))
-                        .Value);
+        var invoicesEngine =
+            provider.GetRequiredKeyedService<ProjectionEngine<SecondaryServiceTestModel>>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"));
 
-        GetPrivateField<object>(ordersPipeline, "checkpointStore")
-            .ShouldBeSameAs(checkpointStore);
+        var invoicesTransformer =
+            provider.GetRequiredKeyedService<IModelStateTransformer<EventEnvelope, SecondaryServiceTestModel>>(
+                GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"));
 
-        GetPrivateField<object>(ordersPipeline, "lifecycle")
-            .ShouldBeSameAs(
-                provider.GetRequiredKeyedService<IProjectionLifecycle<CoreServiceTestModel>>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection")));
+        var invoicesLifecycle =
+            provider.GetRequiredKeyedService<IProjectionLifecycle<SecondaryServiceTestModel>>(
+                GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"));
 
-        GetPrivateField<object>(invoicesPipeline, "source")
-            .ShouldBeSameAs(
-                provider.GetRequiredKeyedService<IProjectionEventSource<SecondaryServiceTestModel>>(
-                            GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"))
-                        .Value);
-
-        GetPrivateField<object>(invoicesPipeline, "checkpointStore")
-            .ShouldBeSameAs(checkpointStore);
-
-        GetPrivateField<object>(invoicesPipeline, "lifecycle")
-            .ShouldBeSameAs(
-                provider.GetRequiredKeyedService<IProjectionLifecycle<SecondaryServiceTestModel>>(
-                    GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection")));
+        ordersPipeline.ShouldNotBeNull();
+        invoicesPipeline.ShouldNotBeNull();
+        ordersTransformer.ShouldBeSameAs(ordersEngine);
+        ordersLifecycle.ShouldBeSameAs(ordersEngine);
+        invoicesTransformer.ShouldBeSameAs(invoicesEngine);
+        invoicesLifecycle.ShouldBeSameAs(invoicesEngine);
+        ordersEngine.ShouldNotBeSameAs(invoicesEngine);
     }
 
-    private static object GetProjectionCreationRegistration<TState>(IServiceProvider provider, string settingsSectionName)
+    private static Type GetInitialEventType<TState>(ProjectionCreationRegistration<TState> registration)
         where TState : class, IModel, new()
     {
-        var registrationType = typeof(ServiceCollectionExtensions).Assembly
-                                                                  .GetType("Kuna.Projections.Core.ProjectionCreationRegistration`1")!
-                                                                  .MakeGenericType(typeof(TState));
-
-        return provider.GetRequiredKeyedService(registrationType, GetProjectionKey<TState>(settingsSectionName));
-    }
-
-    private static Type GetInitialEventType(object registration)
-    {
-        return (Type)registration.GetType().GetProperty("InitialEventType")!.GetValue(registration)!;
-    }
-
-    private static TField GetPrivateField<TField>(object target, string fieldName)
-    {
-        return (TField)target.GetType()
-                             .GetField(fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-                             .GetValue(target)!;
+        return registration.InitialEventType;
     }
 
     private static string GetProjectionKey<TState>(string settingsSectionName)
