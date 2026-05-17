@@ -2,6 +2,7 @@ using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 
@@ -22,6 +23,7 @@ public static class ServiceCollectionExtensions
         ArgumentException.ThrowIfNullOrWhiteSpace(settingsSectionName);
 
         var registrationKey = ProjectionRegistration.GetKey<TState>(settingsSectionName);
+        services.TryAddSingleton<ICheckpointSerializer<KafkaCheckpointDocument>, KafkaCheckpointSerializer>();
 
         services.AddHealthChecks()
                 .AddCheck<KafkaHealthCheck>("Kafka", HealthStatus.Unhealthy);
@@ -38,7 +40,11 @@ public static class ServiceCollectionExtensions
                         $"Unsupported projection source '{projectionSettings.Source}' for section '{settingsSectionName}'.");
                 }
 
-                _ = configuration.GetRequiredSection($"{settingsSectionName}:{KafkaSourceSettings.SectionName}");
+                var sectionPath = $"{settingsSectionName}:{KafkaSourceSettings.SectionName}";
+                var sourceSettings = configuration.GetRequiredSection(sectionPath).Get<KafkaSourceSettings>()
+                                     ?? throw new InvalidOperationException($"Missing configuration section: {sectionPath}");
+
+                KafkaSourceSettingsValidator.Validate(sourceSettings, sectionPath);
 
                 return new ProjectionEventSource<TState>(new KafkaEventSource<TState>());
             });
