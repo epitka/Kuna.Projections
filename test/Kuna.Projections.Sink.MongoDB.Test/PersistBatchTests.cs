@@ -54,6 +54,58 @@ public sealed class PersistBatchTests : MongoDbIntegrationTestBase
     }
 
     [Fact]
+    public async Task PersistBatch_Should_Serialize_Guid_Fields_In_Model_Graph()
+    {
+        var modelId = Guid.NewGuid();
+        var externalId = Guid.NewGuid();
+        var childCustomerId = Guid.NewGuid();
+        var refundId = Guid.NewGuid();
+
+        await using var provider = this.CreateProvider();
+        var sink = provider.GetRequiredKeyedService<IModelStateSink<TestModel>>(GetRegistrationKey<TestModel>());
+        ModelStatesBatch<TestModel> batch = new()
+        {
+            Changes =
+            [
+                new ModelState<TestModel>(
+                    new TestModel
+                    {
+                        Id = modelId,
+                        Name = "created",
+                        ExternalId = externalId,
+                        Child = new TestChild
+                        {
+                            CustomerId = childCustomerId,
+                        },
+                        Items =
+                        [
+                            new TestNestedItem
+                            {
+                                RefundId = refundId,
+                            },
+                        ],
+                        EventNumber = 1,
+                        GlobalEventPosition = new GlobalEventPosition("10"),
+                    },
+                    IsNew: true,
+                    ShouldDelete: false,
+                    GlobalEventPosition: new GlobalEventPosition("10"),
+                    ExpectedEventNumber: null),
+            ],
+            GlobalEventPosition = new GlobalEventPosition("10"),
+        };
+
+        await sink.PersistBatch(batch, CancellationToken.None);
+
+        var document = await this.GetModelDocument(provider, modelId);
+
+        document.ShouldNotBeNull();
+        document["ExternalId"].AsString.ShouldBe(externalId.ToString("D"));
+        document["Child"]["CustomerId"].AsString.ShouldBe(childCustomerId.ToString("D"));
+        document["Items"].AsBsonArray[0]["RefundId"].AsString.ShouldBe(refundId.ToString("D"));
+    }
+
+    [Fact]
     public async Task PersistBatch_Should_Update_Model_When_Expected_Event_Number_Matches()
     {
         var modelId = Guid.NewGuid();
