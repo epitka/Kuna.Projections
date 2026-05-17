@@ -23,19 +23,13 @@ public sealed class ServiceCollectionExtensionsTests
                 ["Projections:InstanceId"] = "orders-v1",
             });
 
-        services.AddKafkaSource<TestModel>(
-            configuration,
-            LoggerFactory.Create(_ =>
-            {
-            }),
-            ProjectionSettingsSection.Name);
-
-        RegisterProjectionSettings<TestModel>(services, configuration, ProjectionSettingsSection.Name);
-
-        using var provider = services.BuildServiceProvider();
-
         var ex = Should.Throw<InvalidOperationException>(
-            () => provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)));
+            () => services.AddKafkaSource<TestModel>(
+                configuration,
+                LoggerFactory.Create(_ =>
+                {
+                }),
+                ProjectionSettingsSection.Name));
 
         ex.Message.ShouldContain("Projections:Kafka");
     }
@@ -56,19 +50,13 @@ public sealed class ServiceCollectionExtensionsTests
                 ["Projections:Kafka:Partitions:1"] = "1",
             });
 
-        services.AddKafkaSource<TestModel>(
-            configuration,
-            LoggerFactory.Create(_ =>
-            {
-            }),
-            ProjectionSettingsSection.Name);
-
-        RegisterProjectionSettings<TestModel>(services, configuration, ProjectionSettingsSection.Name);
-
-        using var provider = services.BuildServiceProvider();
-
         var ex = Should.Throw<InvalidOperationException>(
-            () => provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)));
+            () => services.AddKafkaSource<TestModel>(
+                configuration,
+                LoggerFactory.Create(_ =>
+                {
+                }),
+                ProjectionSettingsSection.Name));
 
         ex.Message.ShouldContain("duplicate partition ids");
     }

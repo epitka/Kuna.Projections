@@ -26,28 +26,30 @@ public static class ServiceCollectionExtensions
         var registrationKey = ProjectionRegistration.GetKey<TState>(settingsSectionName);
         var assembly = Assembly.GetEntryAssembly();
         var eventTypes = ResolveEventTypes(assembly, typeof(TState).Assembly);
+        var sourceSettings = ResolveSourceSettings(configuration, settingsSectionName);
         services.TryAddSingleton<ICheckpointSerializer<KafkaCheckpointDocument>, KafkaCheckpointSerializer>();
         services.TryAddSingleton<IKafkaConsumerFactory, KafkaConsumerFactory>();
         services.TryAddSingleton<IKafkaEventDeserializer>(
             provider => new KafkaEventDeserializer(
                 eventTypes,
                 loggerFactory.CreateLogger<KafkaEventDeserializer>()));
+        services.AddSingleton(
+            new KafkaHealthCheckRegistration
+            {
+                SettingsSectionName = settingsSectionName,
+                SourceSettings = sourceSettings,
+            });
 
         services.AddHealthChecks()
                 .AddCheck<KafkaHealthCheck>("Kafka", HealthStatus.Unhealthy);
 
         services.AddKeyedSingleton<IKafkaSourceTransformer>(
             registrationKey,
-            (_, _) =>
+            (_, _) => sourceSettings.Transformer switch
             {
-                var sourceSettings = ResolveSourceSettings(configuration, settingsSectionName);
-
-                return sourceSettings.Transformer switch
-                {
-                    KafkaSourceTransformerKind.Native => new NativeKafkaSourceTransformer(),
-                    KafkaSourceTransformerKind.Kurrent => new KurrentKafkaSourceTransformer(),
-                    _ => throw new ArgumentOutOfRangeException(nameof(sourceSettings.Transformer)),
-                };
+                KafkaSourceTransformerKind.Native => new NativeKafkaSourceTransformer(),
+                KafkaSourceTransformerKind.Kurrent => new KurrentKafkaSourceTransformer(),
+                _ => throw new ArgumentOutOfRangeException(nameof(sourceSettings.Transformer)),
             });
 
         services.AddKeyedSingleton<IProjectionEventSource<TState>>(
@@ -61,9 +63,6 @@ public static class ServiceCollectionExtensions
                     throw new InvalidOperationException(
                         $"Unsupported projection source '{projectionSettings.Source}' for section '{settingsSectionName}'.");
                 }
-
-                _ = ResolveSourceSettings(configuration, settingsSectionName);
-                var sourceSettings = ResolveSourceSettings(configuration, settingsSectionName);
 
                 return new ProjectionEventSource<TState>(
                     new KafkaEventSource<TState>(
