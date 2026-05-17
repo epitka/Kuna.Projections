@@ -44,14 +44,17 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
         var consumerGroupId = ResolveConsumerGroupId();
         using var consumer = this.consumerFactory.Create(this.sourceSettings, consumerGroupId);
         var assignedPartitions = ResolveAssignedPartitions(consumer);
-        var currentOffsets = InitializeOffsets(checkpoint, assignedPartitions);
+        var checkpointOffsets = checkpoint.Partitions
+                                          .Where(x => assignedPartitions.Contains(x.Key))
+                                          .ToDictionary(x => x.Key, x => x.Value);
+        var currentOffsets = InitializeOffsets(checkpointOffsets, assignedPartitions);
         var caughtUpEmitted = false;
 
         consumer.Assign(this.sourceSettings.Topic, assignedPartitions);
 
         foreach (var partition in assignedPartitions)
         {
-            if (currentOffsets.TryGetValue(partition, out var offset))
+            if (checkpointOffsets.TryGetValue(partition, out var offset))
             {
                 consumer.Seek(this.sourceSettings.Topic, partition, offset + 1);
             }
@@ -147,12 +150,10 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
     }
 
     private Dictionary<int, long> InitializeOffsets(
-        KafkaCheckpointDocument checkpoint,
+        IReadOnlyDictionary<int, long> checkpointOffsets,
         IReadOnlyList<int> assignedPartitions)
     {
-        var currentOffsets = checkpoint.Partitions
-                                       .Where(x => assignedPartitions.Contains(x.Key))
-                                       .ToDictionary(x => x.Key, x => x.Value);
+        var currentOffsets = checkpointOffsets.ToDictionary(x => x.Key, x => x.Value);
 
         foreach (var partition in assignedPartitions)
         {

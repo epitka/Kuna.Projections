@@ -93,6 +93,46 @@ public sealed class KafkaEventSourceTests
     }
 
     [Fact]
+    public async Task ReadAll_Should_Not_Seek_When_No_Checkpoint_Exists()
+    {
+        var consumer = new FakeKafkaConsumer(
+            partitions: [0,],
+            messages:
+            [
+                new KafkaConsumedMessage
+                {
+                    Topic = "orders-events",
+                    Partition = 0,
+                    Offset = 0,
+                    KeyBytes = System.Text.Encoding.UTF8.GetBytes(Guid.NewGuid().ToString("D")),
+                    ValueBytes = System.Text.Encoding.UTF8.GetBytes("""{"value":"abc"}"""),
+                    Headers = new Dictionary<string, byte[]>
+                    {
+                        ["event-type"] = System.Text.Encoding.UTF8.GetBytes(nameof(TestEvent)),
+                        ["event-number"] = System.Text.Encoding.UTF8.GetBytes("1"),
+                        ["created-on"] = System.Text.Encoding.UTF8.GetBytes("2026-05-17T12:00:00Z"),
+                    },
+                },
+            ],
+            highWatermarks: new Dictionary<int, long> { [0] = 1, });
+
+        var source = CreateSource(
+            consumer,
+            new KafkaSourceSettings
+            {
+                BootstrapServers = "localhost:9092",
+                Topic = "orders-events",
+                PollTimeoutMs = 1,
+            });
+
+        using var cts = new CancellationTokenSource();
+        await using var enumerator = source.ReadAll(new GlobalEventPosition(string.Empty), cts.Token).GetAsyncEnumerator(cts.Token);
+
+        (await enumerator.MoveNextAsync()).ShouldBeTrue();
+        consumer.SeekCalls.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task ReadAll_Should_Throw_When_Checkpoint_Topic_Does_Not_Match_Configured_Topic()
     {
         var consumer = new FakeKafkaConsumer(
