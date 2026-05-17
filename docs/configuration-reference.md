@@ -388,7 +388,7 @@ The section is required when the root projection setting `Source` is `Kafka`.
 | `AutoOffsetReset` | `KafkaAutoOffsetReset` | `Earliest` | No | Used when no projection checkpoint exists for a partition. |
 | `KeyFormat` | `KafkaKeyFormat` | `Guid` | No | Current native Kafka key format. |
 | `Transformer` | `KafkaSourceTransformerKind` | `Native` | No | Selects how Kafka records are normalized before envelope creation. |
-| `Partitions` | `int[]` | All topic partitions | No | Optional explicit partition assignment. |
+| `Partitions` | `int[]` | All topic partitions | No | Optional explicit partition assignment. The configured ids must exist on the topic. |
 | `PollTimeoutMs` | `int` | `1000` | No | Poll timeout used by the Kafka source loop. |
 
 ### `Transformer`
@@ -404,6 +404,17 @@ Guidance:
 
 - `Native` expects the repository's preferred Kafka event format with metadata carried in Kafka headers.
 - `Kurrent` expects records exported by KurrentDB's Kafka Sink connector.
+
+### `Partitions`
+
+Type: `int[]`
+
+Guidance:
+
+- omit it to consume every partition on the topic
+- set it only when you intentionally want a fixed subset
+- startup fails if the configured partition ids do not exist on the topic
+- the Kafka health check probes the topic metadata and reports missing configured partitions as unhealthy
 
 ### Ordering Requirement
 
