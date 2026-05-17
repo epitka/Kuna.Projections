@@ -1,3 +1,4 @@
+using System.Reflection;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
 using Microsoft.Extensions.Configuration;
@@ -23,7 +24,13 @@ public static class ServiceCollectionExtensions
         ArgumentException.ThrowIfNullOrWhiteSpace(settingsSectionName);
 
         var registrationKey = ProjectionRegistration.GetKey<TState>(settingsSectionName);
+        var assembly = Assembly.GetEntryAssembly();
+        var eventTypes = ResolveEventTypes(assembly, typeof(TState).Assembly);
         services.TryAddSingleton<ICheckpointSerializer<KafkaCheckpointDocument>, KafkaCheckpointSerializer>();
+        services.TryAddSingleton<IKafkaEventDeserializer>(
+            provider => new KafkaEventDeserializer(
+                eventTypes,
+                loggerFactory.CreateLogger<KafkaEventDeserializer>()));
 
         services.AddHealthChecks()
                 .AddCheck<KafkaHealthCheck>("Kafka", HealthStatus.Unhealthy);
@@ -56,6 +63,8 @@ public static class ServiceCollectionExtensions
 
                 _ = ResolveSourceSettings(configuration, settingsSectionName);
                 _ = provider.GetRequiredKeyedService<IKafkaSourceTransformer>(registrationKey);
+                _ = provider.GetRequiredService<IKafkaEventDeserializer>();
+                _ = new KafkaEventEnvelopeFactory(provider.GetRequiredService<IKafkaEventDeserializer>());
 
                 return new ProjectionEventSource<TState>(new KafkaEventSource<TState>());
             });
@@ -85,5 +94,66 @@ public static class ServiceCollectionExtensions
 
         KafkaSourceSettingsValidator.Validate(sourceSettings, sectionPath);
         return sourceSettings;
+    }
+
+    private static Type[] ResolveEventTypes(Assembly? entryAssembly, Assembly stateAssembly)
+    {
+        var candidateAssemblies = ResolveCandidateAssemblies(entryAssembly, stateAssembly);
+
+        return candidateAssemblies
+               .SelectMany(SafeGetExportedTypes)
+               .Where(x => x.IsSubclassOf(typeof(Event)))
+               .Distinct()
+               .ToArray();
+    }
+
+    private static IReadOnlyCollection<Assembly> ResolveCandidateAssemblies(Assembly? entryAssembly, Assembly stateAssembly)
+    {
+        var assemblies = new Dictionary<string, Assembly>(StringComparer.Ordinal);
+        var toVisit = new Queue<Assembly>();
+
+        if (entryAssembly != null)
+        {
+            toVisit.Enqueue(entryAssembly);
+        }
+
+        toVisit.Enqueue(stateAssembly);
+
+        while (toVisit.Count > 0)
+        {
+            var assembly = toVisit.Dequeue();
+
+            if (!assemblies.TryAdd(assembly.FullName ?? assembly.GetName().Name ?? assembly.ToString(), assembly))
+            {
+                continue;
+            }
+
+            foreach (var referencedAssembly in assembly.GetReferencedAssemblies())
+            {
+                try
+                {
+                    toVisit.Enqueue(Assembly.Load(referencedAssembly));
+                }
+                catch
+                {
+                    // Ignore optional or unavailable assemblies. Event discovery only
+                    // needs assemblies that can be loaded in the current app.
+                }
+            }
+        }
+
+        return assemblies.Values;
+    }
+
+    private static IEnumerable<Type> SafeGetExportedTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetExportedTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            return ex.Types.Where(x => x != null).Cast<Type>();
+        }
     }
 }

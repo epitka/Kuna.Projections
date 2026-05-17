@@ -102,6 +102,7 @@ public sealed class ServiceCollectionExtensionsTests
         provider.GetRequiredKeyedService<IKafkaSourceTransformer>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name))
                 .ShouldBeOfType<NativeKafkaSourceTransformer>();
         provider.GetRequiredService<ICheckpointSerializer<KafkaCheckpointDocument>>().ShouldBeOfType<KafkaCheckpointSerializer>();
+        provider.GetRequiredService<IKafkaEventDeserializer>().ShouldBeOfType<KafkaEventDeserializer>();
     }
 
     private static IConfiguration BuildConfiguration(IDictionary<string, string?> values)
