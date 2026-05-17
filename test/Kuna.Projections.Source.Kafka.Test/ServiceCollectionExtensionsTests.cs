@@ -99,6 +99,8 @@ public sealed class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
 
         provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
+        provider.GetRequiredKeyedService<IKafkaSourceTransformer>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name))
+                .ShouldBeOfType<NativeKafkaSourceTransformer>();
         provider.GetRequiredService<ICheckpointSerializer<KafkaCheckpointDocument>>().ShouldBeOfType<KafkaCheckpointSerializer>();
     }
 

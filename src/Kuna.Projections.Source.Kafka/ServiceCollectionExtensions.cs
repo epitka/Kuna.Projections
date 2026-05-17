@@ -28,6 +28,20 @@ public static class ServiceCollectionExtensions
         services.AddHealthChecks()
                 .AddCheck<KafkaHealthCheck>("Kafka", HealthStatus.Unhealthy);
 
+        services.AddKeyedSingleton<IKafkaSourceTransformer>(
+            registrationKey,
+            (_, _) =>
+            {
+                var sourceSettings = ResolveSourceSettings(configuration, settingsSectionName);
+
+                return sourceSettings.Transformer switch
+                {
+                    KafkaSourceTransformerKind.Native => new NativeKafkaSourceTransformer(),
+                    KafkaSourceTransformerKind.Kurrent => new KurrentKafkaSourceTransformer(),
+                    _ => throw new ArgumentOutOfRangeException(nameof(sourceSettings.Transformer)),
+                };
+            });
+
         services.AddKeyedSingleton<IProjectionEventSource<TState>>(
             registrationKey,
             (provider, _) =>
@@ -40,11 +54,8 @@ public static class ServiceCollectionExtensions
                         $"Unsupported projection source '{projectionSettings.Source}' for section '{settingsSectionName}'.");
                 }
 
-                var sectionPath = $"{settingsSectionName}:{KafkaSourceSettings.SectionName}";
-                var sourceSettings = configuration.GetRequiredSection(sectionPath).Get<KafkaSourceSettings>()
-                                     ?? throw new InvalidOperationException($"Missing configuration section: {sectionPath}");
-
-                KafkaSourceSettingsValidator.Validate(sourceSettings, sectionPath);
+                _ = ResolveSourceSettings(configuration, settingsSectionName);
+                _ = provider.GetRequiredKeyedService<IKafkaSourceTransformer>(registrationKey);
 
                 return new ProjectionEventSource<TState>(new KafkaEventSource<TState>());
             });
@@ -62,5 +73,17 @@ public static class ServiceCollectionExtensions
 
         builder.Services.AddKafkaSource<TState>(builder.Configuration, loggerFactory, builder.SettingsSectionName);
         return builder;
+    }
+
+    private static KafkaSourceSettings ResolveSourceSettings(
+        IConfiguration configuration,
+        string settingsSectionName)
+    {
+        var sectionPath = $"{settingsSectionName}:{KafkaSourceSettings.SectionName}";
+        var sourceSettings = configuration.GetRequiredSection(sectionPath).Get<KafkaSourceSettings>()
+                             ?? throw new InvalidOperationException($"Missing configuration section: {sectionPath}");
+
+        KafkaSourceSettingsValidator.Validate(sourceSettings, sectionPath);
+        return sourceSettings;
     }
 }
