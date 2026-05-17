@@ -6,6 +6,7 @@ The examples use:
 
 - `Kuna.Projections.Core`
 - `Kuna.Projections.Source.KurrentDB` (source implementation for KurrentDB)
+- `Kuna.Projections.Source.Kafka` (source implementation for Kafka)
 - NoSQL example: `Kuna.Projections.Sink.MongoDB`
 - relational example: `Kuna.Projections.Sink.EF.Npgsql` (or `Kuna.Projections.Sink.EF.SqlServer` / `Kuna.Projections.Sink.EF.MySql`)
 
@@ -48,11 +49,22 @@ This can be:
 
 ## 2. Choose A Persistence Track And Add Packages
 
-Every worker needs the core runtime and KurrentDB source:
+Every worker needs the core runtime plus one source package:
 
 ```bash
 dotnet add package Kuna.Projections.Core
+```
+
+KurrentDB source:
+
+```bash
 dotnet add package Kuna.Projections.Source.KurrentDB
+```
+
+Kafka source:
+
+```bash
+dotnet add package Kuna.Projections.Source.Kafka
 ```
 
 ### 2A. NoSQL Example: MongoDB
@@ -212,6 +224,23 @@ using Kuna.Projections.Source.KurrentDB;
 
 services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
         .UseKurrentDbSource(loggerFactory)
+        .UseMongoDataStore(
+            "mongodb://localhost:27017",
+            "account_projection",
+            options =>
+            {
+            });
+```
+
+Kafka source registration uses the same projection and sink code:
+
+```csharp
+using Kuna.Projections.Core;
+using Kuna.Projections.Sink.MongoDB;
+using Kuna.Projections.Source.Kafka;
+
+services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
+        .UseKafkaSource(loggerFactory)
         .UseMongoDataStore(
             "mongodb://localhost:27017",
             "account_projection",
