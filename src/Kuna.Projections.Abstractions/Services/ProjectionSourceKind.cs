@@ -6,4 +6,5 @@ namespace Kuna.Projections.Abstractions.Services;
 public enum ProjectionSourceKind
 {
     KurrentDB = 0,
+    Kafka = 1,
 }
