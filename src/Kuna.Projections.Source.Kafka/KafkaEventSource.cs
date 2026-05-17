@@ -134,16 +134,27 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
 
     private IReadOnlyList<int> ResolveAssignedPartitions(IKafkaConsumer consumer)
     {
-        if (this.sourceSettings.Partitions is { Length: > 0 })
-        {
-            return this.sourceSettings.Partitions.OrderBy(x => x).ToArray();
-        }
-
         var discoveredPartitions = consumer.GetPartitions(this.sourceSettings.Topic);
 
         if (discoveredPartitions.Count == 0)
         {
             throw new InvalidOperationException($"Kafka topic '{this.sourceSettings.Topic}' has no partitions.");
+        }
+
+        if (this.sourceSettings.Partitions is { Length: > 0 })
+        {
+            var missingPartitions = this.sourceSettings.Partitions
+                                        .Except(discoveredPartitions)
+                                        .OrderBy(x => x)
+                                        .ToArray();
+
+            if (missingPartitions.Length > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Kafka topic '{this.sourceSettings.Topic}' does not contain configured partitions: {string.Join(", ", missingPartitions)}.");
+            }
+
+            return this.sourceSettings.Partitions.OrderBy(x => x).ToArray();
         }
 
         return discoveredPartitions;

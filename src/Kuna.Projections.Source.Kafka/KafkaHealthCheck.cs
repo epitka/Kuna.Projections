@@ -40,6 +40,23 @@ public sealed class KafkaHealthCheck : IHealthCheck
                         HealthCheckResult.Unhealthy(
                             $"Kafka topic '{registration.SourceSettings.Topic}' configured in '{registration.SettingsSectionName}' has no partitions."));
                 }
+
+                if (registration.SourceSettings.Partitions is not { Length: > 0 })
+                {
+                    continue;
+                }
+
+                var missingPartitions = registration.SourceSettings.Partitions
+                                                 .Except(partitions)
+                                                 .OrderBy(x => x)
+                                                 .ToArray();
+
+                if (missingPartitions.Length > 0)
+                {
+                    return Task.FromResult(
+                        HealthCheckResult.Unhealthy(
+                            $"Kafka topic '{registration.SourceSettings.Topic}' configured in '{registration.SettingsSectionName}' does not contain partitions: {string.Join(", ", missingPartitions)}."));
+                }
             }
 
             return Task.FromResult(

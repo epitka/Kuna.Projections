@@ -167,6 +167,35 @@ public sealed class KafkaEventSourceTests
         ex.Message.ShouldContain("Checkpoint topic");
     }
 
+    [Fact]
+    public async Task ReadAll_Should_Throw_When_Configured_Partition_Does_Not_Exist()
+    {
+        var consumer = new FakeKafkaConsumer(
+            partitions: [0,],
+            messages: [],
+            highWatermarks: new Dictionary<int, long> { [0] = 0, });
+
+        var source = CreateSource(
+            consumer,
+            new KafkaSourceSettings
+            {
+                BootstrapServers = "localhost:9092",
+                Topic = "orders-events",
+                Partitions = [1,],
+                PollTimeoutMs = 1,
+            });
+
+        var ex = await Should.ThrowAsync<InvalidOperationException>(
+            async () =>
+            {
+                await foreach (var _ in source.ReadAll(new GlobalEventPosition(string.Empty), CancellationToken.None))
+                {
+                }
+            });
+
+        ex.Message.ShouldContain("does not contain configured partitions");
+    }
+
     private static KafkaEventSource<TestModel> CreateSource(
         IKafkaConsumer consumer,
         KafkaSourceSettings sourceSettings)

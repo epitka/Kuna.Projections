@@ -83,6 +83,36 @@ public sealed class KafkaHealthCheckTests
         result.Exception.ShouldNotBeNull();
     }
 
+    [Fact]
+    public async Task CheckHealthAsync_Should_Return_Unhealthy_When_Configured_Partition_Is_Missing()
+    {
+        var healthCheck = new KafkaHealthCheck(
+            [
+                new KafkaHealthCheckRegistration
+                {
+                    SettingsSectionName = "OrdersProjection",
+                    SourceSettings = new KafkaSourceSettings
+                    {
+                        BootstrapServers = "localhost:9092",
+                        Topic = "orders-events",
+                        Partitions = [1,],
+                    },
+                },
+            ],
+            new FakeKafkaConsumerFactory(
+                new FakeKafkaConsumer(
+                    new Dictionary<string, IReadOnlyList<int>>
+                    {
+                        ["orders-events"] = [0,],
+                    })));
+
+        var result = await healthCheck.CheckHealthAsync(new HealthCheckContext(), TestContext.Current.CancellationToken);
+
+        result.Status.ShouldBe(HealthStatus.Unhealthy);
+        result.Description.ShouldNotBeNull();
+        result.Description.ShouldContain("does not contain partitions");
+    }
+
     private sealed class FakeKafkaConsumerFactory : IKafkaConsumerFactory
     {
         private readonly IKafkaConsumer consumer;
