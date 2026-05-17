@@ -49,7 +49,7 @@ public class ProjectionFailureHandlerIntegrationTests
     }
 
     [Fact]
-    public async Task Handle_Should_Append_And_Truncate_On_Duplicate_Failure()
+    public async Task Handle_Should_Keep_First_Failure_On_Duplicate_Failure()
     {
         var modelId = Guid.NewGuid();
         using var provider = PostgresSqlTestHelper.CreateServiceProvider(this.fixture);
@@ -72,8 +72,7 @@ public class ProjectionFailureHandlerIntegrationTests
                                       .ToListAsync(CancellationToken.None);
 
         failures.Count.ShouldBe(1);
-        failures[0].Exception.Length.ShouldBeLessThanOrEqualTo(3999);
-        failures[0].Exception.ShouldContain("Additional_Failure:");
+        failures[0].Exception.ShouldBe(new string('a', 3950));
     }
 
     private static ProjectionFailure CreateFailure(Guid modelId, string exception)

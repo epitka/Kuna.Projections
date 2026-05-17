@@ -53,6 +53,8 @@ The last targeted `dotnet test` verification command that completed successfully
 - After setup normalization, compare the full objects directly with `ShouldDeepEqual(...)`.
 - Avoid post-construction anonymization helpers, bespoke comparison wrappers, or extra projection layers when direct object comparison is sufficient.
 - Test behavior through public APIs or owned seams only. If code is hard to test cleanly, refactor production code to introduce a small explicit seam instead of inspecting private state.
+- Do not write non-deterministic tests that rely on real timing, scheduler jitter, `Task.Delay`, throttling gaps, or wall-clock races. If time-sensitive behavior needs coverage, introduce a deterministic seam or assert the normalization/calculation logic directly instead of depending on elapsed time.
+- Do not rely on `InternalsVisibleTo` to make code testable. Craft the production API so behavior can be verified through public APIs or deliberate owned seams.
 - Do not use reflection in tests to access private members, private fields, or non-public properties.
 - Do not make internals visible to tests via `InternalsVisibleTo` just to assert implementation details.
 - Do not assert against the internal object shape of third-party libraries. If a third-party type is too opaque to test directly, assert your own inputs/outputs around it or cover it with an integration test.

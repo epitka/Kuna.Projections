@@ -15,9 +15,6 @@ public class ProjectionFailureHandler<TState, TDataContext>
     where TState : class, IModel, new()
     where TDataContext : DbContext
 {
-    private const int MaxExceptionMessageLength = 4000;
-    private const int MaxExceptionMessageLengthAllowed = MaxExceptionMessageLength - 1;
-
     private readonly IServiceProvider serviceProvider;
     private readonly IDuplicateKeyExceptionDetector duplicateKeyExceptionDetector;
     private readonly ILogger logger;
@@ -64,11 +61,11 @@ public class ProjectionFailureHandler<TState, TDataContext>
         }
         catch (DbUpdateException dex) when (this.IsDuplicateKeyViolation(dex))
         {
-            await this.FindAndUpdateFailure(failure, cancellationToken);
+            await this.EnsureModelIsMarkedAsFaulted(failure, cancellationToken);
         }
         catch (Exception exception) when (this.IsDuplicateKeyViolation(exception))
         {
-            await this.FindAndUpdateFailure(failure, cancellationToken);
+            await this.EnsureModelIsMarkedAsFaulted(failure, cancellationToken);
         }
         catch (Exception e)
         {
@@ -84,7 +81,7 @@ public class ProjectionFailureHandler<TState, TDataContext>
         }
     }
 
-    private async Task FindAndUpdateFailure(ProjectionFailure failure, CancellationToken cancellationToken)
+    private async Task EnsureModelIsMarkedAsFaulted(ProjectionFailure failure, CancellationToken cancellationToken)
     {
         using var serviceScope = this.serviceProvider.CreateScope();
 
@@ -92,19 +89,11 @@ public class ProjectionFailureHandler<TState, TDataContext>
                                     .ServiceProvider
                                     .GetRequiredService<TDataContext>();
 
-        var eventFailure = await dbContext.FindAsync<ProjectionFailure>(
-                               [failure.ModelName, failure.InstanceId, failure.ModelId,],
-                               cancellationToken);
+        var dbModel = await dbContext.FindAsync<TState>([failure.ModelId,], cancellationToken);
 
-        if (eventFailure != null)
+        if (dbModel is { HasStreamProcessingFaulted: false, })
         {
-            eventFailure.Exception += " Additional_Failure: " + failure.Exception;
-
-            if (eventFailure.Exception.Length >= MaxExceptionMessageLength)
-            {
-                eventFailure.Exception = eventFailure.Exception.Substring(0, MaxExceptionMessageLengthAllowed);
-            }
-
+            dbModel.HasStreamProcessingFaulted = true;
             await dbContext.SaveChangesAsync(cancellationToken);
         }
     }
