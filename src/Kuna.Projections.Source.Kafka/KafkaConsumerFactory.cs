@@ -16,6 +16,7 @@ public sealed class KafkaConsumerFactory : IKafkaConsumerFactory
             BootstrapServers = sourceSettings.BootstrapServers,
             GroupId = consumerGroupId,
             ClientId = string.IsNullOrWhiteSpace(sourceSettings.ClientId) ? null : sourceSettings.ClientId,
+            BrokerAddressFamily = BrokerAddressFamily.V4,
             EnableAutoCommit = false,
             EnableAutoOffsetStore = false,
             AutoOffsetReset = sourceSettings.AutoOffsetReset == KafkaAutoOffsetReset.Earliest
@@ -27,6 +28,7 @@ public sealed class KafkaConsumerFactory : IKafkaConsumerFactory
         {
             BootstrapServers = sourceSettings.BootstrapServers,
             ClientId = string.IsNullOrWhiteSpace(sourceSettings.ClientId) ? null : sourceSettings.ClientId,
+            BrokerAddressFamily = BrokerAddressFamily.V4,
         };
 
         return new KafkaConsumer(
