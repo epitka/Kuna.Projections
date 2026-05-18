@@ -94,6 +94,9 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
         var activeProjections = new Dictionary<Guid, Kuna.Examples.Projections.Orders.OrdersProjection>();
         var touchedOrderIds = new HashSet<Guid>();
         var comparedCount = 0;
+        long totalConsumedRecords = 0;
+        long totalMatchedRecords = 0;
+        var batchNumber = 0;
         ReplayConsistencyMismatch? mismatch = null;
 
         this.logger.LogInformation(
@@ -127,8 +130,15 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
 
         consumer.Assign(replaySettings.Topic, assignedPartitions);
 
+        this.logger.LogInformation(
+            "Replay consistency diagnostics assigned Kafka partitions for OrdersProjection: topic={Topic}, partitions={Partitions}, highWatermarks={HighWatermarks}",
+            replaySettings.Topic,
+            string.Join(", ", assignedPartitions),
+            string.Join(", ", highWatermarks.OrderBy(x => x.Key).Select(x => $"{x.Key}:{x.Value}")));
+
         var transformer = new NativeKafkaSourceTransformer();
         var consumedSinceComparison = 0;
+        var matchedSinceComparison = 0;
 
         while (!cancellationToken.IsCancellationRequested
                && remainingOrderIds.Count > 0
@@ -150,6 +160,7 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
 
             currentOffsets[message.Partition] = message.Offset;
             consumedSinceComparison++;
+            totalConsumedRecords++;
 
             var sourceRecord = transformer.Transform(
                 new KafkaSourceRecordContext
@@ -167,6 +178,9 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
             {
                 continue;
             }
+
+            matchedSinceComparison++;
+            totalMatchedRecords++;
 
             var envelope = this.envelopeFactory.Create(
                 sourceRecord,
@@ -191,31 +205,43 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
                 continue;
             }
 
-            comparedCount += await this.TryEvictMatchedOrdersAsync(
+            batchNumber++;
+            var evictedCount = await this.TryEvictMatchedOrdersAsync(
                 activeProjections,
                 touchedOrderIds,
                 ordersById,
                 remainingOrderIds,
                 cancellationToken);
-            consumedSinceComparison = 0;
+            comparedCount += evictedCount;
 
-            if (comparedCount % logEvery == 0
+            if (batchNumber == 1
+                || batchNumber % logEvery == 0
                 || comparedCount == orders.Count)
             {
                 this.logger.LogInformation(
-                    "Replay consistency diagnostics progress for OrdersProjection (Kafka): checked={CheckedCount}/{TotalCount}, remaining={RemainingCount}",
+                    "Replay consistency diagnostics progress for OrdersProjection (Kafka): batch={BatchNumber}, consumedRecords={ConsumedRecords}, batchMatchedRecords={BatchMatchedRecords}, matchedRecords={MatchedRecords}, evictedOrders={EvictedOrders}, checked={CheckedCount}/{TotalCount}, remaining={RemainingCount}, active={ActiveCount}",
+                    batchNumber,
+                    totalConsumedRecords,
+                    matchedSinceComparison,
+                    totalMatchedRecords,
+                    evictedCount,
                     comparedCount,
                     orders.Count,
-                    remainingOrderIds.Count);
+                    remainingOrderIds.Count,
+                    activeProjections.Count);
             }
+
+            consumedSinceComparison = 0;
+            matchedSinceComparison = 0;
         }
 
-        comparedCount += await this.TryEvictMatchedOrdersAsync(
+        var trailingEvictedCount = await this.TryEvictMatchedOrdersAsync(
             activeProjections,
             touchedOrderIds,
             ordersById,
             remainingOrderIds,
             cancellationToken);
+        comparedCount += trailingEvictedCount;
 
         var finalComparison = await this.TryResolveFinalMismatchAsync(
             activeProjections,
@@ -237,10 +263,16 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
             mismatch);
 
         this.logger.LogInformation(
-            "Replay consistency diagnostics completed for OrdersProjection (Kafka): isConsistent={IsConsistent}, checked={CheckedCount}/{TotalCount}, elapsedMs={ElapsedMs}",
+            "Replay consistency diagnostics completed for OrdersProjection (Kafka): isConsistent={IsConsistent}, checked={CheckedCount}/{TotalCount}, consumedRecords={ConsumedRecords}, matchedRecords={MatchedRecords}, trailingEvictedOrders={TrailingEvictedOrders}, remaining={RemainingCount}, finalOffsets={FinalOffsets}, highWatermarks={HighWatermarks}, elapsedMs={ElapsedMs}",
             result.IsConsistent,
             result.CheckedOrders,
             result.TotalOrders,
+            totalConsumedRecords,
+            totalMatchedRecords,
+            trailingEvictedCount,
+            remainingOrderIds.Count,
+            string.Join(", ", currentOffsets.OrderBy(x => x.Key).Select(x => $"{x.Key}:{x.Value}")),
+            string.Join(", ", highWatermarks.OrderBy(x => x.Key).Select(x => $"{x.Key}:{x.Value}")),
             result.ElapsedMilliseconds);
 
         if (mismatch != null)
