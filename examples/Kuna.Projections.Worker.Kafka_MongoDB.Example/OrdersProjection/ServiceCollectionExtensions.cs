@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Kuna.Examples.Projections.Orders.Model;
+using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Core;
 using Kuna.Projections.Sink.MongoDB;
 using Kuna.Projections.Source.Kafka;
@@ -36,6 +37,15 @@ public static class ServiceCollectionExtensions
                     {
                         options.CollectionPrefix = "orders";
                     });
+
+        var registrationKey = ProjectionRegistration.GetKey<Order>("OrdersProjection");
+        services.AddScoped(
+            provider => new OrdersKafkaStatusDiagnostics(
+                provider.GetRequiredKeyedService<ICheckpointStore>(registrationKey),
+                provider.GetRequiredService<IKafkaConsumerFactory>(),
+                provider.GetRequiredService<ICheckpointSerializer<KafkaCheckpointDocument>>(),
+                configuration));
+        services.AddScoped<OrdersKafkaReplayConsistencyDiagnostics>();
 
         return services;
     }

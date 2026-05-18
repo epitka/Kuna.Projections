@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Kuna.Projections.Core;
 using Kuna.Projections.Worker.Kafka_MongoDB.Example.OrdersProjection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -40,6 +41,24 @@ try
     var app = builder.Build();
 
     app.MapGet("/", () => "Kafka-backed MongoDB projection worker is running");
+    app.MapHealthChecks("/health");
+    app.MapGet(
+        "/diagnostics/orders/status",
+        async (OrdersKafkaStatusDiagnostics diagnostics, CancellationToken cancellationToken) =>
+        {
+            var result = await diagnostics.RunAsync(cancellationToken);
+            return Results.Ok(result);
+        });
+    app.MapPost(
+        "/diagnostics/orders/replay-consistency",
+        async (
+            ReplayConsistencyRequest? request,
+            OrdersKafkaReplayConsistencyDiagnostics diagnostics,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await diagnostics.RunAsync(request ?? new ReplayConsistencyRequest(), cancellationToken);
+            return Results.Ok(result);
+        });
 
     await app.RunAsync();
     return 0;
