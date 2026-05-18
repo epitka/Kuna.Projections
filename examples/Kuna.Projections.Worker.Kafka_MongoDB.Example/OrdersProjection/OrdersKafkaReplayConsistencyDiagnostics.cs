@@ -19,6 +19,7 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
     private const string SettingsSectionName = "OrdersProjection";
     private const string DatabaseName = "orders_projection";
     private const string OrdersCollectionName = "orders_order";
+    private const int KafkaComparisonBatchSize = 5000;
 
     private static readonly JsonSerializerOptions SnapshotJsonOptions = new()
     {
@@ -88,7 +89,11 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
         var stopOnFirstMismatch = request.StopOnFirstMismatch ?? true;
         var logEvery = Math.Max(1, request.LogEvery ?? 500);
         var orders = await this.LoadOrdersAsync(request, cancellationToken);
-        var checkedCount = 0;
+        var ordersById = orders.ToDictionary(x => x.Id, x => x);
+        var remainingOrderIds = ordersById.Keys.ToHashSet();
+        var activeProjections = new Dictionary<Guid, Kuna.Examples.Projections.Orders.OrdersProjection>();
+        var touchedOrderIds = new HashSet<Guid>();
+        var comparedCount = 0;
         ReplayConsistencyMismatch? mismatch = null;
 
         this.logger.LogInformation(
@@ -98,51 +103,134 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
             request.Limit,
             stopOnFirstMismatch);
 
-        foreach (var dbOrder in orders)
+        var replaySettings = new KafkaSourceSettings
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            BootstrapServers = this.sourceSettings.BootstrapServers,
+            Topic = this.sourceSettings.Topic,
+            ClientId = this.sourceSettings.ClientId,
+            AutoOffsetReset = KafkaAutoOffsetReset.Earliest,
+            KeyFormat = this.sourceSettings.KeyFormat,
+            Transformer = this.sourceSettings.Transformer,
+            Partitions = this.sourceSettings.Partitions,
+            PollTimeoutMs = this.sourceSettings.PollTimeoutMs,
+        };
 
-            var replayed = await this.ReplayOrderAsync(dbOrder.Id, cancellationToken);
-            var dbSnapshot = ToSnapshot(dbOrder);
-            var replayedSnapshot = replayed == null ? null : ToSnapshot(replayed);
-            checkedCount++;
+        using var consumer = this.consumerFactory.Create(
+            replaySettings,
+            $"kuna-projections-replay-batch-{Guid.NewGuid():N}");
 
-            if (replayedSnapshot == null)
+        var assignedPartitions = this.ResolveAssignedPartitions(consumer, replaySettings);
+        var currentOffsets = assignedPartitions.ToDictionary(x => x, _ => -1L);
+        var highWatermarks = assignedPartitions.ToDictionary(
+            partition => partition,
+            partition => consumer.GetHighWatermarkOffset(replaySettings.Topic, partition));
+
+        consumer.Assign(replaySettings.Topic, assignedPartitions);
+
+        var transformer = new NativeKafkaSourceTransformer();
+        var consumedSinceComparison = 0;
+
+        while (!cancellationToken.IsCancellationRequested
+               && remainingOrderIds.Count > 0
+               && !this.IsCaughtUp(assignedPartitions, currentOffsets, highWatermarks))
+        {
+            var message = consumer.Consume(TimeSpan.FromMilliseconds(replaySettings.PollTimeoutMs), cancellationToken);
+
+            if (message is null)
             {
-                mismatch = new ReplayConsistencyMismatch(
-                    dbOrder.Id,
-                    "Replay produced no model state for an order row that exists in the database.",
-                    SerializeSnapshot(dbSnapshot),
-                    null);
-            }
-            else if (!SnapshotsEqual(dbSnapshot, replayedSnapshot))
-            {
-                mismatch = new ReplayConsistencyMismatch(
-                    dbOrder.Id,
-                    "Persisted order row does not match per-key Kafka replay snapshot.",
-                    SerializeSnapshot(dbSnapshot),
-                    SerializeSnapshot(replayedSnapshot));
+                await this.TryEvictMatchedOrdersAsync(
+                    activeProjections,
+                    touchedOrderIds,
+                    ordersById,
+                    remainingOrderIds,
+                    cancellationToken);
+                await Task.Yield();
+                continue;
             }
 
-            if (checkedCount % logEvery == 0)
+            currentOffsets[message.Partition] = message.Offset;
+            consumedSinceComparison++;
+
+            var sourceRecord = transformer.Transform(
+                new KafkaSourceRecordContext
+                {
+                    Topic = message.Topic,
+                    Partition = message.Partition,
+                    Offset = message.Offset,
+                    KeyBytes = message.KeyBytes,
+                    ValueBytes = message.ValueBytes,
+                    Headers = message.Headers,
+                    TimestampUtc = message.TimestampUtc,
+                });
+
+            if (!remainingOrderIds.Contains(sourceRecord.ModelId))
+            {
+                continue;
+            }
+
+            var envelope = this.envelopeFactory.Create(
+                sourceRecord,
+                this.checkpointSerializer.Serialize(
+                    new KafkaCheckpointDocument
+                    {
+                        Topic = replaySettings.Topic,
+                        Partitions = currentOffsets.ToDictionary(x => x.Key, x => x.Value),
+                    }));
+
+            if (!activeProjections.TryGetValue(sourceRecord.ModelId, out var projection))
+            {
+                projection = new Kuna.Examples.Projections.Orders.OrdersProjection(sourceRecord.ModelId);
+                activeProjections[sourceRecord.ModelId] = projection;
+            }
+
+            _ = projection.Process(envelope, this.projectionSettings.EventVersionCheckStrategy);
+            _ = touchedOrderIds.Add(sourceRecord.ModelId);
+
+            if (consumedSinceComparison < KafkaComparisonBatchSize)
+            {
+                continue;
+            }
+
+            comparedCount += await this.TryEvictMatchedOrdersAsync(
+                activeProjections,
+                touchedOrderIds,
+                ordersById,
+                remainingOrderIds,
+                cancellationToken);
+            consumedSinceComparison = 0;
+
+            if (comparedCount % logEvery == 0
+                || comparedCount == orders.Count)
             {
                 this.logger.LogInformation(
-                    "Replay consistency diagnostics progress for OrdersProjection (Kafka): checked={CheckedCount}/{TotalCount}",
-                    checkedCount,
-                    orders.Count);
-            }
-
-            if (mismatch != null && stopOnFirstMismatch)
-            {
-                break;
+                    "Replay consistency diagnostics progress for OrdersProjection (Kafka): checked={CheckedCount}/{TotalCount}, remaining={RemainingCount}",
+                    comparedCount,
+                    orders.Count,
+                    remainingOrderIds.Count);
             }
         }
+
+        comparedCount += await this.TryEvictMatchedOrdersAsync(
+            activeProjections,
+            touchedOrderIds,
+            ordersById,
+            remainingOrderIds,
+            cancellationToken);
+
+        var finalComparison = await this.TryResolveFinalMismatchAsync(
+            activeProjections,
+            ordersById,
+            remainingOrderIds,
+            stopOnFirstMismatch,
+            cancellationToken);
+        comparedCount += finalComparison.CheckedCount;
+        mismatch = finalComparison.Mismatch;
 
         var completedAt = DateTimeOffset.UtcNow;
         var result = new ReplayConsistencyResult(
             mismatch == null,
             orders.Count,
-            checkedCount,
+            comparedCount,
             startedAt,
             completedAt,
             (completedAt - startedAt).TotalMilliseconds,
@@ -164,6 +252,24 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
         }
 
         return result;
+    }
+
+    private static ReplayConsistencyMismatch BuildMismatch(Order databaseOrder, Order? replayedOrder)
+    {
+        var dbSnapshot = ToSnapshot(databaseOrder);
+        var replayedSnapshot = replayedOrder == null ? null : ToSnapshot(replayedOrder);
+
+        return replayedSnapshot == null
+            ? new ReplayConsistencyMismatch(
+                databaseOrder.Id,
+                "Replay produced no model state for an order row that exists in the database.",
+                SerializeSnapshot(dbSnapshot),
+                null)
+            : new ReplayConsistencyMismatch(
+                databaseOrder.Id,
+                "Persisted order row does not match Kafka replay snapshot.",
+                SerializeSnapshot(dbSnapshot),
+                SerializeSnapshot(replayedSnapshot));
     }
 
     private static Type[] ResolveEventTypes(Assembly eventAssembly)
@@ -389,85 +495,95 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
         return await find.ToListAsync(cancellationToken);
     }
 
-    private async Task<Order?> ReplayOrderAsync(Guid orderId, CancellationToken cancellationToken)
+    private async Task<int> TryEvictMatchedOrdersAsync(
+        Dictionary<Guid, Kuna.Examples.Projections.Orders.OrdersProjection> activeProjections,
+        HashSet<Guid> touchedOrderIds,
+        IReadOnlyDictionary<Guid, Order> ordersById,
+        HashSet<Guid> remainingOrderIds,
+        CancellationToken cancellationToken)
     {
-        var replaySettings = new KafkaSourceSettings
+        if (touchedOrderIds.Count == 0)
         {
-            BootstrapServers = this.sourceSettings.BootstrapServers,
-            Topic = this.sourceSettings.Topic,
-            ClientId = this.sourceSettings.ClientId,
-            AutoOffsetReset = KafkaAutoOffsetReset.Earliest,
-            KeyFormat = this.sourceSettings.KeyFormat,
-            Transformer = this.sourceSettings.Transformer,
-            Partitions = this.sourceSettings.Partitions,
-            PollTimeoutMs = this.sourceSettings.PollTimeoutMs,
-        };
+            return 0;
+        }
 
-        using var consumer = this.consumerFactory.Create(
-            replaySettings,
-            $"kuna-projections-replay-{orderId:D}");
+        var touchedIds = touchedOrderIds.ToArray();
+        var filter = Builders<Order>.Filter.In(x => x.Id, touchedIds);
+        var persistedOrders = await this.ordersCollection.Find(filter).ToListAsync(cancellationToken);
+        var persistedOrdersById = persistedOrders.ToDictionary(x => x.Id, x => x);
+        var evicted = 0;
 
-        var assignedPartitions = this.ResolveAssignedPartitions(consumer, replaySettings);
-        var currentOffsets = assignedPartitions.ToDictionary(x => x, _ => -1L);
-        var highWatermarks = assignedPartitions.ToDictionary(
-            partition => partition,
-            partition => consumer.GetHighWatermarkOffset(replaySettings.Topic, partition));
-
-        consumer.Assign(replaySettings.Topic, assignedPartitions);
-
-        var projection = new Kuna.Examples.Projections.Orders.OrdersProjection(orderId);
-        var transformer = new NativeKafkaSourceTransformer();
-        var hadEvents = false;
-
-        while (!cancellationToken.IsCancellationRequested)
+        foreach (var orderId in touchedIds)
         {
-            if (this.IsCaughtUp(assignedPartitions, currentOffsets, highWatermarks))
+            _ = touchedOrderIds.Remove(orderId);
+
+            if (!activeProjections.TryGetValue(orderId, out var projection)
+                || !persistedOrdersById.TryGetValue(orderId, out var persistedOrder))
+            {
+                continue;
+            }
+
+            if (!SnapshotsEqual(ToSnapshot(persistedOrder), ToSnapshot(projection.ModelState)))
+            {
+                continue;
+            }
+
+            _ = activeProjections.Remove(orderId);
+            _ = remainingOrderIds.Remove(orderId);
+            _ = ordersById[orderId];
+            evicted++;
+        }
+
+        return evicted;
+    }
+
+    private async Task<FinalComparisonResult> TryResolveFinalMismatchAsync(
+        IReadOnlyDictionary<Guid, Kuna.Examples.Projections.Orders.OrdersProjection> activeProjections,
+        IReadOnlyDictionary<Guid, Order> ordersById,
+        IReadOnlyCollection<Guid> remainingOrderIds,
+        bool stopOnFirstMismatch,
+        CancellationToken cancellationToken)
+    {
+        if (remainingOrderIds.Count == 0)
+        {
+            return new FinalComparisonResult(0, null);
+        }
+
+        var unresolvedIds = remainingOrderIds.OrderBy(x => x).ToArray();
+        var filter = Builders<Order>.Filter.In(x => x.Id, unresolvedIds);
+        var persistedOrders = await this.ordersCollection.Find(filter).ToListAsync(cancellationToken);
+        var persistedOrdersById = persistedOrders.ToDictionary(x => x.Id, x => x);
+        var checkedCount = 0;
+        ReplayConsistencyMismatch? firstMismatch = null;
+
+        foreach (var orderId in unresolvedIds)
+        {
+            checkedCount++;
+
+            if (!persistedOrdersById.TryGetValue(orderId, out var persistedOrder))
+            {
+                continue;
+            }
+
+            var replayedOrder = activeProjections.TryGetValue(orderId, out var projection)
+                ? projection.ModelState
+                : null;
+
+            if (replayedOrder != null
+                && SnapshotsEqual(ToSnapshot(persistedOrder), ToSnapshot(replayedOrder)))
+            {
+                continue;
+            }
+
+            firstMismatch = BuildMismatch(persistedOrder, replayedOrder);
+
+            if (stopOnFirstMismatch)
             {
                 break;
             }
-
-            var message = consumer.Consume(TimeSpan.FromMilliseconds(replaySettings.PollTimeoutMs), cancellationToken);
-
-            if (message is null)
-            {
-                await Task.Yield();
-                continue;
-            }
-
-            currentOffsets[message.Partition] = message.Offset;
-
-            var sourceRecord = transformer.Transform(
-                new KafkaSourceRecordContext
-                {
-                    Topic = message.Topic,
-                    Partition = message.Partition,
-                    Offset = message.Offset,
-                    KeyBytes = message.KeyBytes,
-                    ValueBytes = message.ValueBytes,
-                    Headers = message.Headers,
-                    TimestampUtc = message.TimestampUtc,
-                });
-
-            if (sourceRecord.ModelId != orderId)
-            {
-                continue;
-            }
-
-            hadEvents = true;
-
-            var envelope = this.envelopeFactory.Create(
-                sourceRecord,
-                this.checkpointSerializer.Serialize(
-                    new KafkaCheckpointDocument
-                    {
-                        Topic = replaySettings.Topic,
-                        Partitions = currentOffsets.ToDictionary(x => x.Key, x => x.Value),
-                    }));
-
-            projection.Process(envelope, this.projectionSettings.EventVersionCheckStrategy);
         }
 
-        return hadEvents ? projection.ModelState : null;
+        return new FinalComparisonResult(checkedCount, firstMismatch);
     }
 
     private bool IsCaughtUp(
@@ -545,6 +661,10 @@ public sealed record ReplayConsistencyMismatch(
     string Reason,
     string? DatabaseSnapshotJson,
     string? ReplaySnapshotJson);
+
+public sealed record FinalComparisonResult(
+    int CheckedCount,
+    ReplayConsistencyMismatch? Mismatch);
 
 public sealed record OrderSnapshot
 {

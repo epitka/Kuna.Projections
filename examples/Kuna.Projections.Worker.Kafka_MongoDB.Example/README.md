@@ -45,7 +45,7 @@ POST /diagnostics/orders/replay-consistency
 Default local URL:
 
 ```text
-http://localhost:5067/
+http://localhost:5284/
 ```
 
 ## Inspect Persisted Orders In MongoDB
@@ -102,7 +102,7 @@ The source validates that at startup and the Kafka health check reports missing 
 Read the current Kafka projection status:
 
 ```bash
-curl http://localhost:5067/diagnostics/orders/status | jq
+curl http://localhost:5284/diagnostics/orders/status | jq
 ```
 
 This reports:
@@ -117,7 +117,7 @@ This reports:
 Health endpoint:
 
 ```bash
-curl http://localhost:5067/health
+curl http://localhost:5284/health
 ```
 
 ## Run Replay Consistency Check
@@ -140,10 +140,13 @@ curl -X POST http://localhost:5067/diagnostics/orders/replay-consistency \
 
 The replay consistency endpoint:
 
-- replays matching orders directly from Kafka
-- rebuilds projection state in memory
-- compares the replayed snapshot with the MongoDB document
+- scans Kafka sequentially in batches
+- rebuilds matching order state in memory
+- compares touched orders with MongoDB and evicts matched orders from the temporary replay cache
 - returns mismatch details when a divergence is found
+
+This endpoint is diagnostic work, not the normal projection path.
+It is intentionally heavier than `/diagnostics/orders/status`, especially on large topics.
 
 For the Kafka example, the comparison intentionally ignores `GlobalEventPosition`.
 That value is a Kafka transport checkpoint over all assigned partitions, so replaying one order in isolation does not reproduce the exact persisted checkpoint position from the original projection run.
