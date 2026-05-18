@@ -148,8 +148,56 @@ The replay consistency endpoint:
 This endpoint is diagnostic work, not the normal projection path.
 It is intentionally heavier than `/diagnostics/orders/status`, especially on large topics.
 
+### How Kafka Consistency Works
+
+Kafka does not provide direct per-order stream replay in the same way KurrentDB does.
+Because of that, this diagnostic does not ask Kafka for one order at a time.
+Instead it uses the shape Kafka is good at:
+
+- assign all configured partitions
+- read the topic sequentially from the earliest offset
+- rebuild in-memory order state for matching records
+- compare those rebuilt orders against MongoDB in batches
+
+That is why the Kafka consistency check is designed as one topic scan rather than many per-order scans.
+It is much cheaper and it preserves the real transport order seen by the projection worker.
+
+### Why Matched Orders Can Be Evicted
+
+During the scan, the diagnostic keeps an in-memory cache of active replayed orders.
+When a replayed order matches the persisted MongoDB document, that order is evicted from the temporary cache.
+
+That is safe for this projection because later events for the same order would change the persisted MongoDB document too.
+If the MongoDB document already matches the replayed state at the current point in the Kafka scan, then the diagnostic has already observed all events needed to explain that persisted row.
+
+In other words:
+
+- if more events for that order still existed later in Kafka, the MongoDB row would not yet match the replayed intermediate state
+- because it does match, the diagnostic can drop that order from memory and continue scanning
+
+This assumption is valid for the Orders projection because it is a monotonic event-driven model:
+
+- the order document is derived entirely from the order's event history
+- later valid events mutate the persisted document
+- there is no separate side channel updating MongoDB behind the projection
+
+### What To Watch For
+
+The consistency check is trustworthy only if the Kafka topic follows the same ordering assumptions as the main projection worker:
+
+- all events for one order must use the same Kafka key
+- that key must keep one order on one partition
+- per-order ordering must come from Kafka partition order, not timestamps
+
+Things that would break or weaken the diagnostic:
+
+- producers publishing one order's events with different keys
+- repartitioning that moves one order across partitions
+- out-of-band writes that mutate MongoDB without corresponding Kafka events
+- topic retention deleting old events before the diagnostic can replay them
+
 For the Kafka example, the comparison intentionally ignores `GlobalEventPosition`.
-That value is a Kafka transport checkpoint over all assigned partitions, so replaying one order in isolation does not reproduce the exact persisted checkpoint position from the original projection run.
+That value is a whole-topic Kafka checkpoint across assigned partitions, so replaying one order or evicting matched orders during a diagnostic run does not reproduce the exact persisted checkpoint value from the original projection run.
 
 ## Restart Projection State Without Reseeding Events
 
