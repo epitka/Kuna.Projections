@@ -1,8 +1,35 @@
 services:
-  mongo:
-    image: mongo:7
+  kurrentdb:
+    image: kurrentplatform/kurrentdb:25.1
+    environment:
+      KURRENTDB_INSECURE: "true"
+      KURRENTDB_ENABLE_ATOM_PUB_OVER_HTTP: "true"
+      KURRENTDB_RUN_PROJECTIONS: "All"
+      KURRENTDB_START_STANDARD_PROJECTIONS: "true"
+      KURRENTDB_CONNECTORS__ENABLED: "true"
+      KURRENTDB_CONNECTORS__DATAPROTECTION__TOKEN: "kuna-local-connectors-token"
+    ports:
+      - "2113:2113"
+
+  mongodb:
+    image: mongo:8
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    environment:
+      MONGO_INITDB_DATABASE: orders_projection
     ports:
       - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "echo \"try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}) }\" | mongosh --port 27017 --quiet"
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 5s
 
   redpanda:
     image: redpandadata/redpanda:v25.1.2
@@ -30,3 +57,6 @@ services:
     ports:
       - "9092:9092"
       - "8082:8082"
+
+volumes:
+  mongodb-data:
