@@ -45,22 +45,23 @@ public sealed class KafkaContainerFixture
         int partitions,
         CancellationToken cancellationToken)
     {
-        using var adminClient = new AdminClientBuilder(new AdminClientConfig
-        {
-            BootstrapServers = this.BootstrapServers,
-        }).Build();
+        using var adminClient = new AdminClientBuilder(
+            new AdminClientConfig
+            {
+                BootstrapServers = this.BootstrapServers,
+            }).Build();
 
         try
         {
             await adminClient.CreateTopicsAsync(
-                [
-                    new TopicSpecification
-                    {
-                        Name = topic,
-                        NumPartitions = partitions,
-                        ReplicationFactor = 1,
-                    },
-                ]);
+            [
+                new TopicSpecification
+                {
+                    Name = topic,
+                    NumPartitions = partitions,
+                    ReplicationFactor = 1,
+                },
+            ]);
         }
         catch (CreateTopicsException ex)
             when (ex.Results.All(x => x.Error.Code == ErrorCode.TopicAlreadyExists))

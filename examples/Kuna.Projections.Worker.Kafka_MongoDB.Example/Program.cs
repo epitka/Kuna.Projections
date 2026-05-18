@@ -49,6 +49,7 @@ try
             var result = await diagnostics.RunAsync(cancellationToken);
             return Results.Ok(result);
         });
+
     app.MapPost(
         "/diagnostics/orders/replay-consistency",
         async (

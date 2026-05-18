@@ -44,6 +44,7 @@ internal sealed class KafkaConsumer : IKafkaConsumer
                         startOffsets.TryGetValue(partition, out var offset)
                             ? new Offset(offset + 1)
                             : Offset.Unset)));
+
             return;
         }
 

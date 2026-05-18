@@ -45,6 +45,7 @@ public static class ServiceCollectionExtensions
                 provider.GetRequiredService<IKafkaConsumerFactory>(),
                 provider.GetRequiredService<ICheckpointSerializer<KafkaCheckpointDocument>>(),
                 configuration));
+
         services.AddScoped<OrdersKafkaReplayConsistencyDiagnostics>();
 
         return services;

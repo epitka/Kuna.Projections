@@ -33,6 +33,7 @@ public static class ServiceCollectionExtensions
             provider => new KafkaEventDeserializer(
                 eventTypes,
                 loggerFactory.CreateLogger<KafkaEventDeserializer>()));
+
         services.AddSingleton(
             new KafkaHealthCheckRegistration
             {
@@ -46,11 +47,10 @@ public static class ServiceCollectionExtensions
         services.AddKeyedSingleton<IKafkaSourceTransformer>(
             registrationKey,
             (_, _) => sourceSettings.Transformer switch
-            {
-                KafkaSourceTransformerKind.Native => new NativeKafkaSourceTransformer(),
-                KafkaSourceTransformerKind.Kurrent => new KurrentKafkaSourceTransformer(),
-                _ => throw new ArgumentOutOfRangeException(nameof(sourceSettings.Transformer)),
-            });
+                      {
+                          KafkaSourceTransformerKind.Native => new NativeKafkaSourceTransformer(),
+                          _                                 => throw new ArgumentOutOfRangeException(nameof(sourceSettings.Transformer)),
+                      });
 
         services.AddKeyedSingleton<IProjectionEventSource<TState>>(
             registrationKey,
@@ -60,8 +60,7 @@ public static class ServiceCollectionExtensions
 
                 if (projectionSettings.Source != ProjectionSourceKind.Kafka)
                 {
-                    throw new InvalidOperationException(
-                        $"Unsupported projection source '{projectionSettings.Source}' for section '{settingsSectionName}'.");
+                    throw new InvalidOperationException($"Unsupported projection source '{projectionSettings.Source}' for section '{settingsSectionName}'.");
                 }
 
                 return new ProjectionEventSource<TState>(

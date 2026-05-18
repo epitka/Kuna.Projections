@@ -3,7 +3,9 @@ using Kuna.StreamGenerator;
 namespace Kuna.Examples.EventsSeeder.Seeding;
 
 public sealed record OrderSeedRequest(
-    string ConnectionString,
+    string? ConnectionString = null,
+    string? KafkaBootstrapServers = null,
+    string? KafkaTopic = null,
     int TargetEvents = 100_000,
     int MinimumCompleteOrders = 10_000,
     string StreamPrefix = "order-",
@@ -28,6 +30,18 @@ public static class OrderSeeder
         OrderSeedRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(request.ConnectionString)
+            && string.IsNullOrWhiteSpace(request.KafkaBootstrapServers))
+        {
+            throw new InvalidOperationException("OrderSeeder requires a KurrentDB connection string and/or Kafka bootstrap servers.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.KafkaBootstrapServers)
+            && string.IsNullOrWhiteSpace(request.KafkaTopic))
+        {
+            throw new InvalidOperationException("OrderSeeder requires KafkaTopic when KafkaBootstrapServers is provided.");
+        }
+
         var generator = new OrderStreamGenerator(
             new OrderStreamGeneratorOptions
             {
@@ -41,7 +55,19 @@ public static class OrderSeeder
 
         var plan = generator.BuildPlan();
         var writePlan = OrderStreamWritePlanFactory.Create(plan);
-        await KurrentStreamWriter.WriteAsync(writePlan, request.ConnectionString, cancellationToken: cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(request.ConnectionString))
+        {
+            await KurrentStreamWriter.WriteAsync(writePlan, request.ConnectionString, cancellationToken: cancellationToken);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.KafkaBootstrapServers))
+        {
+            await KafkaStreamWriter.WriteAsync(
+                new KafkaWritePlan(request.KafkaTopic!, plan.InterleavedEvents),
+                request.KafkaBootstrapServers,
+                cancellationToken: cancellationToken);
+        }
 
         var reportPath = request.ReportPath ?? "test-data/kurrent-seed/generation-report.json";
         var report = OrderGenerationReportFactory.Create(

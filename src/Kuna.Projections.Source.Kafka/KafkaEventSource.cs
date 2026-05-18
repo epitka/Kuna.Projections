@@ -47,6 +47,7 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
         var checkpointOffsets = checkpoint.Partitions
                                           .Where(x => assignedPartitions.Contains(x.Key))
                                           .ToDictionary(x => x.Key, x => x.Value);
+
         var currentOffsets = InitializeOffsets(checkpointOffsets, assignedPartitions);
         var caughtUpEmitted = false;
 
@@ -66,7 +67,8 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
 
             if (message is null)
             {
-                if (!caughtUpEmitted && IsCaughtUp(consumer, assignedPartitions, currentOffsets))
+                if (!caughtUpEmitted
+                    && IsCaughtUp(consumer, assignedPartitions, currentOffsets))
                 {
                     caughtUpEmitted = true;
 
@@ -113,8 +115,7 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
 
         if (!string.Equals(checkpoint.Topic, configuredTopic, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException(
-                $"Checkpoint topic '{checkpoint.Topic}' does not match configured topic '{configuredTopic}'.");
+            throw new InvalidOperationException($"Checkpoint topic '{checkpoint.Topic}' does not match configured topic '{configuredTopic}'.");
         }
     }
 
@@ -133,7 +134,7 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
             throw new InvalidOperationException($"Kafka topic '{this.sourceSettings.Topic}' has no partitions.");
         }
 
-        if (this.sourceSettings.Partitions is { Length: > 0 })
+        if (this.sourceSettings.Partitions is { Length: > 0, })
         {
             var missingPartitions = this.sourceSettings.Partitions
                                         .Except(discoveredPartitions)

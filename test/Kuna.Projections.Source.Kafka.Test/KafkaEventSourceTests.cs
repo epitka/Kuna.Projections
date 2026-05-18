@@ -158,12 +158,12 @@ public sealed class KafkaEventSourceTests
             });
 
         var ex = await Should.ThrowAsync<InvalidOperationException>(
-            async () =>
-            {
-                await foreach (var _ in source.ReadAll(checkpoint, CancellationToken.None))
-                {
-                }
-            });
+                     async () =>
+                     {
+                         await foreach (var _ in source.ReadAll(checkpoint, CancellationToken.None))
+                         {
+                         }
+                     });
 
         ex.Message.ShouldContain("Checkpoint topic");
     }
@@ -187,12 +187,12 @@ public sealed class KafkaEventSourceTests
             });
 
         var ex = await Should.ThrowAsync<InvalidOperationException>(
-            async () =>
-            {
-                await foreach (var _ in source.ReadAll(new GlobalEventPosition(string.Empty), CancellationToken.None))
-                {
-                }
-            });
+                     async () =>
+                     {
+                         await foreach (var _ in source.ReadAll(new GlobalEventPosition(string.Empty), CancellationToken.None))
+                         {
+                         }
+                     });
 
         ex.Message.ShouldContain("does not contain configured partitions");
     }
@@ -204,8 +204,7 @@ public sealed class KafkaEventSourceTests
         return new KafkaEventSource<TestModel>(
             new FakeKafkaConsumerFactory(consumer),
             new NativeKafkaSourceTransformer(),
-            new KafkaEventEnvelopeFactory(
-                new KafkaEventDeserializer([typeof(TestEvent),], NullLogger<KafkaEventDeserializer>.Instance)),
+            new KafkaEventEnvelopeFactory(new KafkaEventDeserializer([typeof(TestEvent),], NullLogger<KafkaEventDeserializer>.Instance)),
             new KafkaCheckpointSerializer(),
             sourceSettings,
             new ProjectionSettings<TestModel>
@@ -274,8 +273,8 @@ public sealed class KafkaEventSourceTests
             this.AssignedTopic = topic;
             this.AssignedPartitions = partitionsToAssign.OrderBy(x => x).ToArray();
             this.AssignedStartOffsets = startOffsets is null
-                ? new Dictionary<int, long>()
-                : new Dictionary<int, long>(startOffsets);
+                                            ? new Dictionary<int, long>()
+                                            : new Dictionary<int, long>(startOffsets);
         }
 
         public void Seek(string topic, int partition, long offset)

@@ -27,10 +27,11 @@ public sealed class KafkaEventSourceIntegrationTests
         var topic = $"orders-events-{Guid.NewGuid():N}";
         await this.fixture.CreateTopicAsync(topic, partitions: 1, TestContext.Current.CancellationToken);
 
-        using (var producer = new ProducerBuilder<byte[], byte[]>(new ProducerConfig
-               {
-                   BootstrapServers = this.fixture.BootstrapServers,
-               }).Build())
+        using (var producer = new ProducerBuilder<byte[], byte[]>(
+                   new ProducerConfig
+                   {
+                       BootstrapServers = this.fixture.BootstrapServers,
+                   }).Build())
         {
             await producer.ProduceAsync(
                 topic,
@@ -51,8 +52,7 @@ public sealed class KafkaEventSourceIntegrationTests
         var source = new KafkaEventSource<TestModel>(
             new KafkaConsumerFactory(),
             new NativeKafkaSourceTransformer(),
-            new KafkaEventEnvelopeFactory(
-                new KafkaEventDeserializer([typeof(TestEvent),], NullLogger<KafkaEventDeserializer>.Instance)),
+            new KafkaEventEnvelopeFactory(new KafkaEventDeserializer([typeof(TestEvent),], NullLogger<KafkaEventDeserializer>.Instance)),
             new KafkaCheckpointSerializer(),
             new KafkaSourceSettings
             {

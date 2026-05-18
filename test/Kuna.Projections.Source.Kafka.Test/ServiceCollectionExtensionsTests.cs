@@ -26,9 +26,10 @@ public sealed class ServiceCollectionExtensionsTests
         var ex = Should.Throw<InvalidOperationException>(
             () => services.AddKafkaSource<TestModel>(
                 configuration,
-                LoggerFactory.Create(_ =>
-                {
-                }),
+                LoggerFactory.Create(
+                    _ =>
+                    {
+                    }),
                 ProjectionSettingsSection.Name));
 
         ex.Message.ShouldContain("Projections:Kafka");
@@ -53,9 +54,10 @@ public sealed class ServiceCollectionExtensionsTests
         var ex = Should.Throw<InvalidOperationException>(
             () => services.AddKafkaSource<TestModel>(
                 configuration,
-                LoggerFactory.Create(_ =>
-                {
-                }),
+                LoggerFactory.Create(
+                    _ =>
+                    {
+                    }),
                 ProjectionSettingsSection.Name));
 
         ex.Message.ShouldContain("duplicate partition ids");
@@ -77,9 +79,10 @@ public sealed class ServiceCollectionExtensionsTests
 
         services.AddKafkaSource<TestModel>(
             configuration,
-            LoggerFactory.Create(_ =>
-            {
-            }),
+            LoggerFactory.Create(
+                _ =>
+                {
+                }),
             ProjectionSettingsSection.Name);
 
         RegisterProjectionSettings<TestModel>(services, configuration, ProjectionSettingsSection.Name);
@@ -89,6 +92,7 @@ public sealed class ServiceCollectionExtensionsTests
         provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
         provider.GetRequiredKeyedService<IKafkaSourceTransformer>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name))
                 .ShouldBeOfType<NativeKafkaSourceTransformer>();
+
         provider.GetRequiredService<ICheckpointSerializer<KafkaCheckpointDocument>>().ShouldBeOfType<KafkaCheckpointSerializer>();
         provider.GetRequiredService<IKafkaEventDeserializer>().ShouldBeOfType<KafkaEventDeserializer>();
     }

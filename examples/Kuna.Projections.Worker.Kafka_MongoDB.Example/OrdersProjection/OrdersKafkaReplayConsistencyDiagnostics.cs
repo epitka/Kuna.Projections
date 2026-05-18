@@ -154,6 +154,7 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
                     ordersById,
                     remainingOrderIds,
                     cancellationToken);
+
                 await Task.Yield();
                 continue;
             }
@@ -207,11 +208,12 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
 
             batchNumber++;
             var evictedCount = await this.TryEvictMatchedOrdersAsync(
-                activeProjections,
-                touchedOrderIds,
-                ordersById,
-                remainingOrderIds,
-                cancellationToken);
+                                   activeProjections,
+                                   touchedOrderIds,
+                                   ordersById,
+                                   remainingOrderIds,
+                                   cancellationToken);
+
             comparedCount += evictedCount;
 
             if (batchNumber == 1
@@ -236,19 +238,21 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
         }
 
         var trailingEvictedCount = await this.TryEvictMatchedOrdersAsync(
-            activeProjections,
-            touchedOrderIds,
-            ordersById,
-            remainingOrderIds,
-            cancellationToken);
+                                       activeProjections,
+                                       touchedOrderIds,
+                                       ordersById,
+                                       remainingOrderIds,
+                                       cancellationToken);
+
         comparedCount += trailingEvictedCount;
 
         var finalComparison = await this.TryResolveFinalMismatchAsync(
-            activeProjections,
-            ordersById,
-            remainingOrderIds,
-            stopOnFirstMismatch,
-            cancellationToken);
+                                  activeProjections,
+                                  ordersById,
+                                  remainingOrderIds,
+                                  stopOnFirstMismatch,
+                                  cancellationToken);
+
         comparedCount += finalComparison.CheckedCount;
         mismatch = finalComparison.Mismatch;
 
@@ -292,16 +296,16 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
         var replayedSnapshot = replayedOrder == null ? null : ToSnapshot(replayedOrder);
 
         return replayedSnapshot == null
-            ? new ReplayConsistencyMismatch(
-                databaseOrder.Id,
-                "Replay produced no model state for an order row that exists in the database.",
-                SerializeSnapshot(dbSnapshot),
-                null)
-            : new ReplayConsistencyMismatch(
-                databaseOrder.Id,
-                "Persisted order row does not match Kafka replay snapshot.",
-                SerializeSnapshot(dbSnapshot),
-                SerializeSnapshot(replayedSnapshot));
+                   ? new ReplayConsistencyMismatch(
+                       databaseOrder.Id,
+                       "Replay produced no model state for an order row that exists in the database.",
+                       SerializeSnapshot(dbSnapshot),
+                       null)
+                   : new ReplayConsistencyMismatch(
+                       databaseOrder.Id,
+                       "Persisted order row does not match Kafka replay snapshot.",
+                       SerializeSnapshot(dbSnapshot),
+                       SerializeSnapshot(replayedSnapshot));
     }
 
     private static Type[] ResolveEventTypes(Assembly eventAssembly)
@@ -598,8 +602,8 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
             }
 
             var replayedOrder = activeProjections.TryGetValue(orderId, out var projection)
-                ? projection.ModelState
-                : null;
+                                    ? projection.ModelState
+                                    : null;
 
             if (replayedOrder != null
                 && SnapshotsEqual(ToSnapshot(persistedOrder), ToSnapshot(replayedOrder)))
@@ -653,15 +657,15 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
             throw new InvalidOperationException($"Kafka topic '{sourceSettings.Topic}' has no partitions.");
         }
 
-        if (sourceSettings.Partitions is not { Length: > 0 })
+        if (sourceSettings.Partitions is not { Length: > 0, })
         {
             return discoveredPartitions;
         }
 
         var missingPartitions = sourceSettings.Partitions
-                                             .Except(discoveredPartitions)
-                                             .OrderBy(x => x)
-                                             .ToArray();
+                                              .Except(discoveredPartitions)
+                                              .OrderBy(x => x)
+                                              .ToArray();
 
         if (missingPartitions.Length > 0)
         {

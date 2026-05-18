@@ -52,13 +52,13 @@ public sealed class OrdersKafkaStatusDiagnostics
     public async Task<OrdersKafkaStatusResult> RunAsync(CancellationToken cancellationToken)
     {
         var orderCount = await this.ordersCollection.CountDocumentsAsync(
-            FilterDefinition<Order>.Empty,
-            cancellationToken: cancellationToken);
+                             FilterDefinition<Order>.Empty,
+                             cancellationToken: cancellationToken);
 
         var checkpoint = await this.checkpointStore.GetCheckpoint(
-            ProjectionModelName.For<Order>(),
-            this.projectionSettings.InstanceId,
-            cancellationToken);
+                             ProjectionModelName.For<Order>(),
+                             this.projectionSettings.InstanceId,
+                             cancellationToken);
 
         var checkpointDocument = this.checkpointSerializer.Deserialize(checkpoint.GlobalEventPosition);
         using var consumer = this.consumerFactory.Create(
@@ -67,12 +67,13 @@ public sealed class OrdersKafkaStatusDiagnostics
 
         var partitions = this.ResolveAssignedPartitions(consumer, this.sourceSettings);
         var highWatermarks = partitions
-                            .Select(partition => new OrdersKafkaPartitionStatus(
-                                partition,
-                                checkpointDocument.Partitions.TryGetValue(partition, out var currentOffset) ? currentOffset : -1,
-                                consumer.GetHighWatermarkOffset(this.sourceSettings.Topic, partition)))
-                            .OrderBy(x => x.Partition)
-                            .ToArray();
+                             .Select(
+                                 partition => new OrdersKafkaPartitionStatus(
+                                     partition,
+                                     checkpointDocument.Partitions.TryGetValue(partition, out var currentOffset) ? currentOffset : -1,
+                                     consumer.GetHighWatermarkOffset(this.sourceSettings.Topic, partition)))
+                             .OrderBy(x => x.Partition)
+                             .ToArray();
 
         var totalLag = highWatermarks.Sum(x => x.Lag);
 
@@ -97,7 +98,7 @@ public sealed class OrdersKafkaStatusDiagnostics
             throw new InvalidOperationException($"Kafka topic '{sourceSettings.Topic}' has no partitions.");
         }
 
-        if (sourceSettings.Partitions is not { Length: > 0 })
+        if (sourceSettings.Partitions is not { Length: > 0, })
         {
             return discoveredPartitions;
         }

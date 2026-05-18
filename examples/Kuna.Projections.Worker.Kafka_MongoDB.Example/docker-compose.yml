@@ -1,16 +1,4 @@
 services:
-  kurrentdb:
-    image: kurrentplatform/kurrentdb:25.1
-    environment:
-      KURRENTDB_INSECURE: "true"
-      KURRENTDB_ENABLE_ATOM_PUB_OVER_HTTP: "true"
-      KURRENTDB_RUN_PROJECTIONS: "All"
-      KURRENTDB_START_STANDARD_PROJECTIONS: "true"
-      KURRENTDB_CONNECTORS__ENABLED: "true"
-      KURRENTDB_CONNECTORS__DATAPROTECTION__TOKEN: "kuna-local-connectors-token"
-    ports:
-      - "2113:2113"
-
   mongodb:
     image: mongo:8
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
@@ -49,11 +37,11 @@ services:
       - --kafka-addr
       - PLAINTEXT://0.0.0.0:9092
       - --advertise-kafka-addr
-      - PLAINTEXT://localhost:9092
+      - PLAINTEXT://127.0.0.1:9092
       - --pandaproxy-addr
       - 0.0.0.0:8082
       - --advertise-pandaproxy-addr
-      - localhost:8082
+      - 127.0.0.1:8082
     ports:
       - "9092:9092"
       - "8082:8082"

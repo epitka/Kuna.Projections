@@ -31,4 +31,4 @@ db.getCollection("${ORDERS_COLLECTION_NAME}").deleteMany({});
 db.getCollection("${CHECKPOINTS_COLLECTION_NAME}").deleteMany({});
 EOF
 
-echo "Projection state cleared. Kafka records and Kurrent events were left untouched."
+echo "Projection state cleared. Kafka records were left untouched."

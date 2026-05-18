@@ -41,15 +41,15 @@ public sealed class KafkaHealthCheck : IHealthCheck
                             $"Kafka topic '{registration.SourceSettings.Topic}' configured in '{registration.SettingsSectionName}' has no partitions."));
                 }
 
-                if (registration.SourceSettings.Partitions is not { Length: > 0 })
+                if (registration.SourceSettings.Partitions is not { Length: > 0, })
                 {
                     continue;
                 }
 
                 var missingPartitions = registration.SourceSettings.Partitions
-                                                 .Except(partitions)
-                                                 .OrderBy(x => x)
-                                                 .ToArray();
+                                                    .Except(partitions)
+                                                    .OrderBy(x => x)
+                                                    .ToArray();
 
                 if (missingPartitions.Length > 0)
                 {
@@ -59,8 +59,7 @@ public sealed class KafkaHealthCheck : IHealthCheck
                 }
             }
 
-            return Task.FromResult(
-                HealthCheckResult.Healthy($"Kafka reachable for {this.registrations.Count} projection source(s)."));
+            return Task.FromResult(HealthCheckResult.Healthy($"Kafka reachable for {this.registrations.Count} projection source(s)."));
         }
         catch (Exception ex)
         {

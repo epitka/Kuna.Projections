@@ -11,10 +11,11 @@ public sealed class KafkaHealthCheckTests
     public async Task CheckHealthAsync_Should_Return_Healthy_When_Registered_Topics_Are_Reachable()
     {
         var consumerFactory = new FakeKafkaConsumerFactory(
-            new FakeKafkaConsumer(new Dictionary<string, IReadOnlyList<int>>
-            {
-                ["orders-events"] = [0, 1],
-            }));
+            new FakeKafkaConsumer(
+                new Dictionary<string, IReadOnlyList<int>>
+                {
+                    ["orders-events"] = [0, 1,],
+                }));
 
         var healthCheck = new KafkaHealthCheck(
             [
@@ -151,8 +152,8 @@ public sealed class KafkaHealthCheckTests
         public IReadOnlyList<int> GetPartitions(string topic)
         {
             return this.partitionsByTopic.TryGetValue(topic, out var partitions)
-                ? partitions
-                : [];
+                       ? partitions
+                       : [];
         }
 
         public void Assign(string topic, IReadOnlyCollection<int> partitions, IReadOnlyDictionary<int, long>? startOffsets = null)

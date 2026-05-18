@@ -37,8 +37,7 @@ internal static class KafkaSourceSettingsValidator
 
         if (duplicatePartitions.Length > 0)
         {
-            throw new InvalidOperationException(
-                $"{sectionPath}:Partitions contains duplicate partition ids: {string.Join(", ", duplicatePartitions)}.");
+            throw new InvalidOperationException($"{sectionPath}:Partitions contains duplicate partition ids: {string.Join(", ", duplicatePartitions)}.");
         }
 
         if (settings.Partitions.Any(partition => partition < 0))
