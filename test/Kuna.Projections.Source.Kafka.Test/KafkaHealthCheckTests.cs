@@ -155,7 +155,7 @@ public sealed class KafkaHealthCheckTests
                 : [];
         }
 
-        public void Assign(string topic, IReadOnlyCollection<int> partitions)
+        public void Assign(string topic, IReadOnlyCollection<int> partitions, IReadOnlyDictionary<int, long>? startOffsets = null)
         {
         }
 

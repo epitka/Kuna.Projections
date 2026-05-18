@@ -31,8 +31,22 @@ internal sealed class KafkaConsumer : IKafkaConsumer
                             .ToArray();
     }
 
-    public void Assign(string topic, IReadOnlyCollection<int> partitions)
+    public void Assign(string topic, IReadOnlyCollection<int> partitions, IReadOnlyDictionary<int, long>? startOffsets = null)
     {
+        if (startOffsets is not null
+            && startOffsets.Count > 0)
+        {
+            this.consumer.Assign(
+                partitions.Select(
+                    partition => new TopicPartitionOffset(
+                        topic,
+                        new Partition(partition),
+                        startOffsets.TryGetValue(partition, out var offset)
+                            ? new Offset(offset + 1)
+                            : Offset.Unset)));
+            return;
+        }
+
         this.consumer.Assign(partitions.Select(partition => new TopicPartition(topic, new Partition(partition))));
     }
 

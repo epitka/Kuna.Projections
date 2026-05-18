@@ -60,7 +60,8 @@ public sealed class KafkaEventSourceTests
 
         consumer.AssignedTopic.ShouldBe("orders-events");
         consumer.AssignedPartitions.ShouldBe([0,]);
-        consumer.SeekCalls.ShouldContain(("orders-events", 0, 6L));
+        consumer.AssignedStartOffsets[0].ShouldBe(5);
+        consumer.SeekCalls.ShouldBeEmpty();
         envelope.Event.ShouldBeOfType<TestEvent>();
         envelope.EventNumber.ShouldBe(3);
 
@@ -259,6 +260,8 @@ public sealed class KafkaEventSourceTests
 
         public IReadOnlyList<int> AssignedPartitions { get; private set; } = [];
 
+        public IReadOnlyDictionary<int, long> AssignedStartOffsets { get; private set; } = new Dictionary<int, long>();
+
         public List<(string Topic, int Partition, long Offset)> SeekCalls { get; } = [];
 
         public IReadOnlyList<int> GetPartitions(string topic)
@@ -266,10 +269,13 @@ public sealed class KafkaEventSourceTests
             return this.partitions;
         }
 
-        public void Assign(string topic, IReadOnlyCollection<int> partitionsToAssign)
+        public void Assign(string topic, IReadOnlyCollection<int> partitionsToAssign, IReadOnlyDictionary<int, long>? startOffsets = null)
         {
             this.AssignedTopic = topic;
             this.AssignedPartitions = partitionsToAssign.OrderBy(x => x).ToArray();
+            this.AssignedStartOffsets = startOffsets is null
+                ? new Dictionary<int, long>()
+                : new Dictionary<int, long>(startOffsets);
         }
 
         public void Seek(string topic, int partition, long offset)

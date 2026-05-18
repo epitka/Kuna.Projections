@@ -50,15 +50,7 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
         var currentOffsets = InitializeOffsets(checkpointOffsets, assignedPartitions);
         var caughtUpEmitted = false;
 
-        consumer.Assign(this.sourceSettings.Topic, assignedPartitions);
-
-        foreach (var partition in assignedPartitions)
-        {
-            if (checkpointOffsets.TryGetValue(partition, out var offset))
-            {
-                consumer.Seek(this.sourceSettings.Topic, partition, offset + 1);
-            }
-        }
+        consumer.Assign(this.sourceSettings.Topic, assignedPartitions, checkpointOffsets);
 
         this.logger.LogInformation(
             "Kafka source starting for {ModelName} instance {InstanceId}: topic={Topic}, partitions=[{Partitions}], startCheckpoint={StartCheckpoint}",

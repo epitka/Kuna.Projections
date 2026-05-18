@@ -4,7 +4,7 @@ public interface IKafkaConsumer : IDisposable
 {
     IReadOnlyList<int> GetPartitions(string topic);
 
-    void Assign(string topic, IReadOnlyCollection<int> partitions);
+    void Assign(string topic, IReadOnlyCollection<int> partitions, IReadOnlyDictionary<int, long>? startOffsets = null);
 
     void Seek(string topic, int partition, long offset);
 
