@@ -3,12 +3,12 @@
 This example runs a projection worker that:
 
 - consumes events from Kafka
-- expects those Kafka records to have the KurrentDB Kafka Sink record shape
+- expects native Kafka projection records produced by the shared seeder
 - projects into MongoDB using the existing MongoDB sink
 
 This example is intended for the flow:
 
-- `KurrentDB -> Kafka -> Kuna.Projections -> MongoDB`
+- `Seeder -> Kafka -> Kuna.Projections -> MongoDB`
 
 ## Start Infrastructure
 
@@ -16,18 +16,16 @@ This example is intended for the flow:
 docker compose up -d
 ```
 
-## Seed KurrentDB And Export To Kafka
+## Seed Kafka Directly
 
 ```bash
-./scripts/seed-kurrent-live.sh
+./scripts/seed-kafka-live.sh
 ```
 
 This script now performs the full upstream demo setup:
 
-- ensures the KurrentDB Kafka Sink connector is configured
 - ensures the Kafka topic exists
-- writes generated order events into KurrentDB using the shared seeder
-- relies on KurrentDB to export those events into Kafka
+- writes generated order events directly into Kafka using the shared seeder
 
 ## Run The Worker
 
@@ -35,29 +33,89 @@ This script now performs the full upstream demo setup:
 dotnet run -c Release --project ./Kuna.Projections.Worker.Kafka_MongoDB.Example.csproj
 ```
 
+The worker exposes:
+
+```text
+GET /
+GET /health
+GET /diagnostics/orders/status
+POST /diagnostics/orders/replay-consistency
+```
+
+Default local URL:
+
+```text
+http://localhost:5067/
+```
+
 ## Important Constraint
 
 This worker assumes Kafka ordering is safe for projection replay.
-For that to be true, KurrentDB's Kafka Sink must be configured so that all events for one model are published to the same partition.
+For that to be true, the producer must ensure all events for one model are published to the same partition.
 
-The source transformer can adapt Kurrent's exported record shape.
-It cannot repair incorrect partitioning after the fact.
-
-## Example Kurrent Kafka Sink Notes
+The shared seeder writes Kafka records keyed by model id, so Kafka preserves per-order partitioning.
 
 This worker uses:
 
-- `OrdersProjection:Kafka:Transformer = "Kurrent"`
+- `OrdersProjection:Kafka:Transformer = "Native"`
 - `OrdersProjection:Kafka:Topic = "orders-events"`
 
-That means the Kafka topic should contain records exported from KurrentDB's Kafka Sink connector, not the repository's native Kafka event format.
+That means the Kafka topic should contain the repository's native Kafka projection record format.
 
 If you choose to set `OrdersProjection:Kafka:Partitions`, the configured partition ids must already exist on the topic.
 The source validates that at startup and the Kafka health check reports missing configured partitions as unhealthy.
 
+## Check Runtime Status
+
+Read the current Kafka projection status:
+
+```bash
+curl http://localhost:5067/diagnostics/orders/status | jq
+```
+
+This reports:
+
+- topic and projection instance id
+- persisted checkpoint
+- MongoDB order count
+- whether the projection is caught up
+- total lag
+- per-partition offsets and lag
+
+Health endpoint:
+
+```bash
+curl http://localhost:5067/health
+```
+
+## Run Replay Consistency Check
+
+Check a small sample first:
+
+```bash
+curl -X POST http://localhost:5067/diagnostics/orders/replay-consistency \
+  -H "Content-Type: application/json" \
+  -d '{"limit": 50, "stopOnFirstMismatch": true, "logEvery": 10}' | jq
+```
+
+Check one specific order:
+
+```bash
+curl -X POST http://localhost:5067/diagnostics/orders/replay-consistency \
+  -H "Content-Type: application/json" \
+  -d '{"orderId":"3e893947-5882-4d40-a684-946dd270f8c2"}' | jq
+```
+
+The replay consistency endpoint:
+
+- replays matching orders directly from Kafka
+- rebuilds projection state in memory
+- compares the replayed snapshot with the MongoDB document
+- returns mismatch details when a divergence is found
+
 ## Script Overrides
 
-- `seed-kurrent-live.sh`: `TARGET_EVENTS`, `MIN_COMPLETE_ORDERS`, `STREAM_PREFIX`, `KURRENT_CONNECTION_STRING`, `REPORT_PATH`
-  Also configures the KurrentDB Kafka Sink connector before seeding.
-- `configure-kurrent-kafka-sink.sh`: `KURRENT_BASE_URL`, `KURRENT_USERNAME`, `KURRENT_PASSWORD`, `CONNECTOR_ID`, `KAFKA_TOPIC`, `KAFKA_PARTITIONS`, `KAFKA_BOOTSTRAP_SERVERS`, `STREAM_PREFIX`
+- `seed-kafka-live.sh`: `TARGET_EVENTS`, `MIN_COMPLETE_ORDERS`, `STREAM_PREFIX`, `KAFKA_TOPIC`, `KAFKA_PARTITIONS`, `KAFKA_BOOTSTRAP_SERVERS`, `REPORT_PATH`
+  Directly seeds Kafka using the shared seeder.
+  Defaults to `KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:9092`.
 - `reset-projection-state.sh`: `MONGODB_CONTAINER_NAME`, `MONGODB_DATABASE`, `ORDERS_COLLECTION_NAME`, `CHECKPOINTS_COLLECTION_NAME`
