@@ -178,7 +178,6 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
     {
         if (left.Id != right.Id
             || left.EventNumber != right.EventNumber
-            || left.GlobalEventPosition != right.GlobalEventPosition
             || left.Amount != right.Amount
             || left.TaxAmount != right.TaxAmount
             || left.ShippingAmount != right.ShippingAmount

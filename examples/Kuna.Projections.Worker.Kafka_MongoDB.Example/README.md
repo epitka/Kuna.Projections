@@ -48,6 +48,38 @@ Default local URL:
 http://localhost:5067/
 ```
 
+## Inspect Persisted Orders In MongoDB
+
+Connect with the local Mongo shell:
+
+```bash
+mongosh mongodb://localhost:27017/orders_projection
+```
+
+List the collections:
+
+```javascript
+show collections
+```
+
+Read a few projected orders:
+
+```javascript
+db.orders_order.find().limit(3).pretty()
+```
+
+Check the checkpoint document:
+
+```javascript
+db.projection_checkpoints.find().pretty()
+```
+
+Check persisted failures:
+
+```javascript
+db.projection_failures.find().pretty()
+```
+
 ## Important Constraint
 
 This worker assumes Kafka ordering is safe for projection replay.
@@ -113,9 +145,33 @@ The replay consistency endpoint:
 - compares the replayed snapshot with the MongoDB document
 - returns mismatch details when a divergence is found
 
+For the Kafka example, the comparison intentionally ignores `GlobalEventPosition`.
+That value is a Kafka transport checkpoint over all assigned partitions, so replaying one order in isolation does not reproduce the exact persisted checkpoint position from the original projection run.
+
+## Restart Projection State Without Reseeding Events
+
+```bash
+./scripts/reset-projection-state.sh
+```
+
+## Reseed From Scratch
+
+```bash
+docker compose down -v
+docker compose up -d
+./scripts/seed-kafka-live.sh
+```
+
 ## Script Overrides
 
 - `seed-kafka-live.sh`: `TARGET_EVENTS`, `MIN_COMPLETE_ORDERS`, `STREAM_PREFIX`, `KAFKA_TOPIC`, `KAFKA_PARTITIONS`, `KAFKA_BOOTSTRAP_SERVERS`, `REPORT_PATH`
   Directly seeds Kafka using the shared seeder.
   Defaults to `KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:9092`.
 - `reset-projection-state.sh`: `MONGODB_CONTAINER_NAME`, `MONGODB_DATABASE`, `ORDERS_COLLECTION_NAME`, `CHECKPOINTS_COLLECTION_NAME`
+
+## Configuration
+
+- The worker uses `ConnectionStrings:MongoDB` and `OrdersProjection:Kafka:BootstrapServers` from `appsettings.json`.
+- The MongoDB sink stores orders in `orders_order`.
+- Checkpoints remain in `projection_checkpoints`.
+- Projection failures are stored in `projection_failures`.
