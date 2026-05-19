@@ -9,11 +9,6 @@ internal static class KafkaSourceSettingsValidator
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentException.ThrowIfNullOrWhiteSpace(sectionPath);
 
-        if (string.IsNullOrWhiteSpace(settings.BootstrapServers))
-        {
-            throw new InvalidOperationException($"Missing required configuration value: {sectionPath}:BootstrapServers");
-        }
-
         if (string.IsNullOrWhiteSpace(settings.Topic))
         {
             throw new InvalidOperationException($"Missing required configuration value: {sectionPath}:Topic");

@@ -222,7 +222,8 @@ docker compose up -d
 
 ## Configuration
 
-- The worker uses `ConnectionStrings:MongoDB` and `OrdersProjection:Kafka:BootstrapServers` from `appsettings.json`.
+- The worker uses `ConnectionStrings:MongoDB` and `ConnectionStrings:Kafka` for broker/store endpoints.
+- Projection-specific Kafka source options live under `OrdersProjection:Kafka`, such as `Topic`, `Partitions`, `Transformer`, and `PollTimeoutMs`.
 - The MongoDB sink stores orders in `orders_order`.
 - Checkpoints remain in `projection_checkpoints`.
 - Projection failures are stored in `projection_failures`.

@@ -11,6 +11,8 @@ namespace Kuna.Projections.Source.Kafka;
 
 public static class ServiceCollectionExtensions
 {
+    private const string KafkaConnectionStringName = "Kafka";
+
     public static IServiceCollection AddKafkaSource<TState>(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -94,8 +96,26 @@ public static class ServiceCollectionExtensions
         string settingsSectionName)
     {
         var sectionPath = $"{settingsSectionName}:{KafkaSourceSettings.SectionName}";
-        var sourceSettings = configuration.GetRequiredSection(sectionPath).Get<KafkaSourceSettings>()
-                             ?? throw new InvalidOperationException($"Missing configuration section: {sectionPath}");
+        var sectionSettings = configuration.GetRequiredSection(sectionPath).Get<KafkaSourceSettings>()
+                              ?? throw new InvalidOperationException($"Missing configuration section: {sectionPath}");
+        var bootstrapServers = configuration.GetConnectionString(KafkaConnectionStringName);
+
+        if (string.IsNullOrWhiteSpace(bootstrapServers))
+        {
+            throw new InvalidOperationException($"Missing connection string: {KafkaConnectionStringName}");
+        }
+
+        var sourceSettings = new KafkaSourceSettings
+        {
+            BootstrapServers = bootstrapServers,
+            Topic = sectionSettings.Topic,
+            ClientId = sectionSettings.ClientId,
+            AutoOffsetReset = sectionSettings.AutoOffsetReset,
+            KeyFormat = sectionSettings.KeyFormat,
+            Transformer = sectionSettings.Transformer,
+            Partitions = sectionSettings.Partitions,
+            PollTimeoutMs = sectionSettings.PollTimeoutMs,
+        };
 
         KafkaSourceSettingsValidator.Validate(sourceSettings, sectionPath);
         return sourceSettings;

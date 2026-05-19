@@ -36,7 +36,7 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddKafkaSource_Should_Throw_When_Partitions_Contain_Duplicates()
+    public void AddKafkaSource_Should_Throw_When_Kafka_Connection_String_Is_Missing()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -45,7 +45,32 @@ public sealed class ServiceCollectionExtensionsTests
             {
                 ["Projections:Source"] = "Kafka",
                 ["Projections:InstanceId"] = "orders-v1",
-                ["Projections:Kafka:BootstrapServers"] = "localhost:9092",
+                ["Projections:Kafka:Topic"] = "orders-events",
+            });
+
+        var ex = Should.Throw<InvalidOperationException>(
+            () => services.AddKafkaSource<TestModel>(
+                configuration,
+                LoggerFactory.Create(
+                    _ =>
+                    {
+                    }),
+                ProjectionSettingsSection.Name));
+
+        ex.Message.ShouldContain("Missing connection string: Kafka");
+    }
+
+    [Fact]
+    public void AddKafkaSource_Should_Throw_When_Partitions_Contain_Duplicates()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Kafka"] = "localhost:9092",
+                ["Projections:Source"] = "Kafka",
+                ["Projections:InstanceId"] = "orders-v1",
                 ["Projections:Kafka:Topic"] = "orders-events",
                 ["Projections:Kafka:Partitions:0"] = "1",
                 ["Projections:Kafka:Partitions:1"] = "1",
@@ -71,9 +96,9 @@ public sealed class ServiceCollectionExtensionsTests
         var configuration = BuildConfiguration(
             new Dictionary<string, string?>
             {
+                ["ConnectionStrings:Kafka"] = "localhost:9092",
                 ["Projections:Source"] = "Kafka",
                 ["Projections:InstanceId"] = "orders-v1",
-                ["Projections:Kafka:BootstrapServers"] = "localhost:9092",
                 ["Projections:Kafka:Topic"] = "orders-events",
             });
 
