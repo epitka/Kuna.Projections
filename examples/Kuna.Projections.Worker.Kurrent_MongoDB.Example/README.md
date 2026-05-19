@@ -37,38 +37,6 @@ Default local URL:
 http://localhost:5277/
 ```
 
-## Inspect Persisted Orders In MongoDB
-
-Connect with the local Mongo shell:
-
-```bash
-mongosh mongodb://localhost:27017/orders_projection
-```
-
-List the collections:
-
-```text
-show collections
-```
-
-Read a few projected orders:
-
-```text
-db.orders_order.find().limit(3).pretty()
-```
-
-Check the checkpoint document:
-
-```text
-db.projection_checkpoints.find().pretty()
-```
-
-Check persisted failures:
-
-```text
-db.projection_failures.find().pretty()
-```
-
 ## Restart Projection State Without Reseeding Events
 
 ```bash
