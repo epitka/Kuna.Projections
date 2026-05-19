@@ -57,6 +57,7 @@ The shared seeder writes Kafka records keyed by model id, so Kafka preserves per
 
 This worker uses:
 
+- `OrdersProjection:Kafka:ConsumerGroupId = "orders-v1"`
 - `OrdersProjection:Kafka:Transformer = "Native"`
 - `OrdersProjection:Kafka:Topic = "orders-events"`
 
@@ -191,7 +192,7 @@ docker compose up -d
 ## Configuration
 
 - The worker uses `ConnectionStrings:MongoDB` and `ConnectionStrings:Kafka` for broker/store endpoints.
-- Projection-specific Kafka source options live under `OrdersProjection:Kafka`, such as `Topic`, `Partitions`, `Transformer`, and `PollTimeoutMs`.
+- Projection-specific Kafka source options live under `OrdersProjection:Kafka`, such as `ConsumerGroupId`, `Topic`, `Partitions`, `Transformer`, and `PollTimeoutMs`.
 - The MongoDB sink stores orders in `orders_order`.
 - Checkpoints remain in `projection_checkpoints`.
 - Projection failures are stored in `projection_failures`.

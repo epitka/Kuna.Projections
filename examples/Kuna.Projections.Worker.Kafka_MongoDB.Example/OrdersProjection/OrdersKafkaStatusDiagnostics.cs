@@ -44,9 +44,7 @@ public sealed class OrdersKafkaStatusDiagnostics
         this.projectionSettings = projectionSection.Get<ProjectionSettings<Order>>()
                                   ?? throw new InvalidOperationException($"Missing configuration section: {SettingsSectionName}");
 
-        var sectionPath = $"{SettingsSectionName}:{KafkaSourceSettings.SectionName}";
-        this.sourceSettings = configuration.GetRequiredSection(sectionPath).Get<KafkaSourceSettings>()
-                              ?? throw new InvalidOperationException($"Missing configuration section: {sectionPath}");
+        this.sourceSettings = KafkaSourceSettingsResolver.Resolve(configuration, SettingsSectionName);
     }
 
     public async Task<OrdersKafkaStatusResult> RunAsync(CancellationToken cancellationToken)
@@ -63,7 +61,10 @@ public sealed class OrdersKafkaStatusDiagnostics
         var checkpointDocument = this.checkpointSerializer.Deserialize(checkpoint.GlobalEventPosition);
         using var consumer = this.consumerFactory.Create(
             this.sourceSettings,
-            "kuna-projections-status-ordersprojection");
+            KafkaConsumerGroupIdResolver.ResolveStatus(
+                this.sourceSettings,
+                ProjectionModelName.For<Order>(),
+                this.projectionSettings.InstanceId));
 
         var partitions = this.ResolveAssignedPartitions(consumer, this.sourceSettings);
         var highWatermarks = partitions

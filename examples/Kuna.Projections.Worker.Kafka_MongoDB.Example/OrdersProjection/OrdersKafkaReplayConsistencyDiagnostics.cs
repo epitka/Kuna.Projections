@@ -64,16 +64,7 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
         this.projectionSettings = projectionSection.Get<ProjectionSettings<Order>>()
                                   ?? throw new InvalidOperationException($"Missing configuration section: {SettingsSectionName}");
 
-        var sectionPath = $"{SettingsSectionName}:{KafkaSourceSettings.SectionName}";
-        var section = configuration.GetSection(sectionPath);
-
-        if (!section.Exists())
-        {
-            throw new InvalidOperationException($"Missing required configuration section: {sectionPath}");
-        }
-
-        this.sourceSettings = section.Get<KafkaSourceSettings>()
-                              ?? throw new InvalidOperationException($"Missing configuration section: {sectionPath}");
+        this.sourceSettings = KafkaSourceSettingsResolver.Resolve(configuration, SettingsSectionName);
 
         var eventTypes = ResolveEventTypes(typeof(OrderCreated).Assembly);
         var deserializer = new KafkaEventDeserializer(eventTypes, loggerFactory.CreateLogger<KafkaEventDeserializer>());
@@ -111,6 +102,7 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
             BootstrapServers = this.sourceSettings.BootstrapServers,
             Topic = this.sourceSettings.Topic,
             ClientId = this.sourceSettings.ClientId,
+            ConsumerGroupId = this.sourceSettings.ConsumerGroupId,
             AutoOffsetReset = KafkaAutoOffsetReset.Earliest,
             KeyFormat = this.sourceSettings.KeyFormat,
             Transformer = this.sourceSettings.Transformer,
@@ -120,7 +112,11 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
 
         using var consumer = this.consumerFactory.Create(
             replaySettings,
-            $"kuna-projections-replay-batch-{Guid.NewGuid():N}");
+            KafkaConsumerGroupIdResolver.ResolveReplay(
+                replaySettings,
+                ProjectionModelName.For<Order>(),
+                this.projectionSettings.InstanceId,
+                Guid.NewGuid().ToString("N")));
 
         var assignedPartitions = this.ResolveAssignedPartitions(consumer, replaySettings);
         var currentOffsets = assignedPartitions.ToDictionary(x => x, _ => -1L);

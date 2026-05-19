@@ -38,6 +38,37 @@ public sealed class KafkaHealthCheckTests
     }
 
     [Fact]
+    public async Task CheckHealthAsync_Should_Use_Configured_Consumer_Group_Id_As_Base()
+    {
+        var consumerFactory = new FakeKafkaConsumerFactory(
+            new FakeKafkaConsumer(
+                new Dictionary<string, IReadOnlyList<int>>
+                {
+                    ["orders-events"] = [0,],
+                }));
+
+        var healthCheck = new KafkaHealthCheck(
+            [
+                new KafkaHealthCheckRegistration
+                {
+                    SettingsSectionName = "OrdersProjection",
+                    SourceSettings = new KafkaSourceSettings
+                    {
+                        BootstrapServers = "localhost:9092",
+                        ConsumerGroupId = "orders-consumer",
+                        Topic = "orders-events",
+                    },
+                },
+            ],
+            consumerFactory);
+
+        var result = await healthCheck.CheckHealthAsync(new HealthCheckContext(), TestContext.Current.CancellationToken);
+
+        result.Status.ShouldBe(HealthStatus.Healthy);
+        consumerFactory.RequestedConsumerGroups.ShouldBe(["orders-consumer-healthcheck",]);
+    }
+
+    [Fact]
     public async Task CheckHealthAsync_Should_Return_Unhealthy_When_Topic_Has_No_Partitions()
     {
         var healthCheck = new KafkaHealthCheck(

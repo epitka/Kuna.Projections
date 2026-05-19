@@ -14,6 +14,12 @@ internal static class KafkaSourceSettingsValidator
             throw new InvalidOperationException($"Missing required configuration value: {sectionPath}:Topic");
         }
 
+        if (settings.ConsumerGroupId != null
+            && string.IsNullOrWhiteSpace(settings.ConsumerGroupId))
+        {
+            throw new InvalidOperationException($"{sectionPath}:ConsumerGroupId must not be empty.");
+        }
+
         if (settings.PollTimeoutMs <= 0)
         {
             throw new InvalidOperationException($"{sectionPath}:PollTimeoutMs must be greater than zero.");

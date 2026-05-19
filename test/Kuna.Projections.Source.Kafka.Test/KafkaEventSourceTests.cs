@@ -197,6 +197,40 @@ public sealed class KafkaEventSourceTests
         ex.Message.ShouldContain("does not contain configured partitions");
     }
 
+    [Fact]
+    public async Task ReadAll_Should_Use_Configured_Consumer_Group_Id()
+    {
+        var consumer = new FakeKafkaConsumer(
+            partitions: [0,],
+            messages: [],
+            highWatermarks: new Dictionary<int, long> { [0] = 0, });
+        var consumerFactory = new FakeKafkaConsumerFactory(consumer);
+        var source = new KafkaEventSource<TestModel>(
+            consumerFactory,
+            new NativeKafkaSourceTransformer(),
+            new KafkaEventEnvelopeFactory(new KafkaEventDeserializer([typeof(TestEvent),], NullLogger<KafkaEventDeserializer>.Instance)),
+            new KafkaCheckpointSerializer(),
+            new KafkaSourceSettings
+            {
+                BootstrapServers = "localhost:9092",
+                ConsumerGroupId = "orders-consumer",
+                Topic = "orders-events",
+                PollTimeoutMs = 1,
+            },
+            new ProjectionSettings<TestModel>
+            {
+                InstanceId = "orders-v1",
+                Source = ProjectionSourceKind.Kafka,
+            },
+            NullLogger<KafkaEventSource<TestModel>>.Instance);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+        await using var enumerator = source.ReadAll(new GlobalEventPosition(string.Empty), cts.Token).GetAsyncEnumerator(cts.Token);
+
+        (await enumerator.MoveNextAsync()).ShouldBeTrue();
+        consumerFactory.LastRequestedConsumerGroup.ShouldBe("orders-consumer");
+    }
+
     private static KafkaEventSource<TestModel> CreateSource(
         IKafkaConsumer consumer,
         KafkaSourceSettings sourceSettings)
@@ -233,8 +267,11 @@ public sealed class KafkaEventSourceTests
             this.consumer = consumer;
         }
 
+        public string? LastRequestedConsumerGroup { get; private set; }
+
         public IKafkaConsumer Create(KafkaSourceSettings sourceSettings, string consumerGroupId)
         {
+            this.LastRequestedConsumerGroup = consumerGroupId;
             return this.consumer;
         }
     }

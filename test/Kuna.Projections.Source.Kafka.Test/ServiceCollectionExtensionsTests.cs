@@ -122,6 +122,23 @@ public sealed class ServiceCollectionExtensionsTests
         provider.GetRequiredService<IKafkaEventDeserializer>().ShouldBeOfType<KafkaEventDeserializer>();
     }
 
+    [Fact]
+    public void AddKafkaSource_Should_Bind_Optional_Consumer_Group_Id()
+    {
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Kafka"] = "localhost:9092",
+                ["Projections:Kafka:ConsumerGroupId"] = "orders-consumer",
+                ["Projections:Kafka:Topic"] = "orders-events",
+            });
+
+        var settings = KafkaSourceSettingsResolver.Resolve(configuration, ProjectionSettingsSection.Name);
+
+        settings.ConsumerGroupId.ShouldBe("orders-consumer");
+        settings.BootstrapServers.ShouldBe("localhost:9092");
+    }
+
     private static IConfiguration BuildConfiguration(IDictionary<string, string?> values)
     {
         return new ConfigurationBuilder()

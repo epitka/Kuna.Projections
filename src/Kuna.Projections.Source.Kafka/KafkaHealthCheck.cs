@@ -30,7 +30,9 @@ public sealed class KafkaHealthCheck : IHealthCheck
             {
                 using var consumer = this.consumerFactory.Create(
                     registration.SourceSettings,
-                    ResolveConsumerGroupId(registration.SettingsSectionName));
+                    KafkaConsumerGroupIdResolver.ResolveHealthCheck(
+                        registration.SourceSettings,
+                        registration.SettingsSectionName));
 
                 var partitions = consumer.GetPartitions(registration.SourceSettings.Topic);
 
@@ -65,14 +67,5 @@ public sealed class KafkaHealthCheck : IHealthCheck
         {
             return Task.FromResult(HealthCheckResult.Unhealthy("Kafka disconnected", ex));
         }
-    }
-
-    private static string ResolveConsumerGroupId(string settingsSectionName)
-    {
-        var normalizedSectionName = settingsSectionName
-                                    .Replace(':', '-')
-                                    .Replace('.', '-');
-
-        return $"kuna-projections-healthcheck-{normalizedSectionName}";
     }
 }

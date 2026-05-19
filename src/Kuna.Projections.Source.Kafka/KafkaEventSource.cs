@@ -41,7 +41,7 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
         var checkpoint = this.checkpointSerializer.Deserialize(start);
         ValidateCheckpointTopic(checkpoint, this.sourceSettings.Topic);
 
-        var consumerGroupId = ResolveConsumerGroupId();
+        var consumerGroupId = KafkaConsumerGroupIdResolver.ResolveProjection(this.sourceSettings, this.projectionSettings);
         using var consumer = this.consumerFactory.Create(this.sourceSettings, consumerGroupId);
         var assignedPartitions = ResolveAssignedPartitions(consumer);
         var checkpointOffsets = checkpoint.Partitions
@@ -117,12 +117,6 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
         {
             throw new InvalidOperationException($"Checkpoint topic '{checkpoint.Topic}' does not match configured topic '{configuredTopic}'.");
         }
-    }
-
-    private string ResolveConsumerGroupId()
-    {
-        var modelName = ProjectionModelName.For<TState>().Replace(".", "-", StringComparison.Ordinal);
-        return $"kuna-projections-{modelName}-{this.projectionSettings.InstanceId}";
     }
 
     private IReadOnlyList<int> ResolveAssignedPartitions(IKafkaConsumer consumer)

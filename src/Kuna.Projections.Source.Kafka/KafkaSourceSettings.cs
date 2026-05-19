@@ -10,6 +10,8 @@ public sealed class KafkaSourceSettings
 
     public string? ClientId { get; init; }
 
+    public string? ConsumerGroupId { get; init; }
+
     public KafkaAutoOffsetReset AutoOffsetReset { get; init; } = KafkaAutoOffsetReset.Earliest;
 
     public KafkaKeyFormat KeyFormat { get; init; } = KafkaKeyFormat.Guid;
