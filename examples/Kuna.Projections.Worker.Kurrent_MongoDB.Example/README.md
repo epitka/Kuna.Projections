@@ -47,25 +47,25 @@ mongosh mongodb://localhost:27017/orders_projection
 
 List the collections:
 
-```javascript
+```text
 show collections
 ```
 
 Read a few projected orders:
 
-```javascript
+```text
 db.orders_order.find().limit(3).pretty()
 ```
 
 Check the checkpoint document:
 
-```javascript
+```text
 db.projection_checkpoints.find().pretty()
 ```
 
 Check persisted failures:
 
-```javascript
+```text
 db.projection_failures.find().pretty()
 ```
 

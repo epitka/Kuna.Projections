@@ -98,6 +98,7 @@ public static class ServiceCollectionExtensions
         var sectionPath = $"{settingsSectionName}:{KafkaSourceSettings.SectionName}";
         var sectionSettings = configuration.GetRequiredSection(sectionPath).Get<KafkaSourceSettings>()
                               ?? throw new InvalidOperationException($"Missing configuration section: {sectionPath}");
+
         var bootstrapServers = configuration.GetConnectionString(KafkaConnectionStringName);
 
         if (string.IsNullOrWhiteSpace(bootstrapServers))

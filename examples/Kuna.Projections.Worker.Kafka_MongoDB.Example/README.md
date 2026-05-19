@@ -58,25 +58,25 @@ mongosh mongodb://localhost:27017/orders_projection
 
 List the collections:
 
-```javascript
+```text
 show collections
 ```
 
 Read a few projected orders:
 
-```javascript
+```text
 db.orders_order.find().limit(3).pretty()
 ```
 
 Check the checkpoint document:
 
-```javascript
+```text
 db.projection_checkpoints.find().pretty()
 ```
 
 Check persisted failures:
 
-```javascript
+```text
 db.projection_failures.find().pretty()
 ```
 
@@ -125,7 +125,7 @@ curl http://localhost:5284/health
 Check a small sample first:
 
 ```bash
-curl -X POST http://localhost:5067/diagnostics/orders/replay-consistency \
+curl -X POST http://localhost:5284/diagnostics/orders/replay-consistency \
   -H "Content-Type: application/json" \
   -d '{"limit": 50, "stopOnFirstMismatch": true, "logEvery": 10}' | jq
 ```
@@ -133,7 +133,7 @@ curl -X POST http://localhost:5067/diagnostics/orders/replay-consistency \
 Check one specific order:
 
 ```bash
-curl -X POST http://localhost:5067/diagnostics/orders/replay-consistency \
+curl -X POST http://localhost:5284/diagnostics/orders/replay-consistency \
   -H "Content-Type: application/json" \
   -d '{"orderId":"3e893947-5882-4d40-a684-946dd270f8c2"}' | jq
 ```
