@@ -96,6 +96,56 @@ public sealed class KafkaEventSourceTests
     }
 
     [Fact]
+    public async Task ReadAll_Should_Reemit_CaughtUp_After_Live_Records_Arrive()
+    {
+        var modelId = Guid.NewGuid();
+        var consumer = new FakeKafkaConsumer(
+            partitions: [0,],
+            messages: [],
+            highWatermarks: new Dictionary<int, long> { [0] = 0, });
+
+        var source = CreateSource(
+            consumer,
+            new KafkaSourceSettings
+            {
+                BootstrapServers = "localhost:9092",
+                ConsumerGroupId = "orders-consumer",
+                Topic = "orders-events",
+                PollTimeoutMs = 1,
+            });
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await using var enumerator = source.ReadAll(new GlobalEventPosition(string.Empty), cts.Token).GetAsyncEnumerator(cts.Token);
+
+        (await enumerator.MoveNextAsync()).ShouldBeTrue();
+        enumerator.Current.Event.ShouldBeOfType<ProjectionCaughtUpEvent>();
+
+        consumer.Enqueue(
+            new KafkaConsumedMessage
+            {
+                Topic = "orders-events",
+                Partition = 0,
+                Offset = 0,
+                KeyBytes = System.Text.Encoding.UTF8.GetBytes(modelId.ToString("D")),
+                ValueBytes = System.Text.Encoding.UTF8.GetBytes("""{"value":"live"}"""),
+                Headers = new Dictionary<string, byte[]>
+                {
+                    ["event-type"] = System.Text.Encoding.UTF8.GetBytes(nameof(TestEvent)),
+                    ["event-number"] = System.Text.Encoding.UTF8.GetBytes("1"),
+                    ["created-on"] = System.Text.Encoding.UTF8.GetBytes("2026-05-17T12:00:00Z"),
+                },
+            });
+
+        consumer.SetHighWatermark(partition: 0, highWatermark: 1);
+
+        (await enumerator.MoveNextAsync()).ShouldBeTrue();
+        enumerator.Current.Event.ShouldBeOfType<TestEvent>().Value.ShouldBe("live");
+
+        (await enumerator.MoveNextAsync()).ShouldBeTrue();
+        enumerator.Current.Event.ShouldBeOfType<ProjectionCaughtUpEvent>();
+    }
+
+    [Fact]
     public async Task ReadAll_Should_Not_Seek_When_No_Checkpoint_Exists()
     {
         var consumer = new FakeKafkaConsumer(
@@ -284,7 +334,7 @@ public sealed class KafkaEventSourceTests
     {
         private readonly Queue<KafkaConsumedMessage> messages;
         private readonly IReadOnlyList<int> partitions;
-        private readonly IReadOnlyDictionary<int, long> highWatermarks;
+        private readonly Dictionary<int, long> highWatermarks;
 
         public FakeKafkaConsumer(
             IReadOnlyList<int> partitions,
@@ -293,7 +343,7 @@ public sealed class KafkaEventSourceTests
         {
             this.partitions = partitions;
             this.messages = new Queue<KafkaConsumedMessage>(messages);
-            this.highWatermarks = highWatermarks;
+            this.highWatermarks = new Dictionary<int, long>(highWatermarks);
         }
 
         public string? AssignedTopic { get; private set; }
@@ -303,6 +353,16 @@ public sealed class KafkaEventSourceTests
         public IReadOnlyDictionary<int, long> AssignedStartOffsets { get; private set; } = new Dictionary<int, long>();
 
         public List<(string Topic, int Partition, long Offset)> SeekCalls { get; } = [];
+
+        public void Enqueue(KafkaConsumedMessage message)
+        {
+            this.messages.Enqueue(message);
+        }
+
+        public void SetHighWatermark(int partition, long highWatermark)
+        {
+            this.highWatermarks[partition] = highWatermark;
+        }
 
         public IReadOnlyList<int> GetPartitions(string topic)
         {

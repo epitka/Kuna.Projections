@@ -177,6 +177,7 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                        {
                                            case RawSignalKind.Event:
                                            {
+                                               ResetDrainTracking();
                                                var envelope = signal.Envelope!;
                                                seenEvents++;
 
@@ -563,31 +564,34 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
                                          ? this.settings.LiveProcessingFlush.Strategy
                                          : this.settings.CatchUpFlush.Strategy;
 
-                if (this.logger.IsEnabled(LogLevel.Debug))
-                {
-                    this.logger.LogDebug(
-                        "Projection pipeline flush persisted for {ModelName} instance {InstanceId}: batchModels={BatchModels}, inserted={Inserted}, updated={Updated}, deleted={Deleted}, sinkPersistMs={SinkPersistMs:F0}, cachePublishMs={CachePublishMs:F0}, checkpointPersistMs={CheckpointPersistMs:F0}, lifecycleMs={LifecycleMs:F0}, runtimeProjectionHits={RuntimeProjectionHits}, modelStateCacheRestores={ModelStateCacheRestores}, storeProjectionLoads={StoreProjectionLoads}, storeProjectionMisses={StoreProjectionMisses}, newProjectionCreates={NewProjectionCreates}, modelStateCacheHits={ModelStateCacheHits}, modelStateCacheMisses={ModelStateCacheMisses}, flushedPosition={FlushedPosition}, phase={Phase}, strategy={Strategy}",
-                        this.modelName,
-                        this.settings.InstanceId,
-                        flushResult.BatchModels,
-                        lastFlushInsertedModels,
-                        lastFlushUpdatedModels,
-                        lastFlushDeletedModels,
-                        sinkPersistMs,
-                        cachePublishMs,
-                        checkpointPersistMs,
-                        lifecycleMs,
-                        runtimeStats.RuntimeProjectionHits,
-                        runtimeStats.ModelStateCacheRestores,
-                        runtimeStats.StoreProjectionLoads,
-                        runtimeStats.StoreProjectionMisses,
-                        runtimeStats.NewProjectionCreates,
-                        lastFlushModelStateCacheHits,
-                        lastFlushModelStateCacheMisses,
-                        lastFlushedPosition,
-                        liveProcessingStarted ? "Live" : "CatchUp",
-                        activeStrategy);
-                }
+                var activeModelCountThreshold = liveProcessingStarted
+                                                    ? this.settings.LiveProcessingFlush.ModelCountThreshold
+                                                    : this.settings.CatchUpFlush.ModelCountThreshold;
+
+                this.logger.LogInformation(
+                    "Projection pipeline flush persisted for {ModelName} instance {InstanceId}: batchModels={BatchModels}, events={Events}, inserted={Inserted}, updated={Updated}, deleted={Deleted}, sinkPersistMs={SinkPersistMs:F0}, cachePublishMs={CachePublishMs:F0}, checkpointPersistMs={CheckpointPersistMs:F0}, lifecycleMs={LifecycleMs:F0}, runtimeProjectionHits={RuntimeProjectionHits}, modelStateCacheRestores={ModelStateCacheRestores}, storeProjectionLoads={StoreProjectionLoads}, storeProjectionMisses={StoreProjectionMisses}, newProjectionCreates={NewProjectionCreates}, modelStateCacheHits={ModelStateCacheHits}, modelStateCacheMisses={ModelStateCacheMisses}, flushedPosition={FlushedPosition}, phase={Phase}, strategy={Strategy}, modelCountThreshold={ModelCountThreshold}",
+                    this.modelName,
+                    this.settings.InstanceId,
+                    flushResult.BatchModels,
+                    flushResult.Events,
+                    lastFlushInsertedModels,
+                    lastFlushUpdatedModels,
+                    lastFlushDeletedModels,
+                    sinkPersistMs,
+                    cachePublishMs,
+                    checkpointPersistMs,
+                    lifecycleMs,
+                    runtimeStats.RuntimeProjectionHits,
+                    runtimeStats.ModelStateCacheRestores,
+                    runtimeStats.StoreProjectionLoads,
+                    runtimeStats.StoreProjectionMisses,
+                    runtimeStats.NewProjectionCreates,
+                    lastFlushModelStateCacheHits,
+                    lastFlushModelStateCacheMisses,
+                    lastFlushedPosition,
+                    liveProcessingStarted ? "Live" : "CatchUp",
+                    activeStrategy,
+                    activeModelCountThreshold);
             }
 
             TryLogSourceTransformDrained();
@@ -642,6 +646,13 @@ public class ProjectionPipeline<TEnvelope, TState> : IProjectionPipeline<TState>
         void MarkSourceTransformDrainObserved()
         {
             Interlocked.Exchange(ref sourceTransformDrainObserved, 1);
+        }
+
+        void ResetDrainTracking()
+        {
+            Interlocked.Exchange(ref sourceTransformDrainObserved, 0);
+            Interlocked.Exchange(ref sourceTransformDrainedLogged, 0);
+            Interlocked.Exchange(ref fullyDrainedLogged, 0);
         }
 
         void TryLogSourceTransformDrained()

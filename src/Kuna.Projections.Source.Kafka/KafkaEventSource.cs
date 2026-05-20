@@ -85,6 +85,19 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
                 continue;
             }
 
+            if (caughtUpEmitted)
+            {
+                caughtUpEmitted = false;
+
+                this.logger.LogInformation(
+                    "Kafka source received new records after catch-up for {ModelName} instance {InstanceId}: topic={Topic}, partition={Partition}, offset={Offset}",
+                    ProjectionModelName.For<TState>(),
+                    this.projectionSettings.InstanceId,
+                    message.Topic,
+                    message.Partition,
+                    message.Offset);
+            }
+
             currentOffsets[message.Partition] = message.Offset;
 
             var sourceRecord = this.transformer.Transform(
