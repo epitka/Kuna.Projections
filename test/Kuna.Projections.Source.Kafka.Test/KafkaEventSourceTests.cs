@@ -209,6 +209,7 @@ public sealed class KafkaEventSourceTests
             partitions: [0,],
             messages: [],
             highWatermarks: new Dictionary<int, long> { [0] = 0, });
+
         var consumerFactory = new FakeKafkaConsumerFactory(consumer);
         var source = new KafkaEventSource<TestModel>(
             consumerFactory,

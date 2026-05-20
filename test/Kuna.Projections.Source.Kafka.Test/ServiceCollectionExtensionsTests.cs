@@ -161,8 +161,7 @@ public sealed class ServiceCollectionExtensionsTests
                 ["Projections:Kafka:Topic"] = "orders-events",
             });
 
-        services.AddKeyedSingleton<IKafkaSourceTransformer, CustomKafkaSourceTransformer>(
-            GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name));
+        services.AddKeyedSingleton<IKafkaSourceTransformer, CustomKafkaSourceTransformer>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name));
 
         services.AddKafkaSource<TestModel>(
             configuration,
