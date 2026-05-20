@@ -60,6 +60,17 @@ The last targeted `dotnet test` verification command that completed successfully
 - Do not make internals visible to tests via `InternalsVisibleTo` just to assert implementation details.
 - Do not assert against the internal object shape of third-party libraries. If a third-party type is too opaque to test directly, assert your own inputs/outputs around it or cover it with an integration test.
 - Do not return `object` from test helpers unless the API being tested genuinely returns `object`. Test helpers should stay strongly typed.
+- Place tests in projects with "Test" or "Tests" suffix matching the target project
+- Use directory structure {ClassName}Tests/ for class-level tests
+- Create separate files {MethodName}Tests.cs for individual method tests
+ -Use FluentAssertions for assertions
+- Prefer Xunit Theory over Xunit Fact for multiple input scenarios
+- Use Given-When-Then/Should naming pattern for test methods
+- Avoid, if possible, class level state in unit tests
+- Always prefer testing with real objects over mocks, and use mocks only when necessary
+- Strongly prefer real object over mocks
+- Do not attempt to test private or protected members, only test public api
+- Do not ever write non-determinstic tests using Task.Delay or any other delay mechanism. Instead use TaskCompletionSource
 
 ## Commit & Pull Request Guidelines
 - Use short, imperative commit subjects (seen in history: `benchmarks`, `integration tests passing`, `version check strategy`).

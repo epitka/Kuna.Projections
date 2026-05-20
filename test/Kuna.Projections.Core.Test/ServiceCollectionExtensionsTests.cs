@@ -281,9 +281,9 @@ public class ServiceCollectionExtensionsTests
         AddStateStore<CoreServiceTestModel, DummyStateStore>(services, "OrdersProjection");
         AddStateSink<CoreServiceTestModel, DummyStateSink>(services, "OrdersProjection");
         AddFailureHandler<CoreServiceTestModel, DummyFailureHandler>(services, "OrdersProjection");
-        services.AddKeyedSingleton<IProjectionEventSource<CoreServiceTestModel>>(
+        services.AddKeyedSingleton<IEventSource<EventEnvelope>>(
             GetProjectionKey<CoreServiceTestModel>("OrdersProjection"),
-            new TestProjectionEventSource<CoreServiceTestModel>());
+            new DummyEventSource());
 
         var checkpointStore = new DummyCheckpointStore();
         services.AddKeyedSingleton<ICheckpointStore>(GetProjectionKey<CoreServiceTestModel>("OrdersProjection"), checkpointStore);
@@ -291,9 +291,9 @@ public class ServiceCollectionExtensionsTests
         AddStateStore<SecondaryServiceTestModel, SecondaryStateStore>(services, "InvoicesProjection");
         AddStateSink<SecondaryServiceTestModel, SecondaryStateSink>(services, "InvoicesProjection");
         AddFailureHandler<SecondaryServiceTestModel, SecondaryFailureHandler>(services, "InvoicesProjection");
-        services.AddKeyedSingleton<IProjectionEventSource<SecondaryServiceTestModel>>(
+        services.AddKeyedSingleton<IEventSource<EventEnvelope>>(
             GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"),
-            new TestProjectionEventSource<SecondaryServiceTestModel>());
+            new DummyEventSource());
 
         services.AddKeyedSingleton<ICheckpointStore>(GetProjectionKey<SecondaryServiceTestModel>("InvoicesProjection"), checkpointStore);
 
@@ -483,17 +483,6 @@ public class ServiceCollectionExtensionsTests
         {
             return Task.CompletedTask;
         }
-    }
-
-    private sealed class TestProjectionEventSource<TState> : IProjectionEventSource<TState>
-        where TState : class, IModel, new()
-    {
-        public TestProjectionEventSource()
-        {
-            this.Value = new DummyEventSource();
-        }
-
-        public IEventSource<EventEnvelope> Value { get; }
     }
 
     private sealed class DummyEventSource : IEventSource<EventEnvelope>

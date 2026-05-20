@@ -60,7 +60,7 @@ public static class ServiceCollectionExtensions
         services.AddHealthChecks()
                 .AddCheck<KurrentDbHealthCheck>("KurrentDB", HealthStatus.Unhealthy);
 
-        services.AddKeyedSingleton<IProjectionEventSource<TState>>(
+        services.AddKeyedSingleton<IEventSource<EventEnvelope>>(
             registrationKey,
             (provider, _) =>
             {
@@ -95,7 +95,7 @@ public static class ServiceCollectionExtensions
                     resolvedProjectionSettings,
                     provider.GetRequiredService<ILogger<KurrentDbEventSource<TState>>>());
 
-                return new ProjectionEventSource<TState>(source);
+                return source;
             });
 
         return services;

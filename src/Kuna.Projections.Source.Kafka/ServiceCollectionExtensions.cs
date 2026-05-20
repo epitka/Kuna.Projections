@@ -1,4 +1,5 @@
 using System.Reflection;
+using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
 using Microsoft.Extensions.Configuration;
@@ -46,21 +47,20 @@ public static class ServiceCollectionExtensions
 
         services.TryAddKeyedSingleton<IKafkaSourceTransformer, KunaKafkaSourceTransformer>(registrationKey);
 
-        services.AddKeyedSingleton<IProjectionEventSource<TState>>(
+        services.AddKeyedSingleton<IEventSource<EventEnvelope>>(
             registrationKey,
             (provider, _) =>
             {
                 var projectionSettings = provider.GetRequiredKeyedService<IProjectionSettings<TState>>(registrationKey);
 
-                return new ProjectionEventSource<TState>(
-                    new KafkaEventSource<TState>(
-                        provider.GetRequiredService<IKafkaConsumerFactory>(),
-                        provider.GetRequiredKeyedService<IKafkaSourceTransformer>(registrationKey),
-                        new KafkaEventEnvelopeFactory(provider.GetRequiredService<IKafkaEventDeserializer>()),
-                        provider.GetRequiredService<ICheckpointSerializer<KafkaCheckpointDocument>>(),
-                        sourceSettings,
-                        projectionSettings,
-                        provider.GetRequiredService<ILogger<KafkaEventSource<TState>>>()));
+                return new KafkaEventSource<TState>(
+                    provider.GetRequiredService<IKafkaConsumerFactory>(),
+                    provider.GetRequiredKeyedService<IKafkaSourceTransformer>(registrationKey),
+                    new KafkaEventEnvelopeFactory(provider.GetRequiredService<IKafkaEventDeserializer>()),
+                    provider.GetRequiredService<ICheckpointSerializer<KafkaCheckpointDocument>>(),
+                    sourceSettings,
+                    projectionSettings,
+                    provider.GetRequiredService<ILogger<KafkaEventSource<TState>>>());
             });
 
         return services;

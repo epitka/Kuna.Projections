@@ -1,3 +1,4 @@
+using Kuna.Projections.Abstractions.Messages;
 using Kuna.Projections.Abstractions.Models;
 using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Source.Kafka;
@@ -138,7 +139,7 @@ public sealed class ServiceCollectionExtensionsTests
 
         using var provider = services.BuildServiceProvider();
 
-        provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
+        provider.GetRequiredKeyedService<IEventSource<EventEnvelope>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
         provider.GetRequiredKeyedService<IKafkaSourceTransformer>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name))
                 .ShouldBeOfType<KunaKafkaSourceTransformer>();
 

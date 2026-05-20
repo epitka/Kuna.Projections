@@ -91,7 +91,7 @@ public static class ServiceCollectionExtensions
         services.AddKeyedSingleton<IProjectionPipeline<TState>>(
             registrationKey,
             (sp, _) => new ProjectionPipeline<EventEnvelope, TState>(
-                sp.GetRequiredKeyedService<IProjectionEventSource<TState>>(registrationKey).Value,
+                sp.GetRequiredKeyedService<IEventSource<EventEnvelope>>(registrationKey),
                 sp.GetRequiredKeyedService<IModelStateTransformer<EventEnvelope, TState>>(registrationKey),
                 sp.GetRequiredKeyedService<IProjectionLifecycle<TState>>(registrationKey),
                 sp.GetRequiredKeyedService<IModelStateCache<TState>>(registrationKey),

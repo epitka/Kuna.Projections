@@ -57,7 +57,7 @@ public class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
 
         var ex = Should.Throw<InvalidOperationException>(
-            () => provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)));
+            () => provider.GetRequiredKeyedService<IEventSource<EventEnvelope>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)));
 
         ex.Message.ShouldContain("Projections:KurrentDB");
     }
@@ -85,7 +85,7 @@ public class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
 
         provider.GetRequiredService<IEventDeserializer>().ShouldNotBeNull();
-        provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
+        provider.GetRequiredKeyedService<IEventSource<EventEnvelope>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public class ServiceCollectionExtensionsTests
 
         using var provider = services.BuildServiceProvider();
 
-        provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
+        provider.GetRequiredKeyedService<IEventSource<EventEnvelope>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
     }
 
     [Fact]
@@ -139,7 +139,7 @@ public class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
 
         var ex = Should.Throw<InvalidOperationException>(
-            () => provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)));
+            () => provider.GetRequiredKeyedService<IEventSource<EventEnvelope>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)));
 
         ex.Message.ShouldContain("regular expression");
     }
@@ -171,7 +171,7 @@ public class ServiceCollectionExtensionsTests
 
         using var provider = services.BuildServiceProvider();
 
-        provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>("OrdersProjection")).ShouldNotBeNull();
+        provider.GetRequiredKeyedService<IEventSource<EventEnvelope>>(GetRegistrationKey<TestModel>("OrdersProjection")).ShouldNotBeNull();
         provider.GetRequiredKeyedService<IProjectionSettings<TestModel>>(GetRegistrationKey<TestModel>("OrdersProjection"))
                 .ModelIdResolutionStrategy.ShouldBe(ModelIdResolutionStrategy.RequireStreamId);
     }
