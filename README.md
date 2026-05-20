@@ -11,6 +11,7 @@ Today, the repository provides:
 - `Kuna.Projections.Abstractions` for shared contracts and model types
 - `Kuna.Projections.Core` for the projection runtime and pipeline
 - `Kuna.Projections.Source.KurrentDB` for KurrentDB-backed event ingestion
+- `Kuna.Projections.Source.Kafka` for Kafka-backed event ingestion
 - `Kuna.Projections.Sink.EF` for the shared EF Core-backed relational sink
 - `Kuna.Projections.Sink.EF.Npgsql`, `Kuna.Projections.Sink.EF.SqlServer`, and `Kuna.Projections.Sink.EF.MySql` for provider-specific relational registration and duplicate-key handling
 - `Kuna.Projections.Sink.MongoDB` for MongoDB-backed persistence, checkpoints, and failure storage
@@ -65,7 +66,20 @@ Every worker needs:
 
 ```bash
 dotnet add package Kuna.Projections.Core
+```
+
+Then add one source package:
+
+KurrentDB source:
+
+```bash
 dotnet add package Kuna.Projections.Source.KurrentDB
+```
+
+Kafka source:
+
+```bash
+dotnet add package Kuna.Projections.Source.Kafka
 ```
 
 MongoDB-backed workers use:
@@ -246,7 +260,7 @@ That separation is what makes high-throughput projection processing practical: e
 
 At minimum, applications typically provide:
 
-- `ConnectionStrings:KurrentDB`
+- one source connection string, such as `ConnectionStrings:KurrentDB` or `ConnectionStrings:Kafka`
 - `ConnectionStrings:PostgreSql`
 - one projection settings section per registered projection
 

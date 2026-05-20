@@ -113,7 +113,7 @@ public class ProjectionSettings<TState> : IProjectionSettings<TState>
     /// <summary>
     /// Selects which event source implementation should be used for the projection.
     /// </summary>
-    public ProjectionSourceKind Source { get; set; } = ProjectionSourceKind.KurrentDB;
+    public ProjectionSourceKind Source { get; set; } = ProjectionSourceKind.Unspecified;
 
     /// <summary>
     /// Controls how the target model id is resolved from incoming events.

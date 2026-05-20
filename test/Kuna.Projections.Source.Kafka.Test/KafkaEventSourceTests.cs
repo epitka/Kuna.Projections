@@ -207,7 +207,7 @@ public sealed class KafkaEventSourceTests
         var consumerFactory = new FakeKafkaConsumerFactory(consumer);
         var source = new KafkaEventSource<TestModel>(
             consumerFactory,
-            new NativeKafkaSourceTransformer(),
+            new KunaKafkaSourceTransformer(),
             new KafkaEventEnvelopeFactory(new KafkaEventDeserializer([typeof(TestEvent),], NullLogger<KafkaEventDeserializer>.Instance)),
             new KafkaCheckpointSerializer(),
             new KafkaSourceSettings
@@ -237,7 +237,7 @@ public sealed class KafkaEventSourceTests
     {
         return new KafkaEventSource<TestModel>(
             new FakeKafkaConsumerFactory(consumer),
-            new NativeKafkaSourceTransformer(),
+            new KunaKafkaSourceTransformer(),
             new KafkaEventEnvelopeFactory(new KafkaEventDeserializer([typeof(TestEvent),], NullLogger<KafkaEventDeserializer>.Instance)),
             new KafkaCheckpointSerializer(),
             sourceSettings,

@@ -75,10 +75,9 @@ public sealed class OrdersReplayConsistencyDiagnostics
         ReplayConsistencyMismatch? mismatch = null;
 
         this.logger.LogInformation(
-            "Starting replay consistency diagnostics for OrdersProjection: orderCount={OrderCount}, orderId={OrderId}, limit={Limit}, stopOnFirstMismatch={StopOnFirstMismatch}",
+            "Starting replay consistency diagnostics for OrdersProjection: orderCount={OrderCount}, orderId={OrderId}, stopOnFirstMismatch={StopOnFirstMismatch}",
             orders.Count,
             request.OrderId,
-            request.Limit,
             stopOnFirstMismatch);
 
         foreach (var dbOrder in orders)
@@ -362,11 +361,6 @@ public sealed class OrdersReplayConsistencyDiagnostics
             query = query.Where(x => x.Id == request.OrderId.Value);
         }
 
-        if (request.Limit.HasValue)
-        {
-            query = query.Take(Math.Max(1, request.Limit.Value));
-        }
-
         return await query.ToListAsync(cancellationToken);
     }
 
@@ -406,7 +400,6 @@ public sealed class OrdersReplayConsistencyDiagnostics
 
 public sealed record ReplayConsistencyRequest(
     Guid? OrderId = null,
-    int? Limit = null,
     bool? StopOnFirstMismatch = null,
     int? LogEvery = null);
 

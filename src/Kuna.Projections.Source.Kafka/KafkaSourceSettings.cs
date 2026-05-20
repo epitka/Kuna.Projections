@@ -16,8 +16,6 @@ public sealed class KafkaSourceSettings
 
     public KafkaKeyFormat KeyFormat { get; init; } = KafkaKeyFormat.Guid;
 
-    public KafkaSourceTransformerKind Transformer { get; init; } = KafkaSourceTransformerKind.Native;
-
     public int[]? Partitions { get; init; }
 
     public int PollTimeoutMs { get; init; } = 1000;

@@ -116,10 +116,41 @@ public sealed class ServiceCollectionExtensionsTests
 
         provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
         provider.GetRequiredKeyedService<IKafkaSourceTransformer>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name))
-                .ShouldBeOfType<NativeKafkaSourceTransformer>();
+                .ShouldBeOfType<KunaKafkaSourceTransformer>();
 
         provider.GetRequiredService<ICheckpointSerializer<KafkaCheckpointDocument>>().ShouldBeOfType<KafkaCheckpointSerializer>();
         provider.GetRequiredService<IKafkaEventDeserializer>().ShouldBeOfType<KafkaEventDeserializer>();
+    }
+
+    [Fact]
+    public void AddKafkaSource_Should_Not_Replace_Custom_Transformer()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Kafka"] = "localhost:9092",
+                ["Projections:Source"] = "Kafka",
+                ["Projections:InstanceId"] = "orders-v1",
+                ["Projections:Kafka:Topic"] = "orders-events",
+            });
+
+        services.AddKeyedSingleton<IKafkaSourceTransformer, CustomKafkaSourceTransformer>(
+            GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name));
+
+        services.AddKafkaSource<TestModel>(
+            configuration,
+            LoggerFactory.Create(
+                _ =>
+                {
+                }),
+            ProjectionSettingsSection.Name);
+
+        using var provider = services.BuildServiceProvider();
+
+        provider.GetRequiredKeyedService<IKafkaSourceTransformer>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name))
+                .ShouldBeOfType<CustomKafkaSourceTransformer>();
     }
 
     [Fact]
@@ -167,5 +198,13 @@ public sealed class ServiceCollectionExtensionsTests
 
     private sealed class TestModel : Model
     {
+    }
+
+    private sealed class CustomKafkaSourceTransformer : IKafkaSourceTransformer
+    {
+        public KafkaSourceRecord Transform(KafkaSourceRecordContext context)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

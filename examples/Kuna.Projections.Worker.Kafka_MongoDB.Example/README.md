@@ -3,12 +3,8 @@
 This example runs a projection worker that:
 
 - consumes events from Kafka
-- expects native Kafka projection records produced by the shared seeder
+- expects Kuna Kafka projection records produced by the shared seeder
 - projects into MongoDB using the existing MongoDB sink
-
-This example is intended for the flow:
-
-- `Seeder -> Kafka -> Kuna.Projections -> MongoDB`
 
 ## Start Infrastructure
 
@@ -50,18 +46,17 @@ http://localhost:5284/
 
 ## Important Constraint
 
-This worker assumes Kafka ordering is safe for projection replay.
-For that to be true, the producer must ensure all events for one model are published to the same partition.
+**This worker assumes Kafka ordering is safe for projection replay.**
+**The producer must ensure all events for one model are published to the same partition.**
 
 The shared seeder writes Kafka records keyed by model id, so Kafka preserves per-order partitioning.
 
 This worker uses:
 
 - `OrdersProjection:Kafka:ConsumerGroupId = "orders-v1"`
-- `OrdersProjection:Kafka:Transformer = "Native"`
 - `OrdersProjection:Kafka:Topic = "orders-events"`
 
-That means the Kafka topic should contain the repository's native Kafka projection record format.
+That means the Kafka topic should contain the repository's Kuna Kafka projection record format.
 
 If you choose to set `OrdersProjection:Kafka:Partitions`, the configured partition ids must already exist on the topic.
 The source validates that at startup and the Kafka health check reports missing configured partitions as unhealthy.
@@ -91,12 +86,12 @@ curl http://localhost:5284/health
 
 ## Run Replay Consistency Check
 
-Check a small sample first:
+Run the full check:
 
 ```bash
 curl -X POST http://localhost:5284/diagnostics/orders/replay-consistency \
   -H "Content-Type: application/json" \
-  -d '{"limit": 50, "stopOnFirstMismatch": true, "logEvery": 10}' | jq
+  -d '{"stopOnFirstMismatch": true, "logEvery": 10}' | jq
 ```
 
 Check one specific order:
@@ -114,12 +109,21 @@ The replay consistency endpoint:
 - compares touched orders with MongoDB and evicts matched orders from the temporary replay cache
 - returns mismatch details when a divergence is found
 
+Request fields:
+
+- `orderId`
+  Optional. If omitted, every persisted order is checked. If supplied, only that order is checked.
+- `stopOnFirstMismatch`
+  Optional. Defaults to `true`. When `true`, the diagnostic returns as soon as it finds the first mismatch.
+- `logEvery`
+  Optional. Defaults to `500`. Controls how often progress is written to the worker logs.
+
 This endpoint is diagnostic work, not the normal projection path.
 It is intentionally heavier than `/diagnostics/orders/status`, especially on large topics.
 
 ### How Kafka Consistency Works
 
-Kafka does not provide direct per-order stream replay in the same way KurrentDB does.
+Kafka is optimized for ordered partition scans, not direct per-order history reads.
 Because of that, this diagnostic does not ask Kafka for one order at a time.
 Instead it uses the shape Kafka is good at:
 
@@ -192,7 +196,7 @@ docker compose up -d
 ## Configuration
 
 - The worker uses `ConnectionStrings:MongoDB` and `ConnectionStrings:Kafka` for broker/store endpoints.
-- Projection-specific Kafka source options live under `OrdersProjection:Kafka`, such as `ConsumerGroupId`, `Topic`, `Partitions`, `Transformer`, and `PollTimeoutMs`.
+- Projection-specific Kafka source options live under `OrdersProjection:Kafka`, such as `ConsumerGroupId`, `Topic`, `Partitions`, and `PollTimeoutMs`.
 - The MongoDB sink stores orders in `orders_order`.
 - Checkpoints remain in `projection_checkpoints`.
 - Projection failures are stored in `projection_failures`.

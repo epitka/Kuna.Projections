@@ -27,6 +27,8 @@ The library-owned names are:
 
 - `KurrentDB`
   Required when the projection registration uses `UseKurrentDbSource(...)`.
+- `Kafka`
+  Required when the projection registration uses `UseKafkaSource(...)`.
 - `PostgreSql`
   Not required by the library itself, but used by the example application when constructing the EF Core `DbContext`.
 - `MongoDB`
@@ -34,8 +36,8 @@ The library-owned names are:
 
 If `KurrentDB` is missing or empty, `UseKurrentDbSource(...)` throws during registration.
 
-Kafka broker configuration is not read from `ConnectionStrings` in the current implementation.
-Kafka source settings are bound from the projection's nested `Kafka` section.
+If `Kafka` is missing or empty, `UseKafkaSource(...)` throws during registration.
+Kafka broker endpoints are read from `ConnectionStrings:Kafka`; projection-specific Kafka source settings are bound from the projection's nested `Kafka` section.
 
 ## MongoDB Sink Options
 
@@ -61,7 +63,7 @@ The section itself is required because `AddProjection<TState>(...)` calls `confi
 | `CatchUpFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior before the source reaches live processing.               |
 | `LiveProcessingFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior after the source catches up.                             |
 | `Backpressure` | `ProjectionBackpressureSettings` | See below | No | Backpressure buffer capacities between projection pipeline stages.      |
-| `Source` | `ProjectionSourceKind` | `KurrentDB` | No | Selects which source implementation the projection uses.                |
+| `Source` | `ProjectionSourceKind` | None | Yes | Selects which source implementation the projection uses.                |
 | `ModelIdResolutionStrategy` | `ModelIdResolutionStrategy` | `PreferAttribute` | No | Controls how model ids are derived from events and stream ids.          |
 | `ModelStateCacheCapacity` | `int` | `10000` | No | Number of model states retained in memory.                              |
 | `EventVersionCheckStrategy` | `EventVersionCheckStrategy` | `Consecutive` | No | Controls event ordering validation before `Apply(...)`.                 |
@@ -292,7 +294,9 @@ Allowed values:
 - `KurrentDB`
 - `Kafka`
 
-Default: `KurrentDB`
+Required: yes
+
+Default: none
 
 Meaning:
 
@@ -377,33 +381,22 @@ Bound by: `UseKafkaSource(...)` on a projection registration builder
 Target type: `KafkaSourceSettings`
 
 The section is required when the root projection setting `Source` is `Kafka`.
+Kafka broker endpoints are configured separately through `ConnectionStrings:Kafka`.
 
 ### Settings Summary
 
 | Key | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `BootstrapServers` | `string` | None | Yes | Comma-separated broker addresses. |
 | `Topic` | `string` | None | Yes | Kafka topic consumed by the projection. |
 | `ClientId` | `string` | None | No | Optional Kafka client id. |
 | `AutoOffsetReset` | `KafkaAutoOffsetReset` | `Earliest` | No | Used when no projection checkpoint exists for a partition. |
-| `KeyFormat` | `KafkaKeyFormat` | `Guid` | No | Current native Kafka key format. |
-| `Transformer` | `KafkaSourceTransformerKind` | `Native` | No | Selects how Kafka records are normalized before envelope creation. |
+| `KeyFormat` | `KafkaKeyFormat` | `Guid` | No | Key format expected by the default Kuna Kafka transformer. |
 | `Partitions` | `int[]` | All topic partitions | No | Optional explicit partition assignment. The configured ids must exist on the topic. |
 | `PollTimeoutMs` | `int` | `1000` | No | Poll timeout used by the Kafka source loop. |
 
-### `Transformer`
+Kafka source registration adds `KunaKafkaSourceTransformer` by default. It expects the repository's Kafka record format with metadata carried in Kafka headers.
 
-Type: `KafkaSourceTransformerKind`
-
-Allowed values:
-
-- `Native`
-- `Kurrent`
-
-Guidance:
-
-- `Native` expects the repository's preferred Kafka event format with metadata carried in Kafka headers.
-- `Kurrent` expects records exported by KurrentDB's Kafka Sink connector.
+If a Kafka topic uses a different record shape, implement `IKafkaSourceTransformer` and register it for that projection before calling `UseKafkaSource(...)`.
 
 ### `Partitions`
 
@@ -418,10 +411,9 @@ Guidance:
 
 ### Ordering Requirement
 
-The Kafka source depends on per-model ordering being preserved by partitioning.
+**The Kafka source depends on per-model ordering being preserved by partitioning.**
 
-That means all events for one model must arrive on the same Kafka partition.
-This is a correctness requirement, not an optimization.
+**All events for one model must arrive on the same Kafka partition. This is a correctness requirement, not an optimization.**
 
 When consuming KurrentDB-exported Kafka records, KurrentDB's Kafka Sink must be configured with partition-key extraction so all events for one model stay on one partition.
 

@@ -34,4 +34,4 @@ dotnet run \
 
 echo "Live seed complete."
 echo "Generation report: ${REPORT_PATH}"
-echo "Kafka topic contains native projection records for stream prefix: ${STREAM_PREFIX}"
+echo "Kafka topic contains Kuna projection records for stream prefix: ${STREAM_PREFIX}"

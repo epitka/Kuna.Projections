@@ -91,10 +91,9 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
         ReplayConsistencyMismatch? mismatch = null;
 
         this.logger.LogInformation(
-            "Starting replay consistency diagnostics for OrdersProjection (Kafka): orderCount={OrderCount}, orderId={OrderId}, limit={Limit}, stopOnFirstMismatch={StopOnFirstMismatch}",
+            "Starting replay consistency diagnostics for OrdersProjection (Kafka): orderCount={OrderCount}, orderId={OrderId}, stopOnFirstMismatch={StopOnFirstMismatch}",
             orders.Count,
             request.OrderId,
-            request.Limit,
             stopOnFirstMismatch);
 
         var replaySettings = new KafkaSourceSettings
@@ -105,7 +104,6 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
             ConsumerGroupId = this.sourceSettings.ConsumerGroupId,
             AutoOffsetReset = KafkaAutoOffsetReset.Earliest,
             KeyFormat = this.sourceSettings.KeyFormat,
-            Transformer = this.sourceSettings.Transformer,
             Partitions = this.sourceSettings.Partitions,
             PollTimeoutMs = this.sourceSettings.PollTimeoutMs,
         };
@@ -132,7 +130,7 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
             string.Join(", ", assignedPartitions),
             string.Join(", ", highWatermarks.OrderBy(x => x.Key).Select(x => $"{x.Key}:{x.Value}")));
 
-        var transformer = new NativeKafkaSourceTransformer();
+        var transformer = new KunaKafkaSourceTransformer();
         var consumedSinceComparison = 0;
         var matchedSinceComparison = 0;
 
@@ -519,11 +517,6 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
 
         IFindFluent<Order, Order> find = this.ordersCollection.Find(filter).SortBy(x => x.Id);
 
-        if (request.Limit.HasValue)
-        {
-            find = find.Limit(Math.Max(1, request.Limit.Value));
-        }
-
         return await find.ToListAsync(cancellationToken);
     }
 
@@ -675,7 +668,6 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
 
 public sealed record ReplayConsistencyRequest(
     Guid? OrderId = null,
-    int? Limit = null,
     bool? StopOnFirstMismatch = null,
     int? LogEvery = null);
 

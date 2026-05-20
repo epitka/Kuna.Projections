@@ -44,13 +44,7 @@ public static class ServiceCollectionExtensions
         services.AddHealthChecks()
                 .AddCheck<KafkaHealthCheck>("Kafka", HealthStatus.Unhealthy);
 
-        services.AddKeyedSingleton<IKafkaSourceTransformer>(
-            registrationKey,
-            (_, _) => sourceSettings.Transformer switch
-                      {
-                          KafkaSourceTransformerKind.Native => new NativeKafkaSourceTransformer(),
-                          _                                 => throw new ArgumentOutOfRangeException(nameof(sourceSettings.Transformer)),
-                      });
+        services.TryAddKeyedSingleton<IKafkaSourceTransformer, KunaKafkaSourceTransformer>(registrationKey);
 
         services.AddKeyedSingleton<IProjectionEventSource<TState>>(
             registrationKey,

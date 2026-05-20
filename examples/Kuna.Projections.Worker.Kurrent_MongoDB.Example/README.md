@@ -29,6 +29,7 @@ The worker exposes:
 
 ```text
 GET /
+POST /diagnostics/orders/replay-consistency
 ```
 
 Default local URL:
@@ -36,6 +37,38 @@ Default local URL:
 ```text
 http://localhost:5277/
 ```
+
+## Run Replay Consistency Check
+
+The replay consistency diagnostic compares:
+
+- the current `Order` documents already persisted in MongoDB
+- a fresh per-stream replay from KurrentDB using the same `OrdersProjection`
+
+Run the full check:
+
+```bash
+curl -X POST http://localhost:5277/diagnostics/orders/replay-consistency \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+Run a single-order check:
+
+```bash
+curl -X POST http://localhost:5277/diagnostics/orders/replay-consistency \
+  -H "Content-Type: application/json" \
+  -d '{"orderId":"00000000-0000-0000-0000-000000000000"}'
+```
+
+Request fields:
+
+- `orderId`
+  Optional. If omitted, every persisted order is checked. If supplied, only that order is checked.
+- `stopOnFirstMismatch`
+  Optional. Defaults to `true`. When `true`, the diagnostic returns as soon as it finds the first mismatch.
+- `logEvery`
+  Optional. Defaults to `500`. Controls how often progress is written to the worker logs.
 
 ## Restart Projection State Without Reseeding Events
 

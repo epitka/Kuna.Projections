@@ -31,7 +31,6 @@ public static class KafkaSourceSettingsResolver
             ConsumerGroupId = sectionSettings.ConsumerGroupId,
             AutoOffsetReset = sectionSettings.AutoOffsetReset,
             KeyFormat = sectionSettings.KeyFormat,
-            Transformer = sectionSettings.Transformer,
             Partitions = sectionSettings.Partitions,
             PollTimeoutMs = sectionSettings.PollTimeoutMs,
         };

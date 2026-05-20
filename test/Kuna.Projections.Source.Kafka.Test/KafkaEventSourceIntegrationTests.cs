@@ -21,7 +21,7 @@ public sealed class KafkaEventSourceIntegrationTests
     }
 
     [Fact]
-    public async Task ReadAll_Should_Consume_Native_Kafka_Record_From_Real_Broker()
+    public async Task ReadAll_Should_Consume_Kuna_Kafka_Record_From_Real_Broker()
     {
         var modelId = Guid.NewGuid();
         var topic = $"orders-events-{Guid.NewGuid():N}";
@@ -51,7 +51,7 @@ public sealed class KafkaEventSourceIntegrationTests
 
         var source = new KafkaEventSource<TestModel>(
             new KafkaConsumerFactory(),
-            new NativeKafkaSourceTransformer(),
+            new KunaKafkaSourceTransformer(),
             new KafkaEventEnvelopeFactory(new KafkaEventDeserializer([typeof(TestEvent),], NullLogger<KafkaEventDeserializer>.Instance)),
             new KafkaCheckpointSerializer(),
             new KafkaSourceSettings
