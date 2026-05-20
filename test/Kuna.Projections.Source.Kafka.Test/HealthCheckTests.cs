@@ -1,0 +1,189 @@
+using Kuna.Projections.Source.Kafka;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Shouldly;
+using Xunit;
+
+namespace Kuna.Projections.Source.Kafka.Test;
+
+public sealed class HealthCheckTests
+{
+    [Fact]
+    public async Task CheckHealthAsync_Should_Return_Healthy_When_Registered_Topics_Are_Reachable()
+    {
+        var consumerFactory = new FakeConsumerFactory(
+            new FakeConsumer(
+                new Dictionary<string, IReadOnlyList<int>>
+                {
+                    ["orders-events"] = [0, 1,],
+                }));
+
+        var healthCheck = new HealthCheck(
+            [
+                new HealthCheckRegistration
+                {
+                    SettingsSectionName = "OrdersProjection",
+                    SourceSettings = new KafkaSourceSettings
+                    {
+                        BootstrapServers = "localhost:9092",
+                        ConsumerGroupId = "orders-consumer",
+                        Topic = "orders-events",
+                    },
+                },
+            ],
+            consumerFactory);
+
+        var result = await healthCheck.CheckHealthAsync(new HealthCheckContext(), TestContext.Current.CancellationToken);
+
+        result.Status.ShouldBe(HealthStatus.Healthy);
+        consumerFactory.RequestedConsumerGroups.ShouldBe(["orders-consumer-healthcheck",]);
+    }
+
+    [Fact]
+    public async Task CheckHealthAsync_Should_Return_Unhealthy_When_Topic_Has_No_Partitions()
+    {
+        var healthCheck = new HealthCheck(
+            [
+                new HealthCheckRegistration
+                {
+                    SettingsSectionName = "OrdersProjection",
+                    SourceSettings = new KafkaSourceSettings
+                    {
+                        BootstrapServers = "localhost:9092",
+                        ConsumerGroupId = "orders-consumer",
+                        Topic = "orders-events",
+                    },
+                },
+            ],
+            new FakeConsumerFactory(new FakeConsumer(new Dictionary<string, IReadOnlyList<int>>())));
+
+        var result = await healthCheck.CheckHealthAsync(new HealthCheckContext(), TestContext.Current.CancellationToken);
+
+        result.Status.ShouldBe(HealthStatus.Unhealthy);
+        result.Description.ShouldNotBeNull();
+        result.Description.ShouldContain("orders-events");
+    }
+
+    [Fact]
+    public async Task CheckHealthAsync_Should_Return_Unhealthy_When_Probe_Throws()
+    {
+        var healthCheck = new HealthCheck(
+            [
+                new HealthCheckRegistration
+                {
+                    SettingsSectionName = "OrdersProjection",
+                    SourceSettings = new KafkaSourceSettings
+                    {
+                        BootstrapServers = "localhost:9092",
+                        ConsumerGroupId = "orders-consumer",
+                        Topic = "orders-events",
+                    },
+                },
+            ],
+            new ThrowingConsumerFactory());
+
+        var result = await healthCheck.CheckHealthAsync(new HealthCheckContext(), TestContext.Current.CancellationToken);
+
+        result.Status.ShouldBe(HealthStatus.Unhealthy);
+        result.Exception.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task CheckHealthAsync_Should_Return_Unhealthy_When_Configured_Partition_Is_Missing()
+    {
+        var healthCheck = new HealthCheck(
+            [
+                new HealthCheckRegistration
+                {
+                    SettingsSectionName = "OrdersProjection",
+                    SourceSettings = new KafkaSourceSettings
+                    {
+                        BootstrapServers = "localhost:9092",
+                        ConsumerGroupId = "orders-consumer",
+                        Topic = "orders-events",
+                        Partitions = [1,],
+                    },
+                },
+            ],
+            new FakeConsumerFactory(
+                new FakeConsumer(
+                    new Dictionary<string, IReadOnlyList<int>>
+                    {
+                        ["orders-events"] = [0,],
+                    })));
+
+        var result = await healthCheck.CheckHealthAsync(new HealthCheckContext(), TestContext.Current.CancellationToken);
+
+        result.Status.ShouldBe(HealthStatus.Unhealthy);
+        result.Description.ShouldNotBeNull();
+        result.Description.ShouldContain("does not contain partitions");
+    }
+
+    private sealed class FakeConsumerFactory : IConsumerFactory
+    {
+        private readonly IConsumer consumer;
+
+        public FakeConsumerFactory(IConsumer consumer)
+        {
+            this.consumer = consumer;
+        }
+
+        public List<string> RequestedConsumerGroups { get; } = [];
+
+        public IConsumer Create(KafkaSourceSettings sourceSettings, string consumerGroupId)
+        {
+            this.RequestedConsumerGroups.Add(consumerGroupId);
+            return this.consumer;
+        }
+    }
+
+    private sealed class ThrowingConsumerFactory : IConsumerFactory
+    {
+        public IConsumer Create(KafkaSourceSettings sourceSettings, string consumerGroupId)
+        {
+            throw new InvalidOperationException("boom");
+        }
+    }
+
+    private sealed class FakeConsumer : IConsumer
+    {
+        private readonly IReadOnlyDictionary<string, IReadOnlyList<int>> partitionsByTopic;
+
+        public FakeConsumer(IReadOnlyDictionary<string, IReadOnlyList<int>> partitionsByTopic)
+        {
+            this.partitionsByTopic = partitionsByTopic;
+        }
+
+        public IReadOnlyList<int> GetPartitions(string topic)
+        {
+            return this.partitionsByTopic.TryGetValue(topic, out var partitions)
+                       ? partitions
+                       : [];
+        }
+
+        public void Assign(string topic, IReadOnlyCollection<int> partitions, IReadOnlyDictionary<int, long>? startOffsets = null)
+        {
+        }
+
+        public void Seek(string topic, int partition, long offset)
+        {
+        }
+
+        public ConsumedMessage? Consume(TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            return null;
+        }
+
+        public long GetHighWatermarkOffset(string topic, int partition)
+        {
+            return 0;
+        }
+
+        public void Close()
+        {
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+}

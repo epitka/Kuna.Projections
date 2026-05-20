@@ -4,6 +4,7 @@ This document describes the library-owned configuration surface used by:
 
 - `Kuna.Projections.Core`
 - `Kuna.Projections.Source.KurrentDB`
+- `Kuna.Projections.Source.Kafka`
 
 It also explains where the library stops and application-specific configuration begins.
 
@@ -15,7 +16,8 @@ The libraries expect:
 
 - `ConnectionStrings`
 - one projection section per registered projection
-- a nested `KurrentDB` section inside each projection section when `Source` is `KurrentDB`
+- a nested `KurrentDB` section inside each projection section registered with `UseKurrentDbSource(...)`
+- a nested `Kafka` section inside each projection section registered with `UseKafkaSource(...)`
 
 The projection section name is application-defined. The tables below list the full settings surface and the default values used by the library types when a setting is present in the section but not explicitly overridden.
 
@@ -25,12 +27,17 @@ The library-owned names are:
 
 - `KurrentDB`
   Required when the projection registration uses `UseKurrentDbSource(...)`.
+- `Kafka`
+  Required when the projection registration uses `UseKafkaSource(...)`.
 - `PostgreSql`
   Not required by the library itself, but used by the example application when constructing the EF Core `DbContext`.
 - `MongoDB`
   Not required by the library itself, but commonly used by applications and examples when passing `configuration.GetConnectionString("MongoDB")` into `UseMongoDataStore(...)`.
 
 If `KurrentDB` is missing or empty, `UseKurrentDbSource(...)` throws during registration.
+
+If `Kafka` is missing or empty, `UseKafkaSource(...)` throws during registration.
+Kafka broker endpoints are read from `ConnectionStrings:Kafka`; projection-specific Kafka source settings are bound from the projection's nested `Kafka` section.
 
 ## MongoDB Sink Options
 
@@ -56,7 +63,6 @@ The section itself is required because `AddProjection<TState>(...)` calls `confi
 | `CatchUpFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior before the source reaches live processing.               |
 | `LiveProcessingFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior after the source catches up.                             |
 | `Backpressure` | `ProjectionBackpressureSettings` | See below | No | Backpressure buffer capacities between projection pipeline stages.      |
-| `Source` | `ProjectionSourceKind` | `KurrentDB` | No | Selects which source implementation the projection uses.                |
 | `ModelIdResolutionStrategy` | `ModelIdResolutionStrategy` | `PreferAttribute` | No | Controls how model ids are derived from events and stream ids.          |
 | `ModelStateCacheCapacity` | `int` | `10000` | No | Number of model states retained in memory.                              |
 | `EventVersionCheckStrategy` | `EventVersionCheckStrategy` | `Consecutive` | No | Controls event ordering validation before `Apply(...)`.                 |
@@ -278,20 +284,6 @@ Example:
 
 This example intentionally allows source reading to run ahead of transformation and keeps the final buffer before sink persistence smaller. Use values this large only after measuring memory use and replay throughput.
 
-### `Source`
-
-Type: `ProjectionSourceKind`
-
-Allowed values:
-
-- `KurrentDB`
-
-Default: `KurrentDB`
-
-Meaning:
-
-- selects which event source implementation the projection uses
-
 ### `ModelIdResolutionStrategy`
 
 Type: `ModelIdResolutionStrategy`
@@ -360,6 +352,55 @@ Guidance:
 - `Monotonic` is useful when gaps are acceptable but reordering is not
 - `Disabled` should be an explicit tradeoff
 
+## `Kafka`
+
+Section name: `Kafka`
+
+Bound by: `UseKafkaSource(...)` on a projection registration builder
+
+Target type: `KafkaSourceSettings`
+
+The section is required when the projection is registered with `UseKafkaSource(...)`.
+Kafka broker endpoints are configured separately through `ConnectionStrings:Kafka`.
+
+### Settings Summary
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `ConsumerGroupId` | `string` | None | Yes | Kafka consumer group used by the projection. Diagnostic groups derive from this value. |
+| `Topic` | `string` | None | Yes | Kafka topic consumed by the projection. |
+| `ClientId` | `string` | None | No | Optional Kafka client id. |
+| `AutoOffsetReset` | `KafkaAutoOffsetReset` | `Earliest` | No | Used when no projection checkpoint exists for a partition. |
+| `KeyFormat` | `KafkaKeyFormat` | `Guid` | No | Key format expected by the default Kuna Kafka transformer. |
+| `Partitions` | `int[]` | All topic partitions | No | Optional explicit partition assignment. The configured ids must exist on the topic. |
+| `PollTimeoutMs` | `int` | `1000` | No | Poll timeout used by the Kafka source loop. |
+
+Kafka source registration adds `KunaKafkaSourceTransformer` by default. It expects the repository's Kafka record format with metadata carried in Kafka headers.
+
+If a Kafka topic uses a different record shape, implement `IKafkaSourceTransformer` and register it for that projection before calling `UseKafkaSource(...)`.
+
+### `Partitions`
+
+Type: `int[]`
+
+Guidance:
+
+- omit it to consume every partition on the topic
+- set it only when you intentionally want a fixed subset
+- startup fails if the configured partition ids do not exist on the topic
+- the Kafka health check probes the topic metadata and reports missing configured partitions as unhealthy
+
+### Ordering Requirement
+
+**The Kafka source depends on per-model ordering being preserved by partitioning.**
+
+**All events for one model must arrive on the same Kafka partition. This is a correctness requirement, not an optimization.**
+
+When consuming KurrentDB-exported Kafka records, KurrentDB's Kafka Sink must be configured with partition-key extraction so all events for one model stay on one partition.
+
+Timestamps are treated as metadata only.
+They are not used as the replay ordering source.
+
 ## `KurrentDB`
 
 Section name: `KurrentDB`
@@ -368,7 +409,7 @@ Bound by: `UseKurrentDbSource(...)` on a projection registration builder
 
 Target type: `KurrentDbSourceSettings`
 
-The section is required when the root projection setting `Source` is `KurrentDB`.
+The section is required when the projection is registered with `UseKurrentDbSource(...)`.
 
 ### Settings Summary
 
@@ -459,7 +500,6 @@ For a first production-like setup, start with the library defaults and add only 
 {
   "OrdersProjection": {
     "InstanceId": "orders-v1",
-    "Source": "KurrentDB",
     "KurrentDB": {
       "Filter": {
         "Kind": "StreamPrefix",

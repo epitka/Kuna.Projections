@@ -61,7 +61,7 @@ Example HTTPS call:
 ```bash
 curl -k -X POST https://localhost:7277/diagnostics/orders/replay-consistency \
   -H 'Content-Type: application/json' \
-  -d '{"limit":1}'
+  -d '{}'
 ```
 
 Run the full check:
@@ -80,20 +80,10 @@ curl -X POST http://localhost:5277/diagnostics/orders/replay-consistency \
   -d '{"orderId":"00000000-0000-0000-0000-000000000000"}'
 ```
 
-Run a limited sample:
-
-```bash
-curl -X POST http://localhost:5277/diagnostics/orders/replay-consistency \
-  -H 'Content-Type: application/json' \
-  -d '{"limit":100}'
-```
-
 Request fields:
 
 - `orderId`
-  Optional. If supplied, only that order is checked.
-- `limit`
-  Optional. Limits how many persisted orders are checked.
+  Optional. If omitted, every persisted order is checked. If supplied, only that order is checked.
 - `stopOnFirstMismatch`
   Optional. Defaults to `true`. When `true`, the diagnostic returns as soon as it finds the first mismatch.
 - `logEvery`
@@ -105,7 +95,6 @@ Example:
 curl -X POST http://localhost:5277/diagnostics/orders/replay-consistency \
   -H 'Content-Type: application/json' \
   -d '{
-    "limit": 1000,
     "stopOnFirstMismatch": false,
     "logEvery": 100
   }'

@@ -6,6 +6,7 @@ Its scope is narrow:
 
 - generate example order event streams
 - write those events to KurrentDB
+- optionally write those events directly to Kafka
 - optionally create example Kurrent snapshots for local workflows
 
 It is intentionally separate from the projection workers so EF and Mongo examples can reuse one seeding path.

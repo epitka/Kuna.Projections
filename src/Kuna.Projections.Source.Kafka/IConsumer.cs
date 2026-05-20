@@ -1,0 +1,85 @@
+using Confluent.Kafka;
+
+namespace Kuna.Projections.Source.Kafka;
+
+public interface IConsumer : IDisposable
+{
+    IReadOnlyList<int> GetPartitions(string topic);
+
+    void Assign(string topic, IReadOnlyCollection<int> partitions, IReadOnlyDictionary<int, long>? startOffsets = null);
+
+    ConsumedMessage? Consume(TimeSpan timeout, CancellationToken cancellationToken);
+
+    long GetHighWatermarkOffset(string topic, int partition);
+}
+
+internal sealed class Consumer : IConsumer
+{
+    private readonly IAdminClient adminClient;
+    private readonly IConsumer<byte[], byte[]> consumer;
+
+    public Consumer(
+        IAdminClient adminClient,
+        IConsumer<byte[], byte[]> consumer)
+    {
+        this.adminClient = adminClient;
+        this.consumer = consumer;
+    }
+
+    public IReadOnlyList<int> GetPartitions(string topic)
+    {
+        var metadata = this.adminClient.GetMetadata(topic, TimeSpan.FromSeconds(10));
+        var topicMetadata = metadata.Topics.SingleOrDefault(x => string.Equals(x.Topic, topic, StringComparison.Ordinal));
+
+        if (topicMetadata is null)
+        {
+            return [];
+        }
+
+        return topicMetadata.Partitions
+                            .Select(x => x.PartitionId)
+                            .OrderBy(x => x)
+                            .ToArray();
+    }
+
+    public void Assign(string topic, IReadOnlyCollection<int> partitions, IReadOnlyDictionary<int, long>? startOffsets = null)
+    {
+        if (startOffsets is not null
+            && startOffsets.Count > 0)
+        {
+            this.consumer.Assign(
+                partitions.Select(
+                    partition => new TopicPartitionOffset(
+                        topic,
+                        new Partition(partition),
+                        startOffsets.TryGetValue(partition, out var offset)
+                            ? new Offset(offset + 1)
+                            : Offset.Unset)));
+
+            return;
+        }
+
+        this.consumer.Assign(partitions.Select(partition => new TopicPartition(topic, new Partition(partition))));
+    }
+
+    public ConsumedMessage? Consume(TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var result = this.consumer.Consume(timeout);
+        return result is null ? null : ConsumeResultAdapter.Adapt(result);
+    }
+
+    public long GetHighWatermarkOffset(string topic, int partition)
+    {
+        var watermarkOffsets = this.consumer.QueryWatermarkOffsets(
+            new TopicPartition(topic, new Partition(partition)),
+            TimeSpan.FromSeconds(10));
+
+        return watermarkOffsets.High.Value;
+    }
+
+    public void Dispose()
+    {
+        this.adminClient.Dispose();
+        this.consumer.Dispose();
+    }
+}

@@ -35,9 +35,17 @@ public static class OrderSeedingCommand
             return 0;
         }
 
-        if (string.IsNullOrWhiteSpace(options.ConnectionString))
+        if (string.IsNullOrWhiteSpace(options.ConnectionString)
+            && string.IsNullOrWhiteSpace(options.KafkaBootstrapServers))
         {
-            Console.Error.WriteLine("Missing required option: --connection-string");
+            Console.Error.WriteLine("Missing required output target. Provide --connection-string and/or --kafka-bootstrap-servers.");
+            return 1;
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.KafkaBootstrapServers)
+            && string.IsNullOrWhiteSpace(options.KafkaTopic))
+        {
+            Console.Error.WriteLine("Missing required option: --kafka-topic");
             return 1;
         }
 
@@ -63,7 +71,7 @@ public static class OrderSeedingCommand
         var progress = new Progress<StreamWriteProgress>(
             x =>
             {
-                if (x.WrittenEvents % 5000 == 0
+                if (x.WrittenEvents % 500 == 0
                     || x.WrittenEvents == x.TotalEvents)
                 {
                     Console.WriteLine(
@@ -71,7 +79,21 @@ public static class OrderSeedingCommand
                 }
             });
 
-        await KurrentStreamWriter.WriteAsync(writePlan, options.ConnectionString, progress, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(options.ConnectionString))
+        {
+            Console.WriteLine($"Writing to KurrentDB at: {options.ConnectionString}");
+            await KurrentStreamWriter.WriteAsync(writePlan, options.ConnectionString, progress, cancellationToken);
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.KafkaBootstrapServers))
+        {
+            Console.WriteLine($"Writing to Kafka at: {options.KafkaBootstrapServers}, topic: {options.KafkaTopic}");
+            await KafkaStreamWriter.WriteAsync(
+                new KafkaWritePlan(options.KafkaTopic!, orderPlan.InterleavedEvents),
+                options.KafkaBootstrapServers,
+                progress,
+                cancellationToken);
+        }
 
         var completedAt = DateTimeOffset.UtcNow;
         var report = OrderGenerationReportFactory.Create(
@@ -100,6 +122,10 @@ public static class OrderSeedingCommand
         public int MinimumCompleteOrders { get; init; } = 10_000;
 
         public string StreamPrefix { get; init; } = "order-";
+
+        public string? KafkaBootstrapServers { get; init; }
+
+        public string? KafkaTopic { get; init; }
 
         public double AbandonRatio { get; init; } = 0.20d;
 
@@ -150,6 +176,8 @@ public static class OrderSeedingCommand
                 TargetEvents = ParseInt(map, "target-events", 100_000),
                 MinimumCompleteOrders = ParseInt(map, "min-complete-orders", 10_000),
                 StreamPrefix = map.GetValueOrDefault("stream-prefix") ?? "order-",
+                KafkaBootstrapServers = map.GetValueOrDefault("kafka-bootstrap-servers"),
+                KafkaTopic = map.GetValueOrDefault("kafka-topic"),
                 AbandonRatio = ParseDouble(map, "abandon-ratio", 0.20d),
                 RefundRatio = ParseDouble(map, "refund-ratio", 0.10d),
                 Seed = map.TryGetValue("seed", out var seedValue) && !string.Equals(seedValue, "true", StringComparison.OrdinalIgnoreCase)

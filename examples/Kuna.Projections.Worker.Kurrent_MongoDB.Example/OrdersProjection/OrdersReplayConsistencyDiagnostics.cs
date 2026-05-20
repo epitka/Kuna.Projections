@@ -88,10 +88,9 @@ public sealed class OrdersReplayConsistencyDiagnostics
         ReplayConsistencyMismatch? mismatch = null;
 
         this.logger.LogInformation(
-            "Starting replay consistency diagnostics for OrdersProjection: orderCount={OrderCount}, orderId={OrderId}, limit={Limit}, stopOnFirstMismatch={StopOnFirstMismatch}",
+            "Starting replay consistency diagnostics for OrdersProjection: orderCount={OrderCount}, orderId={OrderId}, stopOnFirstMismatch={StopOnFirstMismatch}",
             orders.Count,
             request.OrderId,
-            request.Limit,
             stopOnFirstMismatch);
 
         foreach (var dbOrder in orders)
@@ -370,11 +369,6 @@ public sealed class OrdersReplayConsistencyDiagnostics
 
         IFindFluent<Order, Order> find = this.ordersCollection.Find(filter).SortBy(x => x.Id);
 
-        if (request.Limit.HasValue)
-        {
-            find = find.Limit(Math.Max(1, request.Limit.Value));
-        }
-
         return await find.ToListAsync(cancellationToken);
     }
 
@@ -414,7 +408,6 @@ public sealed class OrdersReplayConsistencyDiagnostics
 
 public sealed record ReplayConsistencyRequest(
     Guid? OrderId = null,
-    int? Limit = null,
     bool? StopOnFirstMismatch = null,
     int? LogEvery = null);
 

@@ -29,6 +29,7 @@ The worker exposes:
 
 ```text
 GET /
+POST /diagnostics/orders/replay-consistency
 ```
 
 Default local URL:
@@ -37,37 +38,37 @@ Default local URL:
 http://localhost:5277/
 ```
 
-## Inspect Persisted Orders In MongoDB
+## Run Replay Consistency Check
 
-Connect with the local Mongo shell:
+The replay consistency diagnostic compares:
+
+- the current `Order` documents already persisted in MongoDB
+- a fresh per-stream replay from KurrentDB using the same `OrdersProjection`
+
+Run the full check:
 
 ```bash
-mongosh mongodb://localhost:27017/orders_projection
+curl -X POST http://localhost:5277/diagnostics/orders/replay-consistency \
+  -H "Content-Type: application/json" \
+  -d '{}'
 ```
 
-List the collections:
+Run a single-order check:
 
-```javascript
-show collections
+```bash
+curl -X POST http://localhost:5277/diagnostics/orders/replay-consistency \
+  -H "Content-Type: application/json" \
+  -d '{"orderId":"00000000-0000-0000-0000-000000000000"}'
 ```
 
-Read a few projected orders:
+Request fields:
 
-```javascript
-db.orders_order.find().limit(3).pretty()
-```
-
-Check the checkpoint document:
-
-```javascript
-db.projection_checkpoints.find().pretty()
-```
-
-Check persisted failures:
-
-```javascript
-db.projection_failures.find().pretty()
-```
+- `orderId`
+  Optional. If omitted, every persisted order is checked. If supplied, only that order is checked.
+- `stopOnFirstMismatch`
+  Optional. Defaults to `true`. When `true`, the diagnostic returns as soon as it finds the first mismatch.
+- `logEvery`
+  Optional. Defaults to `500`. Controls how often progress is written to the worker logs.
 
 ## Restart Projection State Without Reseeding Events
 

@@ -1,0 +1,50 @@
+services:
+  mongodb:
+    image: mongo:8
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    environment:
+      MONGO_INITDB_DATABASE: orders_projection
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "echo \"try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}) }\" | mongosh --port 27017 --quiet"
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 5s
+
+  redpanda:
+    image: redpandadata/redpanda:v25.1.2
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - 512M
+      - --reserve-memory
+      - 0M
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://127.0.0.1:9092
+      - --pandaproxy-addr
+      - 0.0.0.0:8082
+      - --advertise-pandaproxy-addr
+      - 127.0.0.1:8082
+    ports:
+      - "9092:9092"
+      - "8082:8082"
+
+volumes:
+  mongodb-data:

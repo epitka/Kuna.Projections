@@ -6,6 +6,7 @@
 
     <ItemGroup>
         <PackageReference Include="Bogus" />
+        <PackageReference Include="Confluent.Kafka" />
         <PackageReference Include="Testcontainers.KurrentDb" />
         <PackageReference Include="StyleCop.Analyzers">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

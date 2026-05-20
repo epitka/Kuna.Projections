@@ -633,7 +633,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
 
         var registrationKey = ProjectionRegistration.GetKey<Order>(ProjectionSettingsSection.Name);
 
-        services.AddKeyedSingleton<IProjectionEventSource<Order>>(
+        services.AddKeyedSingleton<IEventSource<EventEnvelope>>(
             registrationKey,
             (sp, _) =>
             {
@@ -655,15 +655,13 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                     sp.GetRequiredService<IEventDeserializer>(),
                     modelIdResolver);
 
-                var source = new KurrentDbEventSource<Order>(
+                return new KurrentDbEventSource<Order>(
                     sp.GetRequiredService<KurrentDBClient>(),
                     envelopeFactory,
                     sp.GetRequiredService<ICheckpointSerializer<Position>>(),
                     sourceSettings,
                     projectionSettings,
                     sp.GetRequiredService<ILogger<KurrentDbEventSource<Order>>>());
-
-                return new TestProjectionEventSource<Order>(source);
             });
 
         services.AddNpgsqlProjectionsDataStore<Order, OrdersDbContext>(ProjectionSettingsSection.Name, schema: "dbo");
@@ -850,17 +848,6 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         public decimal? MerchantRefundFeeRebatePercent { get; set; }
 
         public DateTimeOffset? RefundDateTime { get; set; }
-    }
-
-    private sealed class TestProjectionEventSource<TState> : IProjectionEventSource<TState>
-        where TState : class, IModel, new()
-    {
-        public TestProjectionEventSource(IEventSource<EventEnvelope> value)
-        {
-            this.Value = value;
-        }
-
-        public IEventSource<EventEnvelope> Value { get; }
     }
 
     public sealed record ReplayConsistencyCase(

@@ -57,7 +57,7 @@ public class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
 
         var ex = Should.Throw<InvalidOperationException>(
-            () => provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)));
+            () => provider.GetRequiredKeyedService<IEventSource<EventEnvelope>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)));
 
         ex.Message.ShouldContain("Projections:KurrentDB");
     }
@@ -85,9 +85,7 @@ public class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
 
         provider.GetRequiredService<IEventDeserializer>().ShouldNotBeNull();
-        provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
-        provider.GetRequiredKeyedService<IProjectionSettings<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name))
-                .Source.ShouldBe(ProjectionSourceKind.KurrentDB);
+        provider.GetRequiredKeyedService<IEventSource<EventEnvelope>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
     }
 
     [Fact]
@@ -114,7 +112,7 @@ public class ServiceCollectionExtensionsTests
 
         using var provider = services.BuildServiceProvider();
 
-        provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
+        provider.GetRequiredKeyedService<IEventSource<EventEnvelope>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
     }
 
     [Fact]
@@ -141,7 +139,7 @@ public class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
 
         var ex = Should.Throw<InvalidOperationException>(
-            () => provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)));
+            () => provider.GetRequiredKeyedService<IEventSource<EventEnvelope>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)));
 
         ex.Message.ShouldContain("regular expression");
     }
@@ -156,7 +154,6 @@ public class ServiceCollectionExtensionsTests
             new Dictionary<string, string?>
             {
                 ["ConnectionStrings:KurrentDB"] = "esdb://localhost:2113?tls=false",
-                ["OrdersProjection:Source"] = "KurrentDB",
                 ["OrdersProjection:ModelIdResolutionStrategy"] = "RequireStreamId",
                 ["OrdersProjection:KurrentDB:Filter:Kind"] = "EventTypePrefix",
                 ["OrdersProjection:KurrentDB:Filter:Prefixes:0"] = "Order",
@@ -174,7 +171,7 @@ public class ServiceCollectionExtensionsTests
 
         using var provider = services.BuildServiceProvider();
 
-        provider.GetRequiredKeyedService<IProjectionEventSource<TestModel>>(GetRegistrationKey<TestModel>("OrdersProjection")).ShouldNotBeNull();
+        provider.GetRequiredKeyedService<IEventSource<EventEnvelope>>(GetRegistrationKey<TestModel>("OrdersProjection")).ShouldNotBeNull();
         provider.GetRequiredKeyedService<IProjectionSettings<TestModel>>(GetRegistrationKey<TestModel>("OrdersProjection"))
                 .ModelIdResolutionStrategy.ShouldBe(ModelIdResolutionStrategy.RequireStreamId);
     }
@@ -222,7 +219,6 @@ public class ServiceCollectionExtensionsTests
         return new Dictionary<string, string?>
         {
             ["ConnectionStrings:KurrentDB"] = "esdb://localhost:2113?tls=false",
-            ["Projections:Source"] = "KurrentDB",
             ["Projections:ModelIdResolutionStrategy"] = "PreferAttribute",
             ["Projections:KurrentDB:Filter:Kind"] = "StreamPrefix",
             ["Projections:KurrentDB:Filter:Prefixes:0"] = "orders-",

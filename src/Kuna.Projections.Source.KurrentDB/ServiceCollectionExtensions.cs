@@ -60,17 +60,11 @@ public static class ServiceCollectionExtensions
         services.AddHealthChecks()
                 .AddCheck<KurrentDbHealthCheck>("KurrentDB", HealthStatus.Unhealthy);
 
-        services.AddKeyedSingleton<IProjectionEventSource<TState>>(
+        services.AddKeyedSingleton<IEventSource<EventEnvelope>>(
             registrationKey,
             (provider, _) =>
             {
                 var resolvedProjectionSettings = provider.GetRequiredKeyedService<IProjectionSettings<TState>>(registrationKey);
-
-                if (resolvedProjectionSettings.Source != ProjectionSourceKind.KurrentDB)
-                {
-                    throw new InvalidOperationException(
-                        $"Unsupported projection source '{resolvedProjectionSettings.Source}' for section '{settingsSectionName}'.");
-                }
 
                 var kurrentSectionPath = $"{settingsSectionName}:{KurrentDbSourceSettings.SectionName}";
                 var kurrentSection = configuration.GetSection(kurrentSectionPath);
@@ -101,7 +95,7 @@ public static class ServiceCollectionExtensions
                     resolvedProjectionSettings,
                     provider.GetRequiredService<ILogger<KurrentDbEventSource<TState>>>());
 
-                return new ProjectionEventSource<TState>(source);
+                return source;
             });
 
         return services;

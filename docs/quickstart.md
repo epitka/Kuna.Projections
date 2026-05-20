@@ -6,6 +6,7 @@ The examples use:
 
 - `Kuna.Projections.Core`
 - `Kuna.Projections.Source.KurrentDB` (source implementation for KurrentDB)
+- `Kuna.Projections.Source.Kafka` (source implementation for Kafka)
 - NoSQL example: `Kuna.Projections.Sink.MongoDB`
 - relational example: `Kuna.Projections.Sink.EF.Npgsql` (or `Kuna.Projections.Sink.EF.SqlServer` / `Kuna.Projections.Sink.EF.MySql`)
 
@@ -48,11 +49,22 @@ This can be:
 
 ## 2. Choose A Persistence Track And Add Packages
 
-Every worker needs the core runtime and KurrentDB source:
+Every worker needs the core runtime plus one source package:
 
 ```bash
 dotnet add package Kuna.Projections.Core
+```
+
+KurrentDB source:
+
+```bash
 dotnet add package Kuna.Projections.Source.KurrentDB
+```
+
+Kafka source:
+
+```bash
+dotnet add package Kuna.Projections.Source.Kafka
 ```
 
 ### 2A. NoSQL Example: MongoDB
@@ -212,6 +224,23 @@ using Kuna.Projections.Source.KurrentDB;
 
 services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
         .UseKurrentDbSource(loggerFactory)
+        .UseMongoDataStore(
+            "mongodb://localhost:27017",
+            "account_projection",
+            options =>
+            {
+            });
+```
+
+Kafka source registration uses the same projection and sink code:
+
+```csharp
+using Kuna.Projections.Core;
+using Kuna.Projections.Sink.MongoDB;
+using Kuna.Projections.Source.Kafka;
+
+services.AddProjection<Account>(configuration, settingsSectionName: "AccountProjection")
+        .UseKafkaSource(loggerFactory)
         .UseMongoDataStore(
             "mongodb://localhost:27017",
             "account_projection",
@@ -404,7 +433,6 @@ At minimum you need connection strings and one projection section that contains 
     "MongoDB": "mongodb://localhost:27017"
   },
   "AccountProjection": {
-    "Source": "KurrentDB",
     "KurrentDB": {
       "Filter": {
         "Kind": "StreamPrefix",
@@ -425,7 +453,6 @@ At minimum you need connection strings and one projection section that contains 
   },
   "AccountProjection": {
     "InstanceId": "accounts-v1",
-    "Source": "KurrentDB",
     "KurrentDB": {
       "Filter": {
         "Kind": "StreamPrefix",
@@ -441,7 +468,7 @@ Useful settings notes:
 - `InstanceId` is required and should be a stable deployment-scoped identifier such as `accounts-v1`
 - when projection logic changes, create a new `InstanceId` such as `accounts-v2` so the new deployment replays from the beginning instead of resuming the old checkpoint
 - the usual rollout is blue/green: keep `accounts-v1` serving reads, let `accounts-v2` rebuild and catch up in parallel, validate it, then switch readers
-- `Source` defaults to `KurrentDB`, but the section is still shown explicitly here because the worker must contain a matching nested `KurrentDB` section
+- source selection is controlled by the fluent registration call, such as `UseKurrentDbSource(...)` or `UseKafkaSource(...)`
 - `KurrentDB.Filter.Prefixes` currently requires exactly one prefix and is used as the prefix filter for the Kurrent subscription
 - the default `ModelIdResolutionStrategy` on the root projection section is `PreferAttribute`
 - the recommended API is `AddProjection<TState>(configuration, "AccountProjection")` followed by fluent `Use...` methods on the returned builder
