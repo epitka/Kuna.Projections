@@ -140,11 +140,11 @@ public sealed class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
 
         provider.GetRequiredKeyedService<IEventSource<EventEnvelope>>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name)).ShouldNotBeNull();
-        provider.GetRequiredKeyedService<IKafkaSourceTransformer>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name))
-                .ShouldBeOfType<KunaKafkaSourceTransformer>();
+        provider.GetRequiredKeyedService<ISourceTransformer>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name))
+                .ShouldBeOfType<SourceTransformer>();
 
-        provider.GetRequiredService<ICheckpointSerializer<KafkaCheckpointDocument>>().ShouldBeOfType<KafkaCheckpointSerializer>();
-        provider.GetRequiredService<IKafkaEventDeserializer>().ShouldBeOfType<KafkaEventDeserializer>();
+        provider.GetRequiredService<ICheckpointSerializer<Checkpoint>>().ShouldBeOfType<CheckpointSerializer>();
+        provider.GetRequiredService<IEventDeserializer>().ShouldBeOfType<EventDeserializer>();
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public sealed class ServiceCollectionExtensionsTests
                 ["Projections:Kafka:Topic"] = "orders-events",
             });
 
-        services.AddKeyedSingleton<IKafkaSourceTransformer, CustomKafkaSourceTransformer>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name));
+        services.AddKeyedSingleton<ISourceTransformer, CustomSourceTransformer>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name));
 
         services.AddKafkaSource<TestModel>(
             configuration,
@@ -173,8 +173,8 @@ public sealed class ServiceCollectionExtensionsTests
 
         using var provider = services.BuildServiceProvider();
 
-        provider.GetRequiredKeyedService<IKafkaSourceTransformer>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name))
-                .ShouldBeOfType<CustomKafkaSourceTransformer>();
+        provider.GetRequiredKeyedService<ISourceTransformer>(GetRegistrationKey<TestModel>(ProjectionSettingsSection.Name))
+                .ShouldBeOfType<CustomSourceTransformer>();
     }
 
     [Fact]
@@ -224,9 +224,9 @@ public sealed class ServiceCollectionExtensionsTests
     {
     }
 
-    private sealed class CustomKafkaSourceTransformer : IKafkaSourceTransformer
+    private sealed class CustomSourceTransformer : ISourceTransformer
     {
-        public KafkaSourceRecord Transform(KafkaSourceRecordContext context)
+        public SourceRecord Transform(SourceRecordContext context)
         {
             throw new NotSupportedException();
         }

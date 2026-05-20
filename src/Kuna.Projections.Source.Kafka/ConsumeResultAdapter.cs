@@ -2,9 +2,9 @@ using Confluent.Kafka;
 
 namespace Kuna.Projections.Source.Kafka;
 
-internal static class KafkaConsumeResultAdapter
+internal static class ConsumeResultAdapter
 {
-    public static KafkaConsumedMessage Adapt(ConsumeResult<byte[], byte[]> result)
+    public static ConsumedMessage Adapt(ConsumeResult<byte[], byte[]> result)
     {
         ArgumentNullException.ThrowIfNull(result);
 
@@ -18,7 +18,7 @@ internal static class KafkaConsumeResultAdapter
             }
         }
 
-        return new KafkaConsumedMessage
+        return new ConsumedMessage
         {
             Topic = result.Topic,
             Partition = result.Partition.Value,

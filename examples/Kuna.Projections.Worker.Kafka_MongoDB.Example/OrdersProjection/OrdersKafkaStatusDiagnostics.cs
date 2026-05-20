@@ -15,15 +15,15 @@ public sealed class OrdersKafkaStatusDiagnostics
 
     private readonly IMongoCollection<Order> ordersCollection;
     private readonly ICheckpointStore checkpointStore;
-    private readonly IKafkaConsumerFactory consumerFactory;
-    private readonly ICheckpointSerializer<KafkaCheckpointDocument> checkpointSerializer;
+    private readonly IConsumerFactory consumerFactory;
+    private readonly ICheckpointSerializer<Checkpoint> checkpointSerializer;
     private readonly KafkaSourceSettings sourceSettings;
     private readonly ProjectionSettings<Order> projectionSettings;
 
     public OrdersKafkaStatusDiagnostics(
         ICheckpointStore checkpointStore,
-        IKafkaConsumerFactory consumerFactory,
-        ICheckpointSerializer<KafkaCheckpointDocument> checkpointSerializer,
+        IConsumerFactory consumerFactory,
+        ICheckpointSerializer<Checkpoint> checkpointSerializer,
         IConfiguration configuration)
     {
         var mongoDbConnectionString = configuration.GetConnectionString("MongoDB");
@@ -61,7 +61,7 @@ public sealed class OrdersKafkaStatusDiagnostics
         var checkpointDocument = this.checkpointSerializer.Deserialize(checkpoint.GlobalEventPosition);
         using var consumer = this.consumerFactory.Create(
             this.sourceSettings,
-            KafkaConsumerGroupIdResolver.ResolveStatus(
+            ConsumerGroupIdResolver.ResolveStatus(
                 this.sourceSettings,
                 ProjectionModelName.For<Order>(),
                 this.projectionSettings.InstanceId));
@@ -89,7 +89,7 @@ public sealed class OrdersKafkaStatusDiagnostics
     }
 
     private IReadOnlyList<int> ResolveAssignedPartitions(
-        IKafkaConsumer consumer,
+        IConsumer consumer,
         KafkaSourceSettings sourceSettings)
     {
         var discoveredPartitions = consumer.GetPartitions(sourceSettings.Topic);

@@ -1,6 +1,6 @@
 namespace Kuna.Projections.Source.Kafka;
 
-public sealed class KafkaCheckpointDocument
+public sealed class Checkpoint
 {
     public string Topic { get; init; } = string.Empty;
 

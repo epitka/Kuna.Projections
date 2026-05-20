@@ -5,17 +5,17 @@ using Xunit;
 
 namespace Kuna.Projections.Source.Kafka.Test;
 
-public sealed class KunaKafkaSourceTransformerTests
+public sealed class SourceTransformerTests
 {
     [Fact]
     public void Transform_Should_Map_Kuna_Kafka_Record()
     {
-        var transformer = new KunaKafkaSourceTransformer();
+        var transformer = new SourceTransformer();
         var modelId = Guid.NewGuid();
         var createdOn = DateTime.Parse("2026-05-17T12:00:00Z", null, System.Globalization.DateTimeStyles.RoundtripKind);
 
         var result = transformer.Transform(
-            new KafkaSourceRecordContext
+            new SourceRecordContext
             {
                 Topic = "orders-events",
                 Partition = 0,
@@ -42,12 +42,12 @@ public sealed class KunaKafkaSourceTransformerTests
     [Fact]
     public void Transform_Should_Fall_Back_To_Timestamp_When_CreatedOn_Header_Is_Missing()
     {
-        var transformer = new KunaKafkaSourceTransformer();
+        var transformer = new SourceTransformer();
         var modelId = Guid.NewGuid();
         var createdOn = DateTime.Parse("2026-05-17T12:00:00Z", null, System.Globalization.DateTimeStyles.RoundtripKind);
 
         var result = transformer.Transform(
-            new KafkaSourceRecordContext
+            new SourceRecordContext
             {
                 Topic = "orders-events",
                 Partition = 0,
@@ -69,11 +69,11 @@ public sealed class KunaKafkaSourceTransformerTests
     [Fact]
     public void Transform_Should_Throw_When_Key_Is_Not_Guid()
     {
-        var transformer = new KunaKafkaSourceTransformer();
+        var transformer = new SourceTransformer();
 
         var ex = Should.Throw<InvalidOperationException>(
             () => transformer.Transform(
-                new KafkaSourceRecordContext
+                new SourceRecordContext
                 {
                     Topic = "orders-events",
                     Partition = 0,

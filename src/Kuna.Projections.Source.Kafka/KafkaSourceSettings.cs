@@ -12,9 +12,7 @@ public sealed class KafkaSourceSettings
 
     public string ConsumerGroupId { get; init; } = string.Empty;
 
-    public KafkaAutoOffsetReset AutoOffsetReset { get; init; } = KafkaAutoOffsetReset.Earliest;
-
-    public KafkaKeyFormat KeyFormat { get; init; } = KafkaKeyFormat.Guid;
+    public KeyFormat KeyFormat { get; init; } = KeyFormat.Guid;
 
     public int[]? Partitions { get; init; }
 

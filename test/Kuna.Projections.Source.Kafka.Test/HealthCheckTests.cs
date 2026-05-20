@@ -5,21 +5,21 @@ using Xunit;
 
 namespace Kuna.Projections.Source.Kafka.Test;
 
-public sealed class KafkaHealthCheckTests
+public sealed class HealthCheckTests
 {
     [Fact]
     public async Task CheckHealthAsync_Should_Return_Healthy_When_Registered_Topics_Are_Reachable()
     {
-        var consumerFactory = new FakeKafkaConsumerFactory(
-            new FakeKafkaConsumer(
+        var consumerFactory = new FakeConsumerFactory(
+            new FakeConsumer(
                 new Dictionary<string, IReadOnlyList<int>>
                 {
                     ["orders-events"] = [0, 1,],
                 }));
 
-        var healthCheck = new KafkaHealthCheck(
+        var healthCheck = new HealthCheck(
             [
-                new KafkaHealthCheckRegistration
+                new HealthCheckRegistration
                 {
                     SettingsSectionName = "OrdersProjection",
                     SourceSettings = new KafkaSourceSettings
@@ -41,9 +41,9 @@ public sealed class KafkaHealthCheckTests
     [Fact]
     public async Task CheckHealthAsync_Should_Return_Unhealthy_When_Topic_Has_No_Partitions()
     {
-        var healthCheck = new KafkaHealthCheck(
+        var healthCheck = new HealthCheck(
             [
-                new KafkaHealthCheckRegistration
+                new HealthCheckRegistration
                 {
                     SettingsSectionName = "OrdersProjection",
                     SourceSettings = new KafkaSourceSettings
@@ -54,7 +54,7 @@ public sealed class KafkaHealthCheckTests
                     },
                 },
             ],
-            new FakeKafkaConsumerFactory(new FakeKafkaConsumer(new Dictionary<string, IReadOnlyList<int>>())));
+            new FakeConsumerFactory(new FakeConsumer(new Dictionary<string, IReadOnlyList<int>>())));
 
         var result = await healthCheck.CheckHealthAsync(new HealthCheckContext(), TestContext.Current.CancellationToken);
 
@@ -66,9 +66,9 @@ public sealed class KafkaHealthCheckTests
     [Fact]
     public async Task CheckHealthAsync_Should_Return_Unhealthy_When_Probe_Throws()
     {
-        var healthCheck = new KafkaHealthCheck(
+        var healthCheck = new HealthCheck(
             [
-                new KafkaHealthCheckRegistration
+                new HealthCheckRegistration
                 {
                     SettingsSectionName = "OrdersProjection",
                     SourceSettings = new KafkaSourceSettings
@@ -79,7 +79,7 @@ public sealed class KafkaHealthCheckTests
                     },
                 },
             ],
-            new ThrowingKafkaConsumerFactory());
+            new ThrowingConsumerFactory());
 
         var result = await healthCheck.CheckHealthAsync(new HealthCheckContext(), TestContext.Current.CancellationToken);
 
@@ -90,9 +90,9 @@ public sealed class KafkaHealthCheckTests
     [Fact]
     public async Task CheckHealthAsync_Should_Return_Unhealthy_When_Configured_Partition_Is_Missing()
     {
-        var healthCheck = new KafkaHealthCheck(
+        var healthCheck = new HealthCheck(
             [
-                new KafkaHealthCheckRegistration
+                new HealthCheckRegistration
                 {
                     SettingsSectionName = "OrdersProjection",
                     SourceSettings = new KafkaSourceSettings
@@ -104,8 +104,8 @@ public sealed class KafkaHealthCheckTests
                     },
                 },
             ],
-            new FakeKafkaConsumerFactory(
-                new FakeKafkaConsumer(
+            new FakeConsumerFactory(
+                new FakeConsumer(
                     new Dictionary<string, IReadOnlyList<int>>
                     {
                         ["orders-events"] = [0,],
@@ -118,37 +118,37 @@ public sealed class KafkaHealthCheckTests
         result.Description.ShouldContain("does not contain partitions");
     }
 
-    private sealed class FakeKafkaConsumerFactory : IKafkaConsumerFactory
+    private sealed class FakeConsumerFactory : IConsumerFactory
     {
-        private readonly IKafkaConsumer consumer;
+        private readonly IConsumer consumer;
 
-        public FakeKafkaConsumerFactory(IKafkaConsumer consumer)
+        public FakeConsumerFactory(IConsumer consumer)
         {
             this.consumer = consumer;
         }
 
         public List<string> RequestedConsumerGroups { get; } = [];
 
-        public IKafkaConsumer Create(KafkaSourceSettings sourceSettings, string consumerGroupId)
+        public IConsumer Create(KafkaSourceSettings sourceSettings, string consumerGroupId)
         {
             this.RequestedConsumerGroups.Add(consumerGroupId);
             return this.consumer;
         }
     }
 
-    private sealed class ThrowingKafkaConsumerFactory : IKafkaConsumerFactory
+    private sealed class ThrowingConsumerFactory : IConsumerFactory
     {
-        public IKafkaConsumer Create(KafkaSourceSettings sourceSettings, string consumerGroupId)
+        public IConsumer Create(KafkaSourceSettings sourceSettings, string consumerGroupId)
         {
             throw new InvalidOperationException("boom");
         }
     }
 
-    private sealed class FakeKafkaConsumer : IKafkaConsumer
+    private sealed class FakeConsumer : IConsumer
     {
         private readonly IReadOnlyDictionary<string, IReadOnlyList<int>> partitionsByTopic;
 
-        public FakeKafkaConsumer(IReadOnlyDictionary<string, IReadOnlyList<int>> partitionsByTopic)
+        public FakeConsumer(IReadOnlyDictionary<string, IReadOnlyList<int>> partitionsByTopic)
         {
             this.partitionsByTopic = partitionsByTopic;
         }
@@ -168,7 +168,7 @@ public sealed class KafkaHealthCheckTests
         {
         }
 
-        public KafkaConsumedMessage? Consume(TimeSpan timeout, CancellationToken cancellationToken)
+        public ConsumedMessage? Consume(TimeSpan timeout, CancellationToken cancellationToken)
         {
             return null;
         }

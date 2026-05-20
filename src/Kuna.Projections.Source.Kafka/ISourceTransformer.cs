@@ -3,9 +3,31 @@ using System.Text;
 
 namespace Kuna.Projections.Source.Kafka;
 
-public sealed class KunaKafkaSourceTransformer : IKafkaSourceTransformer
+/// <summary>
+/// Converts a consumed Kafka record into the normalized source record shape used
+/// by the projection pipeline.
+/// </summary>
+/// <remarks>
+/// The built-in <see cref="SourceTransformer"/> supports this library's
+/// Kafka record format: a Guid key for the model id, event metadata in headers,
+/// and serialized event data in the record value. Applications that store events
+/// in Kafka with a different shape can register their own keyed
+/// <see cref="ISourceTransformer"/> for the projection.
+/// </remarks>
+public interface ISourceTransformer
 {
-    public KafkaSourceRecord Transform(KafkaSourceRecordContext context)
+    /// <summary>
+    /// Maps the raw Kafka record context to the event metadata and payload
+    /// required by the projection pipeline.
+    /// </summary>
+    /// <param name="context">The raw Kafka record context.</param>
+    /// <returns>The normalized Kafka source record.</returns>
+    SourceRecord Transform(SourceRecordContext context);
+}
+
+public sealed class SourceTransformer : ISourceTransformer
+{
+    public SourceRecord Transform(SourceRecordContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
@@ -34,7 +56,7 @@ public sealed class KunaKafkaSourceTransformer : IKafkaSourceTransformer
         var streamId = ReadOptionalHeader(context.Headers, "stream-id")
                        ?? $"{context.Topic}-{modelId:D}";
 
-        return new KafkaSourceRecord
+        return new SourceRecord
         {
             EventType = eventType,
             EventNumber = eventNumber,
@@ -45,7 +67,7 @@ public sealed class KunaKafkaSourceTransformer : IKafkaSourceTransformer
         };
     }
 
-    private static DateTime ReadCreatedOn(KafkaSourceRecordContext context)
+    private static DateTime ReadCreatedOn(SourceRecordContext context)
     {
         var createdOnRaw = ReadOptionalHeader(context.Headers, "created-on");
 

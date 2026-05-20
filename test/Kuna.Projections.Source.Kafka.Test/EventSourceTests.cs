@@ -8,17 +8,17 @@ using Xunit;
 
 namespace Kuna.Projections.Source.Kafka.Test;
 
-public sealed class KafkaEventSourceTests
+public sealed class EventSourceTests
 {
     [Fact]
     public async Task ReadAll_Should_Seek_From_Checkpoint_And_Emit_Envelope()
     {
         var modelId = Guid.NewGuid();
-        var consumer = new FakeKafkaConsumer(
+        var consumer = new FakeConsumer(
             partitions: [0,],
             messages:
             [
-                new KafkaConsumedMessage
+                new ConsumedMessage
                 {
                     Topic = "orders-events",
                     Partition = 0,
@@ -45,9 +45,9 @@ public sealed class KafkaEventSourceTests
                 PollTimeoutMs = 1,
             });
 
-        var checkpointSerializer = new KafkaCheckpointSerializer();
+        var checkpointSerializer = new CheckpointSerializer();
         var start = checkpointSerializer.Serialize(
-            new KafkaCheckpointDocument
+            new Checkpoint
             {
                 Topic = "orders-events",
                 Partitions = new Dictionary<int, long> { [0] = 5, },
@@ -73,7 +73,7 @@ public sealed class KafkaEventSourceTests
     [Fact]
     public async Task ReadAll_Should_Emit_CaughtUp_Event_When_No_Messages_And_End_Offsets_Are_Reached()
     {
-        var consumer = new FakeKafkaConsumer(
+        var consumer = new FakeConsumer(
             partitions: [0,],
             messages: [],
             highWatermarks: new Dictionary<int, long> { [0] = 0, });
@@ -99,7 +99,7 @@ public sealed class KafkaEventSourceTests
     public async Task ReadAll_Should_Reemit_CaughtUp_After_Live_Records_Arrive()
     {
         var modelId = Guid.NewGuid();
-        var consumer = new FakeKafkaConsumer(
+        var consumer = new FakeConsumer(
             partitions: [0,],
             messages: [],
             highWatermarks: new Dictionary<int, long> { [0] = 0, });
@@ -121,7 +121,7 @@ public sealed class KafkaEventSourceTests
         enumerator.Current.Event.ShouldBeOfType<ProjectionCaughtUpEvent>();
 
         consumer.Enqueue(
-            new KafkaConsumedMessage
+            new ConsumedMessage
             {
                 Topic = "orders-events",
                 Partition = 0,
@@ -148,11 +148,11 @@ public sealed class KafkaEventSourceTests
     [Fact]
     public async Task ReadAll_Should_Not_Seek_When_No_Checkpoint_Exists()
     {
-        var consumer = new FakeKafkaConsumer(
+        var consumer = new FakeConsumer(
             partitions: [0,],
             messages:
             [
-                new KafkaConsumedMessage
+                new ConsumedMessage
                 {
                     Topic = "orders-events",
                     Partition = 0,
@@ -189,7 +189,7 @@ public sealed class KafkaEventSourceTests
     [Fact]
     public async Task ReadAll_Should_Throw_When_Checkpoint_Topic_Does_Not_Match_Configured_Topic()
     {
-        var consumer = new FakeKafkaConsumer(
+        var consumer = new FakeConsumer(
             partitions: [0,],
             messages: [],
             highWatermarks: new Dictionary<int, long> { [0] = 0, });
@@ -204,8 +204,8 @@ public sealed class KafkaEventSourceTests
                 PollTimeoutMs = 1,
             });
 
-        var checkpoint = new KafkaCheckpointSerializer().Serialize(
-            new KafkaCheckpointDocument
+        var checkpoint = new CheckpointSerializer().Serialize(
+            new Checkpoint
             {
                 Topic = "payments-events",
                 Partitions = new Dictionary<int, long> { [0] = 5, },
@@ -225,7 +225,7 @@ public sealed class KafkaEventSourceTests
     [Fact]
     public async Task ReadAll_Should_Throw_When_Configured_Partition_Does_Not_Exist()
     {
-        var consumer = new FakeKafkaConsumer(
+        var consumer = new FakeConsumer(
             partitions: [0,],
             messages: [],
             highWatermarks: new Dictionary<int, long> { [0] = 0, });
@@ -255,17 +255,17 @@ public sealed class KafkaEventSourceTests
     [Fact]
     public async Task ReadAll_Should_Use_Configured_Consumer_Group_Id()
     {
-        var consumer = new FakeKafkaConsumer(
+        var consumer = new FakeConsumer(
             partitions: [0,],
             messages: [],
             highWatermarks: new Dictionary<int, long> { [0] = 0, });
 
-        var consumerFactory = new FakeKafkaConsumerFactory(consumer);
-        var source = new KafkaEventSource<TestModel>(
+        var consumerFactory = new FakeConsumerFactory(consumer);
+        var source = new EventSource<TestModel>(
             consumerFactory,
-            new KunaKafkaSourceTransformer(),
-            new KafkaEventEnvelopeFactory(new KafkaEventDeserializer([typeof(TestEvent),], NullLogger<KafkaEventDeserializer>.Instance)),
-            new KafkaCheckpointSerializer(),
+            new SourceTransformer(),
+            new EventEnvelopeFactory(new EventDeserializer([typeof(TestEvent),], NullLogger<EventDeserializer>.Instance)),
+            new CheckpointSerializer(),
             new KafkaSourceSettings
             {
                 BootstrapServers = "localhost:9092",
@@ -277,7 +277,7 @@ public sealed class KafkaEventSourceTests
             {
                 InstanceId = "orders-v1",
             },
-            NullLogger<KafkaEventSource<TestModel>>.Instance);
+            NullLogger<EventSource<TestModel>>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
         await using var enumerator = source.ReadAll(new GlobalEventPosition(string.Empty), cts.Token).GetAsyncEnumerator(cts.Token);
@@ -286,21 +286,21 @@ public sealed class KafkaEventSourceTests
         consumerFactory.LastRequestedConsumerGroup.ShouldBe("orders-consumer");
     }
 
-    private static KafkaEventSource<TestModel> CreateSource(
-        IKafkaConsumer consumer,
+    private static EventSource<TestModel> CreateSource(
+        IConsumer consumer,
         KafkaSourceSettings sourceSettings)
     {
-        return new KafkaEventSource<TestModel>(
-            new FakeKafkaConsumerFactory(consumer),
-            new KunaKafkaSourceTransformer(),
-            new KafkaEventEnvelopeFactory(new KafkaEventDeserializer([typeof(TestEvent),], NullLogger<KafkaEventDeserializer>.Instance)),
-            new KafkaCheckpointSerializer(),
+        return new EventSource<TestModel>(
+            new FakeConsumerFactory(consumer),
+            new SourceTransformer(),
+            new EventEnvelopeFactory(new EventDeserializer([typeof(TestEvent),], NullLogger<EventDeserializer>.Instance)),
+            new CheckpointSerializer(),
             sourceSettings,
             new ProjectionSettings<TestModel>
             {
                 InstanceId = "orders-v1",
             },
-            NullLogger<KafkaEventSource<TestModel>>.Instance);
+            NullLogger<EventSource<TestModel>>.Instance);
     }
 
     public sealed class TestEvent : Event
@@ -312,37 +312,37 @@ public sealed class KafkaEventSourceTests
     {
     }
 
-    private sealed class FakeKafkaConsumerFactory : IKafkaConsumerFactory
+    private sealed class FakeConsumerFactory : IConsumerFactory
     {
-        private readonly IKafkaConsumer consumer;
+        private readonly IConsumer consumer;
 
-        public FakeKafkaConsumerFactory(IKafkaConsumer consumer)
+        public FakeConsumerFactory(IConsumer consumer)
         {
             this.consumer = consumer;
         }
 
         public string? LastRequestedConsumerGroup { get; private set; }
 
-        public IKafkaConsumer Create(KafkaSourceSettings sourceSettings, string consumerGroupId)
+        public IConsumer Create(KafkaSourceSettings sourceSettings, string consumerGroupId)
         {
             this.LastRequestedConsumerGroup = consumerGroupId;
             return this.consumer;
         }
     }
 
-    private sealed class FakeKafkaConsumer : IKafkaConsumer
+    private sealed class FakeConsumer : IConsumer
     {
-        private readonly Queue<KafkaConsumedMessage> messages;
+        private readonly Queue<ConsumedMessage> messages;
         private readonly IReadOnlyList<int> partitions;
         private readonly Dictionary<int, long> highWatermarks;
 
-        public FakeKafkaConsumer(
+        public FakeConsumer(
             IReadOnlyList<int> partitions,
-            IReadOnlyList<KafkaConsumedMessage> messages,
+            IReadOnlyList<ConsumedMessage> messages,
             IReadOnlyDictionary<int, long> highWatermarks)
         {
             this.partitions = partitions;
-            this.messages = new Queue<KafkaConsumedMessage>(messages);
+            this.messages = new Queue<ConsumedMessage>(messages);
             this.highWatermarks = new Dictionary<int, long>(highWatermarks);
         }
 
@@ -354,7 +354,7 @@ public sealed class KafkaEventSourceTests
 
         public List<(string Topic, int Partition, long Offset)> SeekCalls { get; } = [];
 
-        public void Enqueue(KafkaConsumedMessage message)
+        public void Enqueue(ConsumedMessage message)
         {
             this.messages.Enqueue(message);
         }
@@ -383,7 +383,7 @@ public sealed class KafkaEventSourceTests
             this.SeekCalls.Add((topic, partition, offset));
         }
 
-        public KafkaConsumedMessage? Consume(TimeSpan timeout, CancellationToken cancellationToken)
+        public ConsumedMessage? Consume(TimeSpan timeout, CancellationToken cancellationToken)
         {
             if (this.messages.Count == 0)
             {

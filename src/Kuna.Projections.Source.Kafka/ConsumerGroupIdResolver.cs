@@ -3,7 +3,7 @@ using Kuna.Projections.Abstractions.Services;
 
 namespace Kuna.Projections.Source.Kafka;
 
-public static class KafkaConsumerGroupIdResolver
+public static class ConsumerGroupIdResolver
 {
     public static string ResolveProjection<TState>(
         KafkaSourceSettings sourceSettings,
@@ -16,19 +16,6 @@ public static class KafkaConsumerGroupIdResolver
             sourceSettings,
             ProjectionModelName.For<TState>(),
             projectionSettings.InstanceId);
-    }
-
-    public static string ResolveProjection(
-        KafkaSourceSettings sourceSettings,
-        string modelName,
-        string instanceId)
-    {
-        ArgumentNullException.ThrowIfNull(sourceSettings);
-        ArgumentException.ThrowIfNullOrWhiteSpace(modelName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(instanceId);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sourceSettings.ConsumerGroupId);
-
-        return sourceSettings.ConsumerGroupId;
     }
 
     public static string ResolveStatus(
@@ -58,6 +45,19 @@ public static class KafkaConsumerGroupIdResolver
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceSettings.ConsumerGroupId);
 
         return $"{sourceSettings.ConsumerGroupId}-healthcheck";
+    }
+
+    private static string ResolveProjection(
+        KafkaSourceSettings sourceSettings,
+        string modelName,
+        string instanceId)
+    {
+        ArgumentNullException.ThrowIfNull(sourceSettings);
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(instanceId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceSettings.ConsumerGroupId);
+
+        return sourceSettings.ConsumerGroupId;
     }
 
     private static string Normalize(string value)

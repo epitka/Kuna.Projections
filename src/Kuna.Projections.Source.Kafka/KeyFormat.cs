@@ -1,6 +1,6 @@
 namespace Kuna.Projections.Source.Kafka;
 
-public enum KafkaKeyFormat
+public enum KeyFormat
 {
     Guid = 0,
 }

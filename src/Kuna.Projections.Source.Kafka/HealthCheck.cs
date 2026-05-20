@@ -2,14 +2,14 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Kuna.Projections.Source.Kafka;
 
-public sealed class KafkaHealthCheck : IHealthCheck
+public sealed class HealthCheck : IHealthCheck
 {
-    private readonly IReadOnlyCollection<KafkaHealthCheckRegistration> registrations;
-    private readonly IKafkaConsumerFactory consumerFactory;
+    private readonly IReadOnlyCollection<HealthCheckRegistration> registrations;
+    private readonly IConsumerFactory consumerFactory;
 
-    public KafkaHealthCheck(
-        IEnumerable<KafkaHealthCheckRegistration> registrations,
-        IKafkaConsumerFactory consumerFactory)
+    public HealthCheck(
+        IEnumerable<HealthCheckRegistration> registrations,
+        IConsumerFactory consumerFactory)
     {
         this.registrations = registrations.ToArray();
         this.consumerFactory = consumerFactory;
@@ -30,7 +30,7 @@ public sealed class KafkaHealthCheck : IHealthCheck
             {
                 using var consumer = this.consumerFactory.Create(
                     registration.SourceSettings,
-                    KafkaConsumerGroupIdResolver.ResolveHealthCheck(
+                    ConsumerGroupIdResolver.ResolveHealthCheck(
                         registration.SourceSettings,
                         registration.SettingsSectionName));
 

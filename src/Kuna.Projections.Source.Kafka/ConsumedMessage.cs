@@ -1,6 +1,6 @@
 namespace Kuna.Projections.Source.Kafka;
 
-public sealed class KafkaConsumedMessage
+public sealed class ConsumedMessage
 {
     public required string Topic { get; init; }
 

@@ -28,24 +28,24 @@ public static class ServiceCollectionExtensions
         var assembly = Assembly.GetEntryAssembly();
         var eventTypes = ResolveEventTypes(assembly, typeof(TState).Assembly);
         var sourceSettings = ResolveSourceSettings(configuration, settingsSectionName);
-        services.TryAddSingleton<ICheckpointSerializer<KafkaCheckpointDocument>, KafkaCheckpointSerializer>();
-        services.TryAddSingleton<IKafkaConsumerFactory, KafkaConsumerFactory>();
-        services.TryAddSingleton<IKafkaEventDeserializer>(
-            provider => new KafkaEventDeserializer(
+        services.TryAddSingleton<ICheckpointSerializer<Checkpoint>, CheckpointSerializer>();
+        services.TryAddSingleton<IConsumerFactory, ConsumerFactory>();
+        services.TryAddSingleton<IEventDeserializer>(
+            provider => new EventDeserializer(
                 eventTypes,
-                loggerFactory.CreateLogger<KafkaEventDeserializer>()));
+                loggerFactory.CreateLogger<EventDeserializer>()));
 
         services.AddSingleton(
-            new KafkaHealthCheckRegistration
+            new HealthCheckRegistration
             {
                 SettingsSectionName = settingsSectionName,
                 SourceSettings = sourceSettings,
             });
 
         services.AddHealthChecks()
-                .AddCheck<KafkaHealthCheck>("Kafka", HealthStatus.Unhealthy);
+                .AddCheck<HealthCheck>("Kafka", HealthStatus.Unhealthy);
 
-        services.TryAddKeyedSingleton<IKafkaSourceTransformer, KunaKafkaSourceTransformer>(registrationKey);
+        services.TryAddKeyedSingleton<ISourceTransformer, SourceTransformer>(registrationKey);
 
         services.AddKeyedSingleton<IEventSource<EventEnvelope>>(
             registrationKey,
@@ -53,14 +53,14 @@ public static class ServiceCollectionExtensions
             {
                 var projectionSettings = provider.GetRequiredKeyedService<IProjectionSettings<TState>>(registrationKey);
 
-                return new KafkaEventSource<TState>(
-                    provider.GetRequiredService<IKafkaConsumerFactory>(),
-                    provider.GetRequiredKeyedService<IKafkaSourceTransformer>(registrationKey),
-                    new KafkaEventEnvelopeFactory(provider.GetRequiredService<IKafkaEventDeserializer>()),
-                    provider.GetRequiredService<ICheckpointSerializer<KafkaCheckpointDocument>>(),
+                return new EventSource<TState>(
+                    provider.GetRequiredService<IConsumerFactory>(),
+                    provider.GetRequiredKeyedService<ISourceTransformer>(registrationKey),
+                    new EventEnvelopeFactory(provider.GetRequiredService<IEventDeserializer>()),
+                    provider.GetRequiredService<ICheckpointSerializer<Checkpoint>>(),
                     sourceSettings,
                     projectionSettings,
-                    provider.GetRequiredService<ILogger<KafkaEventSource<TState>>>());
+                    provider.GetRequiredService<ILogger<EventSource<TState>>>());
             });
 
         return services;

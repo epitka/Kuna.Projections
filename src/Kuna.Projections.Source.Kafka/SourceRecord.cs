@@ -1,6 +1,6 @@
 namespace Kuna.Projections.Source.Kafka;
 
-public sealed class KafkaSourceRecord
+public sealed class SourceRecord
 {
     public required string EventType { get; init; }
 

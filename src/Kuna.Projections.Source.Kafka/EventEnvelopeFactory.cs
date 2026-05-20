@@ -3,17 +3,17 @@ using Kuna.Projections.Abstractions.Models;
 
 namespace Kuna.Projections.Source.Kafka;
 
-public sealed class KafkaEventEnvelopeFactory
+public sealed class EventEnvelopeFactory
 {
-    private readonly IKafkaEventDeserializer deserializer;
+    private readonly IEventDeserializer deserializer;
 
-    public KafkaEventEnvelopeFactory(IKafkaEventDeserializer deserializer)
+    public EventEnvelopeFactory(IEventDeserializer deserializer)
     {
         this.deserializer = deserializer;
     }
 
     public EventEnvelope Create(
-        KafkaSourceRecord record,
+        SourceRecord record,
         GlobalEventPosition eventPosition)
     {
         ArgumentNullException.ThrowIfNull(record);

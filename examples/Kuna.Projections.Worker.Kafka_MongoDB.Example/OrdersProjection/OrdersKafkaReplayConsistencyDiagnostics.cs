@@ -27,16 +27,16 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
     };
 
     private readonly IMongoCollection<Order> ordersCollection;
-    private readonly IKafkaConsumerFactory consumerFactory;
-    private readonly ICheckpointSerializer<KafkaCheckpointDocument> checkpointSerializer;
+    private readonly IConsumerFactory consumerFactory;
+    private readonly ICheckpointSerializer<Checkpoint> checkpointSerializer;
     private readonly KafkaSourceSettings sourceSettings;
     private readonly ProjectionSettings<Order> projectionSettings;
-    private readonly KafkaEventEnvelopeFactory envelopeFactory;
+    private readonly EventEnvelopeFactory envelopeFactory;
     private readonly ILogger<OrdersKafkaReplayConsistencyDiagnostics> logger;
 
     public OrdersKafkaReplayConsistencyDiagnostics(
-        IKafkaConsumerFactory consumerFactory,
-        ICheckpointSerializer<KafkaCheckpointDocument> checkpointSerializer,
+        IConsumerFactory consumerFactory,
+        ICheckpointSerializer<Checkpoint> checkpointSerializer,
         IConfiguration configuration,
         ILoggerFactory loggerFactory,
         ILogger<OrdersKafkaReplayConsistencyDiagnostics> logger)
@@ -67,8 +67,8 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
         this.sourceSettings = KafkaSourceSettingsResolver.Resolve(configuration, SettingsSectionName);
 
         var eventTypes = ResolveEventTypes(typeof(OrderCreated).Assembly);
-        var deserializer = new KafkaEventDeserializer(eventTypes, loggerFactory.CreateLogger<KafkaEventDeserializer>());
-        this.envelopeFactory = new KafkaEventEnvelopeFactory(deserializer);
+        var deserializer = new EventDeserializer(eventTypes, loggerFactory.CreateLogger<EventDeserializer>());
+        this.envelopeFactory = new EventEnvelopeFactory(deserializer);
         this.logger = logger;
     }
 
@@ -102,7 +102,6 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
             Topic = this.sourceSettings.Topic,
             ClientId = this.sourceSettings.ClientId,
             ConsumerGroupId = this.sourceSettings.ConsumerGroupId,
-            AutoOffsetReset = KafkaAutoOffsetReset.Earliest,
             KeyFormat = this.sourceSettings.KeyFormat,
             Partitions = this.sourceSettings.Partitions,
             PollTimeoutMs = this.sourceSettings.PollTimeoutMs,
@@ -110,7 +109,7 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
 
         using var consumer = this.consumerFactory.Create(
             replaySettings,
-            KafkaConsumerGroupIdResolver.ResolveReplay(
+            ConsumerGroupIdResolver.ResolveReplay(
                 replaySettings,
                 ProjectionModelName.For<Order>(),
                 this.projectionSettings.InstanceId,
@@ -130,7 +129,7 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
             string.Join(", ", assignedPartitions),
             string.Join(", ", highWatermarks.OrderBy(x => x.Key).Select(x => $"{x.Key}:{x.Value}")));
 
-        var transformer = new KunaKafkaSourceTransformer();
+        var transformer = new SourceTransformer();
         var consumedSinceComparison = 0;
         var matchedSinceComparison = 0;
 
@@ -158,7 +157,7 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
             totalConsumedRecords++;
 
             var sourceRecord = transformer.Transform(
-                new KafkaSourceRecordContext
+                new SourceRecordContext
                 {
                     Topic = message.Topic,
                     Partition = message.Partition,
@@ -180,7 +179,7 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
             var envelope = this.envelopeFactory.Create(
                 sourceRecord,
                 this.checkpointSerializer.Serialize(
-                    new KafkaCheckpointDocument
+                    new Checkpoint
                     {
                         Topic = replaySettings.Topic,
                         Partitions = currentOffsets.ToDictionary(x => x.Key, x => x.Value),
@@ -636,7 +635,7 @@ public sealed class OrdersKafkaReplayConsistencyDiagnostics
     }
 
     private IReadOnlyList<int> ResolveAssignedPartitions(
-        IKafkaConsumer consumer,
+        IConsumer consumer,
         KafkaSourceSettings sourceSettings)
     {
         var discoveredPartitions = consumer.GetPartitions(sourceSettings.Topic);

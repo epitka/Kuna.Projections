@@ -2,9 +2,16 @@ using Confluent.Kafka;
 
 namespace Kuna.Projections.Source.Kafka;
 
-public sealed class KafkaConsumerFactory : IKafkaConsumerFactory
+public interface IConsumerFactory
 {
-    public IKafkaConsumer Create(
+    IConsumer Create(
+        KafkaSourceSettings sourceSettings,
+        string consumerGroupId);
+}
+
+public sealed class ConsumerFactory : IConsumerFactory
+{
+    public IConsumer Create(
         KafkaSourceSettings sourceSettings,
         string consumerGroupId)
     {
@@ -19,9 +26,7 @@ public sealed class KafkaConsumerFactory : IKafkaConsumerFactory
             BrokerAddressFamily = BrokerAddressFamily.V4,
             EnableAutoCommit = false,
             EnableAutoOffsetStore = false,
-            AutoOffsetReset = sourceSettings.AutoOffsetReset == KafkaAutoOffsetReset.Earliest
-                                  ? AutoOffsetReset.Earliest
-                                  : AutoOffsetReset.Latest,
+            AutoOffsetReset = AutoOffsetReset.Earliest,
         };
 
         var adminClientConfig = new AdminClientConfig
@@ -31,7 +36,7 @@ public sealed class KafkaConsumerFactory : IKafkaConsumerFactory
             BrokerAddressFamily = BrokerAddressFamily.V4,
         };
 
-        return new KafkaConsumer(
+        return new Consumer(
             new AdminClientBuilder(adminClientConfig).Build(),
             new ConsumerBuilder<byte[], byte[]>(config).Build());
     }

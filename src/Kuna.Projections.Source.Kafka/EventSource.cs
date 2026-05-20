@@ -5,25 +5,25 @@ using Microsoft.Extensions.Logging;
 
 namespace Kuna.Projections.Source.Kafka;
 
-public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
+public sealed class EventSource<TState> : IEventSource<EventEnvelope>
     where TState : class, IModel, new()
 {
-    private readonly IKafkaConsumerFactory consumerFactory;
-    private readonly IKafkaSourceTransformer transformer;
-    private readonly KafkaEventEnvelopeFactory envelopeFactory;
-    private readonly ICheckpointSerializer<KafkaCheckpointDocument> checkpointSerializer;
+    private readonly IConsumerFactory consumerFactory;
+    private readonly ISourceTransformer transformer;
+    private readonly EventEnvelopeFactory envelopeFactory;
+    private readonly ICheckpointSerializer<Checkpoint> checkpointSerializer;
     private readonly KafkaSourceSettings sourceSettings;
     private readonly IProjectionSettings<TState> projectionSettings;
-    private readonly ILogger<KafkaEventSource<TState>> logger;
+    private readonly ILogger<EventSource<TState>> logger;
 
-    public KafkaEventSource(
-        IKafkaConsumerFactory consumerFactory,
-        IKafkaSourceTransformer transformer,
-        KafkaEventEnvelopeFactory envelopeFactory,
-        ICheckpointSerializer<KafkaCheckpointDocument> checkpointSerializer,
+    public EventSource(
+        IConsumerFactory consumerFactory,
+        ISourceTransformer transformer,
+        EventEnvelopeFactory envelopeFactory,
+        ICheckpointSerializer<Checkpoint> checkpointSerializer,
         KafkaSourceSettings sourceSettings,
         IProjectionSettings<TState> projectionSettings,
-        ILogger<KafkaEventSource<TState>> logger)
+        ILogger<EventSource<TState>> logger)
     {
         this.consumerFactory = consumerFactory;
         this.transformer = transformer;
@@ -41,7 +41,7 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
         var checkpoint = this.checkpointSerializer.Deserialize(start);
         ValidateCheckpointTopic(checkpoint, this.sourceSettings.Topic);
 
-        var consumerGroupId = KafkaConsumerGroupIdResolver.ResolveProjection(this.sourceSettings, this.projectionSettings);
+        var consumerGroupId = ConsumerGroupIdResolver.ResolveProjection(this.sourceSettings, this.projectionSettings);
         using var consumer = this.consumerFactory.Create(this.sourceSettings, consumerGroupId);
         var assignedPartitions = ResolveAssignedPartitions(consumer);
         var checkpointOffsets = checkpoint.Partitions
@@ -101,7 +101,7 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
             currentOffsets[message.Partition] = message.Offset;
 
             var sourceRecord = this.transformer.Transform(
-                new KafkaSourceRecordContext
+                new SourceRecordContext
                 {
                     Topic = message.Topic,
                     Partition = message.Partition,
@@ -118,7 +118,7 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
     }
 
     private static void ValidateCheckpointTopic(
-        KafkaCheckpointDocument checkpoint,
+        Checkpoint checkpoint,
         string configuredTopic)
     {
         if (string.IsNullOrWhiteSpace(checkpoint.Topic))
@@ -132,7 +132,21 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
         }
     }
 
-    private IReadOnlyList<int> ResolveAssignedPartitions(IKafkaConsumer consumer)
+    private static Dictionary<int, long> InitializeOffsets(
+        IReadOnlyDictionary<int, long> checkpointOffsets,
+        IReadOnlyList<int> assignedPartitions)
+    {
+        var currentOffsets = checkpointOffsets.ToDictionary(x => x.Key, x => x.Value);
+
+        foreach (var partition in assignedPartitions)
+        {
+            _ = currentOffsets.TryAdd(partition, -1);
+        }
+
+        return currentOffsets;
+    }
+
+    private IReadOnlyList<int> ResolveAssignedPartitions(IConsumer consumer)
     {
         var discoveredPartitions = consumer.GetPartitions(this.sourceSettings.Topic);
 
@@ -160,24 +174,10 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
         return discoveredPartitions;
     }
 
-    private Dictionary<int, long> InitializeOffsets(
-        IReadOnlyDictionary<int, long> checkpointOffsets,
-        IReadOnlyList<int> assignedPartitions)
-    {
-        var currentOffsets = checkpointOffsets.ToDictionary(x => x.Key, x => x.Value);
-
-        foreach (var partition in assignedPartitions)
-        {
-            _ = currentOffsets.TryAdd(partition, -1);
-        }
-
-        return currentOffsets;
-    }
-
     private GlobalEventPosition SerializeOffsets(IReadOnlyDictionary<int, long> currentOffsets)
     {
         return this.checkpointSerializer.Serialize(
-            new KafkaCheckpointDocument
+            new Checkpoint
             {
                 Topic = this.sourceSettings.Topic,
                 Partitions = currentOffsets.ToDictionary(x => x.Key, x => x.Value),
@@ -185,14 +185,14 @@ public sealed class KafkaEventSource<TState> : IEventSource<EventEnvelope>
     }
 
     private bool IsCaughtUp(
-        IKafkaConsumer consumer,
+        IConsumer consumer,
         IReadOnlyList<int> assignedPartitions,
         IReadOnlyDictionary<int, long> currentOffsets)
     {
         foreach (var partition in assignedPartitions)
         {
             var highWatermarkOffset = consumer.GetHighWatermarkOffset(this.sourceSettings.Topic, partition);
-            var lastObservedOffset = currentOffsets.TryGetValue(partition, out var offset) ? offset : -1;
+            var lastObservedOffset = currentOffsets.GetValueOrDefault(partition, -1);
 
             if (highWatermarkOffset == 0)
             {

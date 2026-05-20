@@ -5,12 +5,12 @@ using Xunit;
 
 namespace Kuna.Projections.Source.Kafka.Test;
 
-public sealed class KafkaCheckpointSerializerTests
+public sealed class CheckpointSerializerTests
 {
     [Fact]
     public void Deserialize_Should_Return_Empty_Document_For_Empty_Checkpoint()
     {
-        var serializer = new KafkaCheckpointSerializer();
+        var serializer = new CheckpointSerializer();
 
         var result = serializer.Deserialize(new GlobalEventPosition(string.Empty));
 
@@ -21,8 +21,8 @@ public sealed class KafkaCheckpointSerializerTests
     [Fact]
     public void Serialize_And_Deserialize_Should_RoundTrip_Checkpoint()
     {
-        var serializer = new KafkaCheckpointSerializer();
-        var checkpoint = new KafkaCheckpointDocument
+        var serializer = new CheckpointSerializer();
+        var checkpoint = new Checkpoint
         {
             Topic = "orders-events",
             Partitions = new Dictionary<int, long>
@@ -44,7 +44,7 @@ public sealed class KafkaCheckpointSerializerTests
     [Fact]
     public void Deserialize_Should_Throw_For_Invalid_Checkpoint()
     {
-        var serializer = new KafkaCheckpointSerializer();
+        var serializer = new CheckpointSerializer();
 
         var ex = Should.Throw<FormatException>(() => serializer.Deserialize(new GlobalEventPosition("{not-json}")));
 

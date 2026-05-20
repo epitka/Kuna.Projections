@@ -4,18 +4,18 @@ using Kuna.Projections.Abstractions.Services;
 
 namespace Kuna.Projections.Source.Kafka;
 
-public sealed class KafkaCheckpointSerializer : ICheckpointSerializer<KafkaCheckpointDocument>
+public sealed class CheckpointSerializer : ICheckpointSerializer<Checkpoint>
 {
     private static readonly JsonSerializerOptions JsonSerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
-    public GlobalEventPosition Serialize(KafkaCheckpointDocument checkpoint)
+    public GlobalEventPosition Serialize(Checkpoint checkpoint)
     {
         ArgumentNullException.ThrowIfNull(checkpoint);
 
-        var normalizedCheckpoint = new KafkaCheckpointDocument
+        var normalizedCheckpoint = new Checkpoint
         {
             Topic = checkpoint.Topic,
             Partitions = checkpoint.Partitions
@@ -26,16 +26,16 @@ public sealed class KafkaCheckpointSerializer : ICheckpointSerializer<KafkaCheck
         return GlobalEventPosition.From(JsonSerializer.Serialize(normalizedCheckpoint, JsonSerializerOptions));
     }
 
-    public KafkaCheckpointDocument Deserialize(GlobalEventPosition checkpoint)
+    public Checkpoint Deserialize(GlobalEventPosition checkpoint)
     {
         if (string.IsNullOrWhiteSpace(checkpoint.Value))
         {
-            return new KafkaCheckpointDocument();
+            return new Checkpoint();
         }
 
         try
         {
-            var parsed = JsonSerializer.Deserialize<KafkaCheckpointDocument>(checkpoint.Value, JsonSerializerOptions);
+            var parsed = JsonSerializer.Deserialize<Checkpoint>(checkpoint.Value, JsonSerializerOptions);
 
             if (parsed is null)
             {
@@ -57,7 +57,7 @@ public sealed class KafkaCheckpointSerializer : ICheckpointSerializer<KafkaCheck
                 throw new FormatException("Checkpoint partitions must be non-negative.");
             }
 
-            return new KafkaCheckpointDocument
+            return new Checkpoint
             {
                 Topic = parsed.Topic,
                 Partitions = parsed.Partitions

@@ -49,11 +49,11 @@ public sealed class KafkaEventSourceIntegrationTests
                 TestContext.Current.CancellationToken);
         }
 
-        var source = new KafkaEventSource<TestModel>(
-            new KafkaConsumerFactory(),
-            new KunaKafkaSourceTransformer(),
-            new KafkaEventEnvelopeFactory(new KafkaEventDeserializer([typeof(TestEvent),], NullLogger<KafkaEventDeserializer>.Instance)),
-            new KafkaCheckpointSerializer(),
+        var source = new EventSource<TestModel>(
+            new ConsumerFactory(),
+            new SourceTransformer(),
+            new EventEnvelopeFactory(new EventDeserializer([typeof(TestEvent),], NullLogger<EventDeserializer>.Instance)),
+            new CheckpointSerializer(),
             new KafkaSourceSettings
             {
                 BootstrapServers = this.fixture.BootstrapServers,
@@ -65,7 +65,7 @@ public sealed class KafkaEventSourceIntegrationTests
             {
                 InstanceId = "orders-v1",
             },
-            NullLogger<KafkaEventSource<TestModel>>.Instance);
+            NullLogger<EventSource<TestModel>>.Instance);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         cts.CancelAfter(TimeSpan.FromSeconds(15));
@@ -79,7 +79,7 @@ public sealed class KafkaEventSourceIntegrationTests
         envelope.EventNumber.ShouldBe(7);
         envelope.ModelId.ShouldBe(modelId);
 
-        var checkpoint = new KafkaCheckpointSerializer().Deserialize(envelope.GlobalEventPosition);
+        var checkpoint = new CheckpointSerializer().Deserialize(envelope.GlobalEventPosition);
         checkpoint.Topic.ShouldBe(topic);
         checkpoint.Partitions[0].ShouldBeGreaterThanOrEqualTo(0);
     }

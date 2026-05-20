@@ -42,8 +42,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped(
             provider => new OrdersKafkaStatusDiagnostics(
                 provider.GetRequiredKeyedService<ICheckpointStore>(registrationKey),
-                provider.GetRequiredService<IKafkaConsumerFactory>(),
-                provider.GetRequiredService<ICheckpointSerializer<KafkaCheckpointDocument>>(),
+                provider.GetRequiredService<IConsumerFactory>(),
+                provider.GetRequiredService<ICheckpointSerializer<Checkpoint>>(),
                 configuration));
 
         services.AddScoped<OrdersKafkaReplayConsistencyDiagnostics>();

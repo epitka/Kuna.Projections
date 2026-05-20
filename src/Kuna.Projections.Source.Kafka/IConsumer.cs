@@ -2,12 +2,23 @@ using Confluent.Kafka;
 
 namespace Kuna.Projections.Source.Kafka;
 
-internal sealed class KafkaConsumer : IKafkaConsumer
+public interface IConsumer : IDisposable
+{
+    IReadOnlyList<int> GetPartitions(string topic);
+
+    void Assign(string topic, IReadOnlyCollection<int> partitions, IReadOnlyDictionary<int, long>? startOffsets = null);
+
+    ConsumedMessage? Consume(TimeSpan timeout, CancellationToken cancellationToken);
+
+    long GetHighWatermarkOffset(string topic, int partition);
+}
+
+internal sealed class Consumer : IConsumer
 {
     private readonly IAdminClient adminClient;
     private readonly IConsumer<byte[], byte[]> consumer;
 
-    public KafkaConsumer(
+    public Consumer(
         IAdminClient adminClient,
         IConsumer<byte[], byte[]> consumer)
     {
@@ -51,15 +62,10 @@ internal sealed class KafkaConsumer : IKafkaConsumer
         this.consumer.Assign(partitions.Select(partition => new TopicPartition(topic, new Partition(partition))));
     }
 
-    public void Seek(string topic, int partition, long offset)
-    {
-        this.consumer.Seek(new TopicPartitionOffset(topic, new Partition(partition), new Offset(offset)));
-    }
-
-    public KafkaConsumedMessage? Consume(TimeSpan timeout, CancellationToken cancellationToken)
+    public ConsumedMessage? Consume(TimeSpan timeout, CancellationToken cancellationToken)
     {
         var result = this.consumer.Consume(timeout);
-        return result is null ? null : KafkaConsumeResultAdapter.Adapt(result);
+        return result is null ? null : ConsumeResultAdapter.Adapt(result);
     }
 
     public long GetHighWatermarkOffset(string topic, int partition)
@@ -69,11 +75,6 @@ internal sealed class KafkaConsumer : IKafkaConsumer
             TimeSpan.FromSeconds(10));
 
         return watermarkOffsets.High.Value;
-    }
-
-    public void Close()
-    {
-        this.consumer.Close();
     }
 
     public void Dispose()

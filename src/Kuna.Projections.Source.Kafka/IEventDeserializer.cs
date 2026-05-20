@@ -8,7 +8,12 @@ using Newtonsoft.Json.Linq;
 
 namespace Kuna.Projections.Source.Kafka;
 
-public sealed class KafkaEventDeserializer : IKafkaEventDeserializer
+public interface IEventDeserializer
+{
+    Event Deserialize(byte[] eventData, string eventTypeName, long eventNumber);
+}
+
+public sealed class EventDeserializer : IEventDeserializer
 {
     private static readonly JsonSerializerSettings SerializerSettings = new()
     {
@@ -21,9 +26,9 @@ public sealed class KafkaEventDeserializer : IKafkaEventDeserializer
     private readonly Dictionary<string, Type> eventTypes;
     private readonly ILogger logger;
 
-    public KafkaEventDeserializer(
+    public EventDeserializer(
         Type[] eventTypes,
-        ILogger<KafkaEventDeserializer> logger)
+        ILogger<EventDeserializer> logger)
     {
         this.eventTypes = eventTypes
                           .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
@@ -88,19 +93,17 @@ public sealed class KafkaEventDeserializer : IKafkaEventDeserializer
         {
             var obj = JObject.Parse(Encoding.UTF8.GetString(eventData));
 
-            if (obj.TryGetValue(nameof(Event.CreatedOn), StringComparison.OrdinalIgnoreCase, out var createdOnToken))
-            {
-                var createdOnRaw = createdOnToken?.ToString();
+            if (!obj.TryGetValue(nameof(Event.CreatedOn), StringComparison.OrdinalIgnoreCase, out var createdOnToken)) return;
+            var createdOnRaw = createdOnToken?.ToString();
 
-                if (!string.IsNullOrWhiteSpace(createdOnRaw)
-                    && DateTime.TryParse(
-                        createdOnRaw,
-                        CultureInfo.InvariantCulture,
-                        DateTimeStyles.RoundtripKind,
-                        out var createdOn))
-                {
-                    unknownEvent.CreatedOn = createdOn;
-                }
+            if (!string.IsNullOrWhiteSpace(createdOnRaw)
+                && DateTime.TryParse(
+                    createdOnRaw,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind,
+                    out var createdOn))
+            {
+                unknownEvent.CreatedOn = createdOn;
             }
         }
         catch
