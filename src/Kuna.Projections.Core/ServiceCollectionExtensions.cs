@@ -116,12 +116,6 @@ public static class ServiceCollectionExtensions
                 $"Projection settings section '{settingsSectionName}' must define a non-empty '{nameof(IProjectionSettings<TState>.InstanceId)}'.");
         }
 
-        if (projectionSettings.Source == ProjectionSourceKind.Unspecified)
-        {
-            throw new InvalidOperationException(
-                $"Projection settings section '{settingsSectionName}' must define '{nameof(IProjectionSettings<TState>.Source)}' as '{ProjectionSourceKind.KurrentDB}' or '{ProjectionSourceKind.Kafka}'.");
-        }
-
         services.AddKeyedSingleton<IProjectionSettings<TState>>(registrationKey, projectionSettings);
 
         return new ProjectionRegistrationBuilder<TState>(services, configuration, settingsSectionName, registrationKey);

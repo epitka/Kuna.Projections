@@ -40,6 +40,7 @@ public sealed class KafkaEventSourceTests
             new KafkaSourceSettings
             {
                 BootstrapServers = "localhost:9092",
+                ConsumerGroupId = "orders-consumer",
                 Topic = "orders-events",
                 PollTimeoutMs = 1,
             });
@@ -82,6 +83,7 @@ public sealed class KafkaEventSourceTests
             new KafkaSourceSettings
             {
                 BootstrapServers = "localhost:9092",
+                ConsumerGroupId = "orders-consumer",
                 Topic = "orders-events",
                 PollTimeoutMs = 1,
             });
@@ -122,6 +124,7 @@ public sealed class KafkaEventSourceTests
             new KafkaSourceSettings
             {
                 BootstrapServers = "localhost:9092",
+                ConsumerGroupId = "orders-consumer",
                 Topic = "orders-events",
                 PollTimeoutMs = 1,
             });
@@ -146,6 +149,7 @@ public sealed class KafkaEventSourceTests
             new KafkaSourceSettings
             {
                 BootstrapServers = "localhost:9092",
+                ConsumerGroupId = "orders-consumer",
                 Topic = "orders-events",
                 PollTimeoutMs = 1,
             });
@@ -181,6 +185,7 @@ public sealed class KafkaEventSourceTests
             new KafkaSourceSettings
             {
                 BootstrapServers = "localhost:9092",
+                ConsumerGroupId = "orders-consumer",
                 Topic = "orders-events",
                 Partitions = [1,],
                 PollTimeoutMs = 1,
@@ -220,7 +225,6 @@ public sealed class KafkaEventSourceTests
             new ProjectionSettings<TestModel>
             {
                 InstanceId = "orders-v1",
-                Source = ProjectionSourceKind.Kafka,
             },
             NullLogger<KafkaEventSource<TestModel>>.Instance);
 
@@ -244,7 +248,6 @@ public sealed class KafkaEventSourceTests
             new ProjectionSettings<TestModel>
             {
                 InstanceId = "orders-v1",
-                Source = ProjectionSourceKind.Kafka,
             },
             NullLogger<KafkaEventSource<TestModel>>.Instance);
     }

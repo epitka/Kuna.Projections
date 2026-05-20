@@ -52,11 +52,6 @@ public static class ServiceCollectionExtensions
             {
                 var projectionSettings = provider.GetRequiredKeyedService<IProjectionSettings<TState>>(registrationKey);
 
-                if (projectionSettings.Source != ProjectionSourceKind.Kafka)
-                {
-                    throw new InvalidOperationException($"Unsupported projection source '{projectionSettings.Source}' for section '{settingsSectionName}'.");
-                }
-
                 return new ProjectionEventSource<TState>(
                     new KafkaEventSource<TState>(
                         provider.GetRequiredService<IKafkaConsumerFactory>(),

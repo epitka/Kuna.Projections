@@ -19,9 +19,6 @@ internal sealed class TestProjectionSettings : IProjectionSettings<ItemModel>
     };
 
     public ProjectionBackpressureSettings Backpressure { get; set; } = new();
-
-    public ProjectionSourceKind Source { get; set; } = ProjectionSourceKind.Kafka;
-
     public ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; } = ModelIdResolutionStrategy.PreferAttribute;
 
     public int ModelStateCacheCapacity { get; set; } = 10000;

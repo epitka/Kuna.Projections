@@ -14,8 +14,6 @@ public interface IProjectionSettings<TState>
 
     ProjectionBackpressureSettings Backpressure { get; set; }
 
-    ProjectionSourceKind Source { get; set; }
-
     ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; }
 
     /// <summary>
@@ -109,11 +107,6 @@ public class ProjectionSettings<TState> : IProjectionSettings<TState>
     /// Backpressure buffer capacities between projection pipeline stages.
     /// </summary>
     public ProjectionBackpressureSettings Backpressure { get; set; } = new();
-
-    /// <summary>
-    /// Selects which event source implementation should be used for the projection.
-    /// </summary>
-    public ProjectionSourceKind Source { get; set; } = ProjectionSourceKind.Unspecified;
 
     /// <summary>
     /// Controls how the target model id is resolved from incoming events.

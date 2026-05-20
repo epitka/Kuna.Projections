@@ -16,8 +16,8 @@ The libraries expect:
 
 - `ConnectionStrings`
 - one projection section per registered projection
-- a nested `KurrentDB` section inside each projection section when `Source` is `KurrentDB`
-- a nested `Kafka` section inside each projection section when `Source` is `Kafka`
+- a nested `KurrentDB` section inside each projection section registered with `UseKurrentDbSource(...)`
+- a nested `Kafka` section inside each projection section registered with `UseKafkaSource(...)`
 
 The projection section name is application-defined. The tables below list the full settings surface and the default values used by the library types when a setting is present in the section but not explicitly overridden.
 
@@ -63,7 +63,6 @@ The section itself is required because `AddProjection<TState>(...)` calls `confi
 | `CatchUpFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior before the source reaches live processing.               |
 | `LiveProcessingFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior after the source catches up.                             |
 | `Backpressure` | `ProjectionBackpressureSettings` | See below | No | Backpressure buffer capacities between projection pipeline stages.      |
-| `Source` | `ProjectionSourceKind` | None | Yes | Selects which source implementation the projection uses.                |
 | `ModelIdResolutionStrategy` | `ModelIdResolutionStrategy` | `PreferAttribute` | No | Controls how model ids are derived from events and stream ids.          |
 | `ModelStateCacheCapacity` | `int` | `10000` | No | Number of model states retained in memory.                              |
 | `EventVersionCheckStrategy` | `EventVersionCheckStrategy` | `Consecutive` | No | Controls event ordering validation before `Apply(...)`.                 |
@@ -285,25 +284,6 @@ Example:
 
 This example intentionally allows source reading to run ahead of transformation and keeps the final buffer before sink persistence smaller. Use values this large only after measuring memory use and replay throughput.
 
-### `Source`
-
-Type: `ProjectionSourceKind`
-
-Allowed values:
-
-- `KurrentDB`
-- `Kafka`
-
-Required: yes
-
-Default: none
-
-Meaning:
-
-- selects which event source implementation the projection uses
-- `KurrentDB` expects a nested `KurrentDB` section
-- `Kafka` expects a nested `Kafka` section
-
 ### `ModelIdResolutionStrategy`
 
 Type: `ModelIdResolutionStrategy`
@@ -380,13 +360,14 @@ Bound by: `UseKafkaSource(...)` on a projection registration builder
 
 Target type: `KafkaSourceSettings`
 
-The section is required when the root projection setting `Source` is `Kafka`.
+The section is required when the projection is registered with `UseKafkaSource(...)`.
 Kafka broker endpoints are configured separately through `ConnectionStrings:Kafka`.
 
 ### Settings Summary
 
 | Key | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
+| `ConsumerGroupId` | `string` | None | Yes | Kafka consumer group used by the projection. Diagnostic groups derive from this value. |
 | `Topic` | `string` | None | Yes | Kafka topic consumed by the projection. |
 | `ClientId` | `string` | None | No | Optional Kafka client id. |
 | `AutoOffsetReset` | `KafkaAutoOffsetReset` | `Earliest` | No | Used when no projection checkpoint exists for a partition. |
@@ -428,7 +409,7 @@ Bound by: `UseKurrentDbSource(...)` on a projection registration builder
 
 Target type: `KurrentDbSourceSettings`
 
-The section is required when the root projection setting `Source` is `KurrentDB`.
+The section is required when the projection is registered with `UseKurrentDbSource(...)`.
 
 ### Settings Summary
 
@@ -519,7 +500,6 @@ For a first production-like setup, start with the library defaults and add only 
 {
   "OrdersProjection": {
     "InstanceId": "orders-v1",
-    "Source": "KurrentDB",
     "KurrentDB": {
       "Filter": {
         "Kind": "StreamPrefix",

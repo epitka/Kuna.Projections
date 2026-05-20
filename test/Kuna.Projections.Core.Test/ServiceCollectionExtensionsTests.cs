@@ -39,7 +39,6 @@ public class ServiceCollectionExtensionsTests
                                 new Dictionary<string, string?>
                                 {
                                     [$"{ProjectionSettingsSection.Name}:InstanceId"] = "orders-v1",
-                                    [$"{ProjectionSettingsSection.Name}:Source"] = ProjectionSourceKind.Kafka.ToString(),
                                     [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                     [$"{ProjectionSettingsSection.Name}:CatchUpFlush:ModelCountThreshold"] = "12",
                                     [$"{ProjectionSettingsSection.Name}:LiveProcessingFlush:ModelCountThreshold"] = "7",
@@ -73,7 +72,6 @@ public class ServiceCollectionExtensionsTests
                                 new Dictionary<string, string?>
                                 {
                                     [$"{ProjectionSettingsSection.Name}:InstanceId"] = "orders-v1",
-                                    [$"{ProjectionSettingsSection.Name}:Source"] = ProjectionSourceKind.Kafka.ToString(),
                                     [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
@@ -122,7 +120,6 @@ public class ServiceCollectionExtensionsTests
                                 new Dictionary<string, string?>
                                 {
                                     ["OrdersProjection:InstanceId"] = "orders-v2",
-                                    ["OrdersProjection:Source"] = ProjectionSourceKind.Kafka.ToString(),
                                     ["OrdersProjection:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
@@ -168,27 +165,6 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddProjectionCore_Should_Throw_When_Source_Is_Missing()
-    {
-        var services = new ServiceCollection();
-        services.AddSingleton<IModelStateStore<CoreServiceTestModel>, DummyStateStore>();
-
-        var configuration = new ConfigurationBuilder()
-                            .AddInMemoryCollection(
-                                new Dictionary<string, string?>
-                                {
-                                    [$"{ProjectionSettingsSection.Name}:InstanceId"] = "orders-v1",
-                                })
-                            .Build();
-
-        var exception = Should.Throw<InvalidOperationException>(
-            () => services.AddProjection<CoreServiceTestModel>(configuration, ProjectionSettingsSection.Name));
-
-        exception.Message.ShouldContain(nameof(IProjectionSettings<CoreServiceTestModel>.Source));
-        exception.Message.ShouldContain(ProjectionSettingsSection.Name);
-    }
-
-    [Fact]
     public void AddProjectionCore_Should_Throw_When_Projection_Does_Not_Have_Guid_Ctor()
     {
         var services = new ServiceCollection();
@@ -197,7 +173,6 @@ public class ServiceCollectionExtensionsTests
                                 new Dictionary<string, string?>
                                 {
                                     [$"{ProjectionSettingsSection.Name}:InstanceId"] = "orders-v1",
-                                    [$"{ProjectionSettingsSection.Name}:Source"] = ProjectionSourceKind.Kafka.ToString(),
                                     [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
@@ -226,7 +201,6 @@ public class ServiceCollectionExtensionsTests
                                 new Dictionary<string, string?>
                                 {
                                     [$"{ProjectionSettingsSection.Name}:InstanceId"] = "orders-v1",
-                                    [$"{ProjectionSettingsSection.Name}:Source"] = ProjectionSourceKind.Kafka.ToString(),
                                     [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
@@ -255,7 +229,6 @@ public class ServiceCollectionExtensionsTests
                                 new Dictionary<string, string?>
                                 {
                                     [$"{ProjectionSettingsSection.Name}:InstanceId"] = "orders-v1",
-                                    [$"{ProjectionSettingsSection.Name}:Source"] = ProjectionSourceKind.Kafka.ToString(),
                                     [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
@@ -278,7 +251,6 @@ public class ServiceCollectionExtensionsTests
                                 new Dictionary<string, string?>
                                 {
                                     [$"{ProjectionSettingsSection.Name}:InstanceId"] = "orders-v1",
-                                    [$"{ProjectionSettingsSection.Name}:Source"] = ProjectionSourceKind.Kafka.ToString(),
                                     [$"{ProjectionSettingsSection.Name}:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();
@@ -300,10 +272,8 @@ public class ServiceCollectionExtensionsTests
                                 new Dictionary<string, string?>
                                 {
                                     ["OrdersProjection:InstanceId"] = "orders-v1",
-                                    ["OrdersProjection:Source"] = ProjectionSourceKind.Kafka.ToString(),
                                     ["OrdersProjection:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                     ["InvoicesProjection:InstanceId"] = "invoices-v1",
-                                    ["InvoicesProjection:Source"] = ProjectionSourceKind.Kafka.ToString(),
                                     ["InvoicesProjection:CatchUpFlush:Strategy"] = PersistenceStrategy.ModelCountBatching.ToString(),
                                 })
                             .Build();

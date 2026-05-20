@@ -433,7 +433,6 @@ At minimum you need connection strings and one projection section that contains 
     "MongoDB": "mongodb://localhost:27017"
   },
   "AccountProjection": {
-    "Source": "KurrentDB",
     "KurrentDB": {
       "Filter": {
         "Kind": "StreamPrefix",
@@ -454,7 +453,6 @@ At minimum you need connection strings and one projection section that contains 
   },
   "AccountProjection": {
     "InstanceId": "accounts-v1",
-    "Source": "KurrentDB",
     "KurrentDB": {
       "Filter": {
         "Kind": "StreamPrefix",
@@ -470,7 +468,7 @@ Useful settings notes:
 - `InstanceId` is required and should be a stable deployment-scoped identifier such as `accounts-v1`
 - when projection logic changes, create a new `InstanceId` such as `accounts-v2` so the new deployment replays from the beginning instead of resuming the old checkpoint
 - the usual rollout is blue/green: keep `accounts-v1` serving reads, let `accounts-v2` rebuild and catch up in parallel, validate it, then switch readers
-- `Source` is required; set it to the source implementation you register, such as `KurrentDB` with `UseKurrentDbSource(...)` or `Kafka` with `UseKafkaSource(...)`
+- source selection is controlled by the fluent registration call, such as `UseKurrentDbSource(...)` or `UseKafkaSource(...)`
 - `KurrentDB.Filter.Prefixes` currently requires exactly one prefix and is used as the prefix filter for the Kurrent subscription
 - the default `ModelIdResolutionStrategy` on the root projection section is `PreferAttribute`
 - the recommended API is `AddProjection<TState>(configuration, "AccountProjection")` followed by fluent `Use...` methods on the returned builder

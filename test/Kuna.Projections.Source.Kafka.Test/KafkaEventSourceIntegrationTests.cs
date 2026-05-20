@@ -57,13 +57,13 @@ public sealed class KafkaEventSourceIntegrationTests
             new KafkaSourceSettings
             {
                 BootstrapServers = this.fixture.BootstrapServers,
+                ConsumerGroupId = $"orders-consumer-{Guid.NewGuid():N}",
                 Topic = topic,
                 PollTimeoutMs = 50,
             },
             new ProjectionSettings<TestModel>
             {
                 InstanceId = "orders-v1",
-                Source = ProjectionSourceKind.Kafka,
             },
             NullLogger<KafkaEventSource<TestModel>>.Instance);
 

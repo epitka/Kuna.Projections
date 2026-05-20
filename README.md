@@ -274,7 +274,6 @@ Example:
   },
   "OrdersProjection": {
     "InstanceId": "orders-v1",
-    "Source": "KurrentDB",
     "KurrentDB": {
       "Filter": {
         "Kind": "StreamPrefix",

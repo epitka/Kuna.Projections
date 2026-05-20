@@ -26,13 +26,9 @@ public static class KafkaConsumerGroupIdResolver
         ArgumentNullException.ThrowIfNull(sourceSettings);
         ArgumentException.ThrowIfNullOrWhiteSpace(modelName);
         ArgumentException.ThrowIfNullOrWhiteSpace(instanceId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceSettings.ConsumerGroupId);
 
-        if (!string.IsNullOrWhiteSpace(sourceSettings.ConsumerGroupId))
-        {
-            return sourceSettings.ConsumerGroupId;
-        }
-
-        return $"kuna-projections-{Normalize(modelName)}-{Normalize(instanceId)}";
+        return sourceSettings.ConsumerGroupId;
     }
 
     public static string ResolveStatus(
@@ -59,13 +55,9 @@ public static class KafkaConsumerGroupIdResolver
     {
         ArgumentNullException.ThrowIfNull(sourceSettings);
         ArgumentException.ThrowIfNullOrWhiteSpace(settingsSectionName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceSettings.ConsumerGroupId);
 
-        if (!string.IsNullOrWhiteSpace(sourceSettings.ConsumerGroupId))
-        {
-            return $"{sourceSettings.ConsumerGroupId}-healthcheck";
-        }
-
-        return $"kuna-projections-healthcheck-{Normalize(settingsSectionName)}";
+        return $"{sourceSettings.ConsumerGroupId}-healthcheck";
     }
 
     private static string Normalize(string value)

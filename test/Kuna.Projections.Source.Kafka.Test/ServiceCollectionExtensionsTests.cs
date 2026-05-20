@@ -19,7 +19,6 @@ public sealed class ServiceCollectionExtensionsTests
         var configuration = BuildConfiguration(
             new Dictionary<string, string?>
             {
-                ["Projections:Source"] = "Kafka",
                 ["Projections:InstanceId"] = "orders-v1",
             });
 
@@ -43,8 +42,8 @@ public sealed class ServiceCollectionExtensionsTests
         var configuration = BuildConfiguration(
             new Dictionary<string, string?>
             {
-                ["Projections:Source"] = "Kafka",
                 ["Projections:InstanceId"] = "orders-v1",
+                ["Projections:Kafka:ConsumerGroupId"] = "orders-consumer",
                 ["Projections:Kafka:Topic"] = "orders-events",
             });
 
@@ -69,8 +68,8 @@ public sealed class ServiceCollectionExtensionsTests
             new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Kafka"] = "localhost:9092",
-                ["Projections:Source"] = "Kafka",
                 ["Projections:InstanceId"] = "orders-v1",
+                ["Projections:Kafka:ConsumerGroupId"] = "orders-consumer",
                 ["Projections:Kafka:Topic"] = "orders-events",
                 ["Projections:Kafka:Partitions:0"] = "1",
                 ["Projections:Kafka:Partitions:1"] = "1",
@@ -89,6 +88,31 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
+    public void AddKafkaSource_Should_Throw_When_Consumer_Group_Id_Is_Missing()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Kafka"] = "localhost:9092",
+                ["Projections:InstanceId"] = "orders-v1",
+                ["Projections:Kafka:Topic"] = "orders-events",
+            });
+
+        var ex = Should.Throw<InvalidOperationException>(
+            () => services.AddKafkaSource<TestModel>(
+                configuration,
+                LoggerFactory.Create(
+                    _ =>
+                    {
+                    }),
+                ProjectionSettingsSection.Name));
+
+        ex.Message.ShouldContain("Projections:Kafka:ConsumerGroupId");
+    }
+
+    [Fact]
     public void AddKafkaSource_Should_Register_Services()
     {
         var services = new ServiceCollection();
@@ -97,8 +121,8 @@ public sealed class ServiceCollectionExtensionsTests
             new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Kafka"] = "localhost:9092",
-                ["Projections:Source"] = "Kafka",
                 ["Projections:InstanceId"] = "orders-v1",
+                ["Projections:Kafka:ConsumerGroupId"] = "orders-consumer",
                 ["Projections:Kafka:Topic"] = "orders-events",
             });
 
@@ -131,8 +155,8 @@ public sealed class ServiceCollectionExtensionsTests
             new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Kafka"] = "localhost:9092",
-                ["Projections:Source"] = "Kafka",
                 ["Projections:InstanceId"] = "orders-v1",
+                ["Projections:Kafka:ConsumerGroupId"] = "orders-consumer",
                 ["Projections:Kafka:Topic"] = "orders-events",
             });
 
@@ -154,7 +178,7 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddKafkaSource_Should_Bind_Optional_Consumer_Group_Id()
+    public void AddKafkaSource_Should_Bind_Consumer_Group_Id()
     {
         var configuration = BuildConfiguration(
             new Dictionary<string, string?>

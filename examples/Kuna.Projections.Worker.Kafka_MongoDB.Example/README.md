@@ -57,6 +57,7 @@ This worker uses:
 - `OrdersProjection:Kafka:Topic = "orders-events"`
 
 That means the Kafka topic should contain the repository's Kuna Kafka projection record format.
+Status, replay, and health-check diagnostics derive their temporary consumer group ids from `OrdersProjection:Kafka:ConsumerGroupId`.
 
 If you choose to set `OrdersProjection:Kafka:Partitions`, the configured partition ids must already exist on the topic.
 The source validates that at startup and the Kafka health check reports missing configured partitions as unhealthy.

@@ -10,7 +10,7 @@ public sealed class KafkaSourceSettings
 
     public string? ClientId { get; init; }
 
-    public string? ConsumerGroupId { get; init; }
+    public string ConsumerGroupId { get; init; } = string.Empty;
 
     public KafkaAutoOffsetReset AutoOffsetReset { get; init; } = KafkaAutoOffsetReset.Earliest;
 

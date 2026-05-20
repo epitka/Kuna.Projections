@@ -66,12 +66,6 @@ public static class ServiceCollectionExtensions
             {
                 var resolvedProjectionSettings = provider.GetRequiredKeyedService<IProjectionSettings<TState>>(registrationKey);
 
-                if (resolvedProjectionSettings.Source != ProjectionSourceKind.KurrentDB)
-                {
-                    throw new InvalidOperationException(
-                        $"Unsupported projection source '{resolvedProjectionSettings.Source}' for section '{settingsSectionName}'.");
-                }
-
                 var kurrentSectionPath = $"{settingsSectionName}:{KurrentDbSourceSettings.SectionName}";
                 var kurrentSection = configuration.GetSection(kurrentSectionPath);
 
