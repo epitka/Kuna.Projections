@@ -42,14 +42,16 @@ Today, the repository provides:
 - `Kuna.Projections.Core` for the projection runtime and pipeline
 - `Kuna.Projections.Source.KurrentDB` for KurrentDB-backed event ingestion
 - `Kuna.Projections.Source.Kafka` for Kafka-backed event ingestion
+- `Kuna.Projections.Source.EventSourcingDB` for EventSourcingDB-backed event ingestion
 - `Kuna.Projections.Sink.EF` for the shared EF Core-backed relational sink
 - `Kuna.Projections.Sink.EF.Npgsql`, `Kuna.Projections.Sink.EF.SqlServer`, and `Kuna.Projections.Sink.EF.MySql` for provider-specific relational registration and duplicate-key handling
 - `Kuna.Projections.Sink.MongoDB` for MongoDB-backed persistence, checkpoints, and failure storage
 - `examples/Kuna.Projections.Worker.Kurrent_MongoDB.Example` as the runnable KurrentDB to MongoDB reference worker
 - `examples/Kuna.Projections.Worker.Kurrent_EF.Example` as the runnable KurrentDB to Postgres reference worker
 - `examples/Kuna.Projections.Worker.Kafka_MongoDB.Example` as the runnable Kafka to MongoDB reference worker
+- `examples/Kuna.Projections.Worker.EventSourcingDB_Postgres.Example` as the runnable EventSourcingDB to Postgres reference worker
 
-If you want the shortest route to a running worker, start with [docs/quickstart.md](docs/quickstart.md). If you want Mongo-specific sink registration details, see [docs/mongodb-sink.md](docs/mongodb-sink.md). If you want the full architecture and API map, start with [docs/overview.md](docs/overview.md).
+If you want the shortest route to a running worker, start with [docs/quickstart.md](docs/quickstart.md). If you want Mongo-specific sink registration details, see [docs/mongodb-sink.md](docs/mongodb-sink.md). If you want EventSourcingDB-specific source registration details, see [docs/eventsourcingdb-source.md](docs/eventsourcingdb-source.md). If you want the full architecture and API map, start with [docs/overview.md](docs/overview.md).
 
 
 ## Quickstart
@@ -83,6 +85,12 @@ Kafka source:
 
 ```bash
 dotnet add package Kuna.Projections.Source.Kafka
+```
+
+EventSourcingDB source:
+
+```bash
+dotnet add package Kuna.Projections.Source.EventSourcingDB
 ```
 
 MongoDB-backed workers use:

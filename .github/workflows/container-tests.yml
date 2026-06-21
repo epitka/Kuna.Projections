@@ -37,6 +37,9 @@ jobs:
       - name: Run source KurrentDB container tests
         run: dotnet test -c Release --no-build test/Kuna.Projections.Source.KurrentDB.Test/Kuna.Projections.Source.KurrentDB.Test.csproj --logger "trx;LogFileName=Kuna.Projections.Source.KurrentDB.Test.trx" --results-directory artifacts/test-results
 
+      - name: Run source EventSourcingDB container tests
+        run: dotnet test -c Release --no-build test/Kuna.Projections.Source.EventSourcingDB.Test/Kuna.Projections.Source.EventSourcingDB.Test.csproj --logger "trx;LogFileName=Kuna.Projections.Source.EventSourcingDB.Test.trx" --results-directory artifacts/test-results
+
       - name: Run integration tests
         run: dotnet test -c Release --no-build test/Kuna.Projections.Integration.Test/Kuna.Projections.Integration.Test.csproj --logger "trx;LogFileName=Kuna.Projections.Integration.Test.trx" --results-directory artifacts/test-results
 
