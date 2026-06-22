@@ -161,13 +161,71 @@ public class TransformTests
             logger);
 
         var result = await transformer.Transform(
-                         CreateEnvelope(modelId, 42, new ItemCreated { Id = modelId, Name = "n1", TypeName = nameof(ItemCreated), }),
+                         CreateEnvelope(modelId, 0, new ItemCreated { Id = modelId, Name = "n1", TypeName = nameof(ItemCreated), }),
                          CancellationToken.None);
 
         result.ShouldNotBeNull();
-        result!.ExpectedEventNumber.ShouldBe(41);
+
+        // A model created from its initial event is a brand-new aggregate with no
+        // prior version, so its expected (pre-event) version is the "no prior
+        // version" sentinel (-1).
+        result!.IsNew.ShouldBeTrue();
+        result.ExpectedEventNumber.ShouldBe(-1);
         A.CallTo(() => factory.Create(modelId, false, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
         A.CallTo(() => factory.Create(modelId, true, A<CancellationToken>._)).MustNotHaveHappened();
+    }
+
+    [Fact]
+    public async Task Initial_Event_With_Non_Zero_Global_Position_Should_Stay_An_Insert()
+    {
+        // Regression: EventSourcingDB delivers a single, globally ordered stream and
+        // maps the global event id onto EventNumber. Every aggregate's initial event
+        // therefore carries a different, mostly non-zero EventNumber. Such a model
+        // must still be classified as a new aggregate (ExpectedEventNumber < 0) so
+        // the sink inserts it; deriving the expected version as eventNumber - 1 made
+        // every aggregate except the globally first one look like an update.
+        var factory = A.Fake<IProjectionFactory<ItemModel>>(opt => opt.Strict());
+        var handler = A.Fake<IProjectionFailureHandler<ItemModel>>(opt => opt.Strict());
+        var settings = CreateSettings(EventVersionCheckStrategy.Monotonic);
+        var logger = LoggerFactory.Create(
+                                      builder =>
+                                      {
+                                      })
+                                  .CreateLogger<ProjectionEngine<ItemModel>>();
+
+        var firstModelId = Guid.NewGuid();
+        var secondModelId = Guid.NewGuid();
+
+        A.CallTo(() => factory.Create(firstModelId, false, A<CancellationToken>._))
+         .Returns(new ItemProjection(firstModelId));
+        A.CallTo(() => factory.Create(secondModelId, false, A<CancellationToken>._))
+         .Returns(new ItemProjection(secondModelId));
+
+        var transformer = new ProjectionEngine<ItemModel>(
+            factory,
+            handler,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            CreateRegistration<ItemCreated>(),
+            settings,
+            logger);
+
+        var firstGlobal = await transformer.Transform(
+                              CreateEnvelope(firstModelId, 0, new ItemCreated { Id = firstModelId, Name = "first", TypeName = nameof(ItemCreated), }),
+                              CancellationToken.None);
+
+        var secondGlobal = await transformer.Transform(
+                               CreateEnvelope(secondModelId, 4711, new ItemCreated { Id = secondModelId, Name = "second", TypeName = nameof(ItemCreated), }),
+                               CancellationToken.None);
+
+        firstGlobal.ShouldNotBeNull();
+        secondGlobal.ShouldNotBeNull();
+
+        firstGlobal!.IsNew.ShouldBeTrue();
+        secondGlobal!.IsNew.ShouldBeTrue();
+
+        // Neither carries a prior version, so the pipeline keeps both as inserts.
+        firstGlobal.ExpectedEventNumber.ShouldBe(-1);
+        secondGlobal.ExpectedEventNumber.ShouldBe(-1);
     }
 
     [Fact]
@@ -361,7 +419,8 @@ public class TransformTests
         A.CallTo(() => handler.Handle(A<ProjectionFailure>._, A<CancellationToken>._)).MustHaveHappenedTwiceExactly();
     }
 
-    private static ProjectionSettings<ItemModel> CreateSettings()
+    private static ProjectionSettings<ItemModel> CreateSettings(
+        EventVersionCheckStrategy versionCheckStrategy = EventVersionCheckStrategy.Consecutive)
     {
         return new ProjectionSettings<ItemModel>
         {
@@ -376,7 +435,7 @@ public class TransformTests
                 Delay = 1000,
             },
             ModelStateCacheCapacity = 10000,
-            EventVersionCheckStrategy = EventVersionCheckStrategy.Consecutive,
+            EventVersionCheckStrategy = versionCheckStrategy,
         };
     }
 
