@@ -28,9 +28,17 @@ The worker creates the projection schema on startup (`EnsureCreated`) and then r
 
 ## Seed Events
 
-This example does not ship a seeder. Write events to EventSourcingDB under the configured subject (`/orders` by default) with your own producer or the EventSourcingDB API/CLI. Events whose CloudEvent `type` ends in an event name that the `OrdersProjection` knows (for example `io.kuna.orders.OrderCreated`) are projected; other types are ignored.
+This example reuses the shared `Kuna.Examples.EventsSeeder` (the same generator that backs the Kurrent and Kafka examples). It writes generated order events to EventSourcingDB under the `/orders` subject root, one subject per order (`/orders/{guid}`), with the CloudEvent `type` set to `io.kuna.orders.<EventName>`.
 
-The order model id is resolved from the `[ModelId]` property on the events (the default `PreferAttribute` strategy). To key on the subject instead, set `OrdersProjection:ModelIdResolutionStrategy` to `RequireStreamId` and use subjects whose last segment is the order `Guid`, for example `/orders/{guid}`.
+```bash
+./scripts/seed-eventsourcingdb-live.sh
+```
+
+Environment variables override the defaults: `TARGET_EVENTS` (default `50000`), `MIN_COMPLETE_ORDERS` (default `3000`), `ESDB_BASE_URL` (default `http://localhost:3000`), `ESDB_API_TOKEN` (default `secret`), and `ESDB_BATCH_SIZE` (default `500`, the number of events per `WriteEvents` call).
+
+> Note: EventSourcingDB writes are considerably slower than reads, so the time the seeder takes is not a measure of projection (read) throughput. `ESDB_BATCH_SIZE` only affects how fast the seeder fills the store; it does not change what the projection observes.
+
+The order model id is resolved from the `[ModelId]` property on the events (the default `PreferAttribute` strategy). The seeder also encodes the order `Guid` as the last subject segment, so setting `OrdersProjection:ModelIdResolutionStrategy` to `RequireStreamId` keys on the subject instead.
 
 ## Restart Projection State Without Reseeding Events
 

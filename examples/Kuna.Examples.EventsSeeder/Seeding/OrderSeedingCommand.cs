@@ -36,9 +36,10 @@ public static class OrderSeedingCommand
         }
 
         if (string.IsNullOrWhiteSpace(options.ConnectionString)
-            && string.IsNullOrWhiteSpace(options.KafkaBootstrapServers))
+            && string.IsNullOrWhiteSpace(options.KafkaBootstrapServers)
+            && string.IsNullOrWhiteSpace(options.EventSourcingDbBaseUrl))
         {
-            Console.Error.WriteLine("Missing required output target. Provide --connection-string and/or --kafka-bootstrap-servers.");
+            Console.Error.WriteLine("Missing required output target. Provide --connection-string, --kafka-bootstrap-servers and/or --esdb-base-url.");
             return 1;
         }
 
@@ -46,6 +47,13 @@ public static class OrderSeedingCommand
             && string.IsNullOrWhiteSpace(options.KafkaTopic))
         {
             Console.Error.WriteLine("Missing required option: --kafka-topic");
+            return 1;
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.EventSourcingDbBaseUrl)
+            && string.IsNullOrWhiteSpace(options.EventSourcingDbApiToken))
+        {
+            Console.Error.WriteLine("Missing required option: --esdb-api-token");
             return 1;
         }
 
@@ -95,6 +103,18 @@ public static class OrderSeedingCommand
                 cancellationToken);
         }
 
+        if (!string.IsNullOrWhiteSpace(options.EventSourcingDbBaseUrl))
+        {
+            Console.WriteLine($"Writing to EventSourcingDB at: {options.EventSourcingDbBaseUrl} (batch size {options.EventSourcingDbBatchSize})");
+            await EventSourcingDbStreamWriter.WriteAsync(
+                new EventSourcingDbWritePlan(orderPlan.InterleavedEvents),
+                options.EventSourcingDbBaseUrl,
+                options.EventSourcingDbApiToken!,
+                options.EventSourcingDbBatchSize,
+                progress,
+                cancellationToken);
+        }
+
         var completedAt = DateTimeOffset.UtcNow;
         var report = OrderGenerationReportFactory.Create(
             orderPlan,
@@ -126,6 +146,12 @@ public static class OrderSeedingCommand
         public string? KafkaBootstrapServers { get; init; }
 
         public string? KafkaTopic { get; init; }
+
+        public string? EventSourcingDbBaseUrl { get; init; }
+
+        public string? EventSourcingDbApiToken { get; init; }
+
+        public int EventSourcingDbBatchSize { get; init; } = 500;
 
         public double AbandonRatio { get; init; } = 0.20d;
 
@@ -178,6 +204,9 @@ public static class OrderSeedingCommand
                 StreamPrefix = map.GetValueOrDefault("stream-prefix") ?? "order-",
                 KafkaBootstrapServers = map.GetValueOrDefault("kafka-bootstrap-servers"),
                 KafkaTopic = map.GetValueOrDefault("kafka-topic"),
+                EventSourcingDbBaseUrl = map.GetValueOrDefault("esdb-base-url"),
+                EventSourcingDbApiToken = map.GetValueOrDefault("esdb-api-token"),
+                EventSourcingDbBatchSize = ParseInt(map, "esdb-batch-size", 500),
                 AbandonRatio = ParseDouble(map, "abandon-ratio", 0.20d),
                 RefundRatio = ParseDouble(map, "refund-ratio", 0.10d),
                 Seed = map.TryGetValue("seed", out var seedValue) && !string.Equals(seedValue, "true", StringComparison.OrdinalIgnoreCase)
