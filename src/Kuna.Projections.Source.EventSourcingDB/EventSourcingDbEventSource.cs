@@ -27,6 +27,7 @@ public class EventSourcingDbEventSource<TState> : IEventSource<EventEnvelope>
     where TState : class, IModel, new()
 {
     private const string CaughtUpStreamId = "$projection-caught-up";
+    private const int MaxConsecutiveObserveFailures = 10;
 
     private readonly IClient client;
     private readonly IEventEnvelopeFactory envelopeFactory;
@@ -121,7 +122,7 @@ public class EventSourcingDbEventSource<TState> : IEventSource<EventEnvelope>
         GlobalEventPosition start,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var attempts = 0;
+        var retryBudget = new ObserveRetryBudget(MaxConsecutiveObserveFailures);
         var currentStart = start;
         var caughtUpEmitted = false;
 
@@ -157,6 +158,12 @@ public class EventSourcingDbEventSource<TState> : IEventSource<EventEnvelope>
                     }
 
                     envelope = enumerator.Current;
+
+                    // A successfully observed event clears the consecutive-failure
+                    // count, so the retry limit only ever fires on an uninterrupted
+                    // run of failures, not on transient disconnects that each recover
+                    // over the lifetime of a long-running projection.
+                    retryBudget.RecordSuccess();
                 }
                 catch (Exception ex)
                 {
@@ -166,10 +173,10 @@ public class EventSourcingDbEventSource<TState> : IEventSource<EventEnvelope>
                         yield break;
                     }
 
-                    attempts++;
-                    this.logger.LogWarning(ex, "Observe subscription dropped, attempt {Attempt}", attempts);
+                    var exhausted = retryBudget.RecordFailureAndCheckExhausted();
+                    this.logger.LogWarning(ex, "Observe subscription dropped, consecutive failure {Attempt}", retryBudget.ConsecutiveFailures);
 
-                    if (attempts >= 10)
+                    if (exhausted)
                     {
                         ExceptionDispatchInfo.Capture(ex).Throw();
                     }

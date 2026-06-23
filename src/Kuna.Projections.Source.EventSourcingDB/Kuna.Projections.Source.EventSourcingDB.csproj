@@ -5,6 +5,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Kuna.Projections.Source.EventSourcingDB.Test" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Kuna.Projections.Abstractions\Kuna.Projections.Abstractions.csproj" />
   </ItemGroup>
 
