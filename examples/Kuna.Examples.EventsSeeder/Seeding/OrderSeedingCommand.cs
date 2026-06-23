@@ -74,6 +74,7 @@ public static class OrderSeedingCommand
                 Console.Error.WriteLine(
                     $"EventSourcingDB at {options.EventSourcingDbBaseUrl} is not reachable after 30s. "
                     + "Make sure the container is running and ready (docker compose up -d), then retry.");
+
                 return 1;
             }
         }

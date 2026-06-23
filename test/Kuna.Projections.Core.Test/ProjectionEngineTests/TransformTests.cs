@@ -198,6 +198,7 @@ public class TransformTests
 
         A.CallTo(() => factory.Create(firstModelId, false, A<CancellationToken>._))
          .Returns(new ItemProjection(firstModelId));
+
         A.CallTo(() => factory.Create(secondModelId, false, A<CancellationToken>._))
          .Returns(new ItemProjection(secondModelId));
 
@@ -419,8 +420,7 @@ public class TransformTests
         A.CallTo(() => handler.Handle(A<ProjectionFailure>._, A<CancellationToken>._)).MustHaveHappenedTwiceExactly();
     }
 
-    private static ProjectionSettings<ItemModel> CreateSettings(
-        EventVersionCheckStrategy versionCheckStrategy = EventVersionCheckStrategy.Consecutive)
+    private static ProjectionSettings<ItemModel> CreateSettings(EventVersionCheckStrategy versionCheckStrategy = EventVersionCheckStrategy.Consecutive)
     {
         return new ProjectionSettings<ItemModel>
         {

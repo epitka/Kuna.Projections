@@ -4,8 +4,7 @@ using EventCandidate = EventSourcingDb.Types.EventCandidate;
 
 namespace Kuna.Examples.EventsSeeder.Seeding;
 
-public sealed record EventSourcingDbWritePlan(
-    IReadOnlyList<InterleavedOrderEvent> Events);
+public sealed record EventSourcingDbWritePlan(IReadOnlyList<InterleavedOrderEvent> Events);
 
 public static class EventSourcingDbStreamWriter
 {
