@@ -41,6 +41,16 @@ try
     var app = builder.Build();
 
     app.MapGet("/", () => "Projection worker is running");
+    app.MapPost(
+        "/diagnostics/orders/replay-consistency",
+        async (
+            ReplayConsistencyRequest? request,
+            OrdersReplayConsistencyDiagnostics diagnostics,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await diagnostics.RunAsync(request ?? new ReplayConsistencyRequest(), cancellationToken);
+            return Results.Ok(result);
+        });
 
     await app.RunAsync();
     return 0;

@@ -54,6 +54,8 @@ public static class ServiceCollectionExtensions
                 .UseEventSourcingDbSource(factory)
                 .UseNpgsqlDataStore<Order, OrdersDbContext>(schema: ProjectionSchema);
 
+        services.AddScoped<OrdersReplayConsistencyDiagnostics>();
+
         return services;
     }
 }
