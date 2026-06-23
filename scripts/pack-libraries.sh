@@ -18,3 +18,4 @@ dotnet pack -c Release --no-build src/Kuna.Projections.Sink.EF.SqlServer/Kuna.Pr
 dotnet pack -c Release --no-build src/Kuna.Projections.Sink.EF.MySql/Kuna.Projections.Sink.EF.MySql.csproj -o "$package_dir"
 dotnet pack -c Release --no-build src/Kuna.Projections.Source.KurrentDB/Kuna.Projections.Source.KurrentDB.csproj -o "$package_dir"
 dotnet pack -c Release --no-build src/Kuna.Projections.Source.Kafka/Kuna.Projections.Source.Kafka.csproj -o "$package_dir"
+dotnet pack -c Release --no-build src/Kuna.Projections.Source.EventSourcingDB/Kuna.Projections.Source.EventSourcingDB.csproj -o "$package_dir"
