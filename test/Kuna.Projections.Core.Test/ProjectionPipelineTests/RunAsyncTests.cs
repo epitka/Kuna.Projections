@@ -194,6 +194,102 @@ public class RunAsyncTests
     }
 
     [Fact]
+    public async Task EndToEnd_Global_Log_Source_Should_Persist_All_New_Models_As_Inserts()
+    {
+        // Regression for EventSourcingDB-style sources: a single, globally ordered
+        // stream maps the global event id onto EventNumber, so each aggregate's
+        // initial event carries a different, increasing EventNumber (0, 1, 2, ...).
+        // Every such model is brand-new and must reach the sink as an insert. The
+        // earlier bug derived the expected version as eventNumber - 1, so only the
+        // globally first aggregate stayed an insert and all others were demoted to
+        // updates (which then wrote nothing / violated child FK constraints).
+        var testCancellationToken = TestContext.Current.CancellationToken;
+
+        var envelopes = Enumerable.Range(0, 3)
+                                  .Select(
+                                      i =>
+                                      {
+                                          var modelId = Guid.NewGuid();
+                                          var created = new ItemCreated
+                                          {
+                                              Id = modelId,
+                                              Name = $"order-{i}",
+                                              TypeName = nameof(ItemCreated),
+                                              CreatedOn = DateTime.UtcNow,
+                                          };
+
+                                          return new EventEnvelope(
+                                              eventNumber: i,
+                                              streamPosition: new GlobalEventPosition(i.ToString()),
+                                              streamId: $"item-{modelId}",
+                                              @event: created,
+                                              modelId: modelId,
+                                              createdOn: created.CreatedOn);
+                                      })
+                                  .ToArray();
+
+        var source = new FastSource(envelopes);
+        var stateStore = new NullStateStore();
+        var projectionFactory = new ProjectionFactory<ItemModel>(
+            id => new ItemProjection(id),
+            stateStore);
+
+        var settings = new ProjectionSettings<ItemModel>
+        {
+            CatchUpFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                ModelCountThreshold = 100,
+            },
+            LiveProcessingFlush = new ProjectionFlushSettings
+            {
+                Strategy = PersistenceStrategy.ModelCountBatching,
+                Delay = 1000,
+            },
+            ModelStateCacheCapacity = 10000,
+
+            // EventSourcingDB requires Monotonic (or Disabled); Consecutive is rejected.
+            EventVersionCheckStrategy = EventVersionCheckStrategy.Monotonic,
+        };
+
+        var loggerFactory = LoggerFactory.Create(
+            builder =>
+            {
+            });
+
+        var engine = new ProjectionEngine<ItemModel>(
+            projectionFactory,
+            new NoOpFailureHandler(),
+            new InMemoryModelStateCache<ItemModel>(settings),
+            new ProjectionCreationRegistration<ItemModel>(typeof(ItemCreated)),
+            settings,
+            loggerFactory.CreateLogger<ProjectionEngine<ItemModel>>());
+
+        var sink = new CapturingSink();
+        var checkpointStore = new InMemoryCheckpointStore();
+        var pipeline = new ProjectionPipeline<EventEnvelope, ItemModel>(
+            source,
+            engine,
+            engine,
+            new InMemoryModelStateCache<ItemModel>(settings),
+            sink,
+            checkpointStore,
+            settings,
+            loggerFactory.CreateLogger<ProjectionPipeline<EventEnvelope, ItemModel>>());
+
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(testCancellationToken);
+        await pipeline.RunAsync(linkedCts.Token);
+
+        var persisted = sink.Batches.SelectMany(batch => batch.Changes).ToList();
+
+        persisted.Count.ShouldBe(envelopes.Length);
+        persisted.ShouldAllBe(change => change.IsNew);
+        persisted.Select(change => change.Model.Id)
+                 .OrderBy(id => id)
+                 .ShouldBe(envelopes.Select(envelope => envelope.ModelId).OrderBy(id => id));
+    }
+
+    [Fact]
     public async Task Should_Use_LiveProcessing_ModelCountFlushThreshold_After_CaughtUp()
     {
         var testCancellationToken = TestContext.Current.CancellationToken;

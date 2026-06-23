@@ -201,14 +201,17 @@ public sealed class ProjectionEngine<TState>
         if (createFromInitialEvent)
         {
             Interlocked.Increment(ref this.newProjectionCreates);
-            projection = await this.projectionFactory.Create(envelope.ModelId, loadModelFromStore: false, cancellationToken);
 
-            if (projection != null)
-            {
-                projection.ModelState.EventNumber = envelope.EventNumber - 1;
-            }
-
-            return projection;
+            // A model created from its initial event is a brand-new aggregate with
+            // no prior version, so the factory's "no prior version" sentinel
+            // (EventNumber = -1) is kept as-is. Deriving the prior version from the
+            // envelope (envelope.EventNumber - 1) would break global-log sources
+            // such as EventSourcingDB, where EventNumber is the global event id: the
+            // initial event of every aggregate except the globally first one would
+            // then carry a non-negative expected version and be misclassified as an
+            // update instead of an insert. For per-stream sources the initial event
+            // is at version 0, so the sentinel is unchanged.
+            return await this.projectionFactory.Create(envelope.ModelId, loadModelFromStore: false, cancellationToken);
         }
 
         if (loadModelFromStore
