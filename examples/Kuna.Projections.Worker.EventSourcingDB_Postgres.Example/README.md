@@ -18,6 +18,8 @@ docker compose up -d
 
 This starts EventSourcingDB on `http://localhost:3000` (API token `secret`) and PostgreSQL on `localhost:5432`.
 
+The EventSourcingDB service ships a healthcheck against its `/api/v1/ping` endpoint, so you can use `docker compose up -d --wait` to block until it is actually accepting connections. The seeder also waits for readiness on its own, so seeding right after `up` is safe either way.
+
 ## Run The Worker
 
 ```bash
