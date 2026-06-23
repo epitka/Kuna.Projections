@@ -5,10 +5,11 @@ This document describes the library-owned configuration surface used by:
 - `Kuna.Projections.Core`
 - `Kuna.Projections.Source.KurrentDB`
 - `Kuna.Projections.Source.Kafka`
+- `Kuna.Projections.Source.EventSourcingDB`
 
 It also explains where the library stops and application-specific configuration begins.
 
-For the shortest path to a running worker, see [quickstart.md](quickstart.md). For the broader package and runtime map, see [overview.md](overview.md). For MongoDB sink registration and persistence semantics, see [mongodb-sink.md](mongodb-sink.md).
+For the shortest path to a running worker, see [quickstart.md](quickstart.md). For the broader package and runtime map, see [overview.md](overview.md). For MongoDB sink registration and persistence semantics, see [mongodb-sink.md](mongodb-sink.md). For EventSourcingDB source registration and semantics, see [eventsourcingdb-source.md](eventsourcingdb-source.md).
 
 ## Configuration Shape
 
@@ -18,6 +19,7 @@ The libraries expect:
 - one projection section per registered projection
 - a nested `KurrentDB` section inside each projection section registered with `UseKurrentDbSource(...)`
 - a nested `Kafka` section inside each projection section registered with `UseKafkaSource(...)`
+- an optional nested `EventSourcingDB` section inside each projection section registered with `UseEventSourcingDbSource(...)`, plus a root `EventSourcingDb` connection section
 
 The projection section name is application-defined. The tables below list the full settings surface and the default values used by the library types when a setting is present in the section but not explicitly overridden.
 
@@ -453,6 +455,74 @@ Guidance:
 - this is a prefix filter, not an exact stream-name match
 - `order-` matches streams whose names start with `order-`
 - system events are excluded by the implementation when constructing the native KurrentDB filter
+
+## EventSourcingDB Connection
+
+`Kuna.Projections.Source.EventSourcingDB` reuses the official EventSourcingDB .NET client and registers it through the SDK's `AddEventSourcingDb(...)` extension. The connection is therefore configured in a root `EventSourcingDb` section rather than in `ConnectionStrings`.
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `BaseUrl` | `string` (URL) | None | Yes | Base URL of the EventSourcingDB server, e.g. `http://localhost:3000`. |
+| `ApiToken` | `string` | None | Yes | API token used as the bearer credential. |
+
+```json
+{
+  "EventSourcingDb": {
+    "BaseUrl": "http://localhost:3000",
+    "ApiToken": "secret"
+  }
+}
+```
+
+The client is registered once per service collection. If the application already registered an `IClient`, the source reuses it.
+
+## `EventSourcingDB`
+
+Section name: `EventSourcingDB`
+
+Bound by: `UseEventSourcingDbSource(...)` on a projection registration builder
+
+Target type: `EventSourcingDbSourceSettings`
+
+The section is optional. When absent, the source uses its defaults and observes the root subject recursively.
+
+### Settings Summary
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `Subject` | `string` | `/` | No | Subject the source observes. |
+| `Recursive` | `bool` | `true` | No | Whether nested subjects below `Subject` are included. |
+| `ModelIdSubjectSegmentIndex` | `int?` | `null` (last segment) | No | Zero-based subject path segment used as the model-id candidate when resolving from the subject. |
+
+### Subject Scope And Ordering
+
+**The EventSourcingDB source observes exactly one subject scope per projection and relies on the database's global event order.**
+
+EventSourcingDB delivers events in a single, globally ordered stream; the event `id` is a monotonically increasing integer. Observing one subject with `Recursive = true` yields one correctly ordered stream that the pipeline can checkpoint on directly. Splitting ingestion across several narrow subjects would require an order-preserving merge and is intentionally not supported. Configure one root subject per projection; the default `/` consumes everything.
+
+### Event Version Strategy
+
+EventSourcingDB exposes only the global event `id`, not a per-aggregate version number. The source maps the global `id` onto `EventNumber` and requires an `EventVersionCheckStrategy` other than `Consecutive`:
+
+- `Monotonic` (recommended): tolerates the gaps that are normal in a global id space, still rejects out-of-order delivery, and makes at-least-once replay idempotent by skipping already-applied events.
+- `Disabled`: no version checking.
+- `Consecutive`: **not supported.** It requires gapless per-aggregate numbers, which EventSourcingDB does not provide. `UseEventSourcingDbSource(...)` fails fast at startup if the projection is configured with `Consecutive`.
+
+Because `EventNumber` carries the global position, the persisted `IModel.EventNumber` is a global position rather than a per-aggregate version count.
+
+### Model Id Resolution
+
+The source resolves the model id like the other sources, through `ModelIdResolutionStrategy` and the `[ModelId]` attribute. When deriving the model id from the subject, the configured segment of the subject path (the last segment by default) is parsed as a `Guid`.
+
+> Note: `Kuna.Projections` models read-model keys as `Guid` (`IModel.Id`). This constraint comes from the framework itself, not from the EventSourcingDB source. Subjects whose key segment is not a `Guid` must carry the id through a `[ModelId]` property or map it to a `Guid` with a custom strategy.
+
+### Event Type Mapping
+
+EventSourcingDB CloudEvent `type` values are mapped to CLR event types by name. By default the segment after the last dot is used, so `io.kuna.orders.OrderCreated` resolves to the CLR type `OrderCreated`, matched case-insensitively. Provide a custom resolver via `UseEventSourcingDbSource(loggerFactory, eventTypeNameResolver: ...)` when `type` naming does not follow that convention. Unmapped types are delivered as `UnknownEvent`.
+
+### Caught-Up Signaling
+
+EventSourcingDB's observe stream has no explicit caught-up marker. The source reads the head position once on start and emits `ProjectionCaughtUpEvent` either immediately (when the checkpoint is already at or beyond the head) or once an observed event reaches it. The signal only switches the pipeline from catch-up batching to live processing; if it is missing or imprecise it affects live-processing latency, never correctness.
 
 ## Application-Specific Configuration
 
