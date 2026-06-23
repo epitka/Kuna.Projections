@@ -48,6 +48,51 @@ public static class EventSourcingDbStreamWriter
         }
     }
 
+    /// <summary>
+    /// Polls the EventSourcingDB ping endpoint until it responds or the timeout
+    /// elapses. The container reports "started" before the database is actually
+    /// accepting connections, so seeding right after <c>docker compose up</c> can
+    /// otherwise fail mid-run with a raw "connection refused". Returns
+    /// <see langword="true"/> once the server is reachable, <see langword="false"/>
+    /// if it is still unreachable after <paramref name="timeout"/>.
+    /// </summary>
+    public static async Task<bool> WaitUntilReadyAsync(
+        string baseUrl,
+        string apiToken,
+        TimeSpan timeout,
+        Action<string>? log = null,
+        CancellationToken cancellationToken = default)
+    {
+        var client = new Client(new Uri(baseUrl), apiToken);
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var announced = false;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                await client.PingAsync(cancellationToken);
+                return true;
+            }
+            catch (Exception) when (stopwatch.Elapsed < timeout)
+            {
+                if (!announced)
+                {
+                    log?.Invoke($"Waiting for EventSourcingDB at {baseUrl} to become ready...");
+                    announced = true;
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+    }
+
     private static async Task<int> FlushAsync(
         Client client,
         List<EventCandidate> batch,

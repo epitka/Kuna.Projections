@@ -57,6 +57,27 @@ public static class OrderSeedingCommand
             return 1;
         }
 
+        // Wait for EventSourcingDB before doing any work, so a not-yet-ready (or
+        // not-running) server fails fast with a clear message instead of planning
+        // the whole event stream and then dying mid-write with "connection refused".
+        if (!string.IsNullOrWhiteSpace(options.EventSourcingDbBaseUrl))
+        {
+            var ready = await EventSourcingDbStreamWriter.WaitUntilReadyAsync(
+                            options.EventSourcingDbBaseUrl,
+                            options.EventSourcingDbApiToken!,
+                            TimeSpan.FromSeconds(30),
+                            Console.WriteLine,
+                            cancellationToken);
+
+            if (!ready)
+            {
+                Console.Error.WriteLine(
+                    $"EventSourcingDB at {options.EventSourcingDbBaseUrl} is not reachable after 30s. "
+                    + "Make sure the container is running and ready (docker compose up -d), then retry.");
+                return 1;
+            }
+        }
+
         var startedAt = DateTimeOffset.UtcNow;
         var generator = new OrderStreamGenerator(
             new OrderStreamGeneratorOptions
