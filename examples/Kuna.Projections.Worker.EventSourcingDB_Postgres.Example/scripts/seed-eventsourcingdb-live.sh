@@ -8,10 +8,16 @@ REPO_ROOT="$(cd -- "${EXAMPLE_DIR}/../.." && pwd)"
 ESDB_BASE_URL="${ESDB_BASE_URL:-http://localhost:3000}"
 ESDB_API_TOKEN="${ESDB_API_TOKEN:-secret}"
 ESDB_BATCH_SIZE="${ESDB_BATCH_SIZE:-500}"
-TARGET_EVENTS="${TARGET_EVENTS:-50000}"
+MAX_TARGET_EVENTS=25000
+TARGET_EVENTS="${TARGET_EVENTS:-${MAX_TARGET_EVENTS}}"
 MIN_COMPLETE_ORDERS="${MIN_COMPLETE_ORDERS:-3000}"
 STREAM_PREFIX="${STREAM_PREFIX:-order-}"
 REPORT_PATH="${REPORT_PATH:-/tmp/kuna-esdb-seed-report.json}"
+
+if (( TARGET_EVENTS > MAX_TARGET_EVENTS )); then
+  echo "TARGET_EVENTS cannot exceed ${MAX_TARGET_EVENTS} for EventSourcingDB; limiting to ${MAX_TARGET_EVENTS}."
+  TARGET_EVENTS="${MAX_TARGET_EVENTS}"
+fi
 
 echo "Seeding EventSourcingDB at: ${ESDB_BASE_URL}"
 echo "Target events: ${TARGET_EVENTS}, min complete orders: ${MIN_COMPLETE_ORDERS}, batch size: ${ESDB_BATCH_SIZE}"
