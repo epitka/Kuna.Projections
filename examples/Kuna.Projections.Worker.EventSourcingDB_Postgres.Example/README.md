@@ -32,7 +32,7 @@ Environment variables override the defaults: `TARGET_EVENTS` (default `50000`), 
 
 > Note: EventSourcingDB writes are considerably slower than reads, so the time the seeder takes is not a measure of projection (read) throughput. `ESDB_BATCH_SIZE` only affects how fast the seeder fills the store; it does not change what the projection observes.
 
-The order model id is resolved from the `[ModelId]` property on the events (the default `PreferAttribute` strategy). The seeder also encodes the order `Guid` as the last subject segment, so setting `OrdersProjection:ModelIdResolutionStrategy` to `RequireStreamId` keys on the subject instead.
+The order model id is resolved from the `[ModelId]` property on the events (the default `UseModelIdAttribute` strategy). The seeder also encodes the order `Guid` as the last subject segment, so setting `OrdersProjection:ModelIdResolutionStrategy` to `UseStreamId` keys on the subject instead.
 
 ## Run The Worker
 

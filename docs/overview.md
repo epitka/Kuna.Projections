@@ -263,11 +263,11 @@ Source-facing types:
 - `KurrentDbEventSource<TState>`: current KurrentDB-backed implementation of `IEventSource<EventEnvelope>`
 - `IEventDeserializer` and `EventDeserializer`: map raw Kurrent events to CLR event types
 - `IEventEnvelopeFactory` and `EventEnvelopeFactory`: build `EventEnvelope` instances
-- `EventModelIdResolver`: resolves model ids from stream ids, `[ModelId]` properties, or both
+- `EventModelIdResolver`: resolves model ids from the one authoritative source selected by `ModelIdResolutionStrategy`
 - `KurrentDbHealthCheck`: verifies source connectivity
 - `KurrentDbSourceSettings`: Kurrent-specific source settings
 - `KurrentDbFilterSettings`: application-owned JSON shape for Kurrent subscription filters
-- `ModelIdResolutionStrategy`: root projection setting that controls how stream ids and `[ModelId]` attributes are used
+- `ModelIdResolutionStrategy`: root projection setting selecting either `UseStreamId` or `UseModelIdAttribute`
 
 Registration:
 

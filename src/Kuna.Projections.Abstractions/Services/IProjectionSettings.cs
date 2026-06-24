@@ -111,7 +111,8 @@ public class ProjectionSettings<TState> : IProjectionSettings<TState>
     /// <summary>
     /// Controls how the target model id is resolved from incoming events.
     /// </summary>
-    public ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; } = ModelIdResolutionStrategy.PreferAttribute;
+    public ModelIdResolutionStrategy ModelIdResolutionStrategy { get; set; }
+        = ModelIdResolutionStrategy.UseModelIdAttribute;
 
     /// <summary>
     /// Number of model states retained in memory for fast reloads after runtime projection state is cleared.

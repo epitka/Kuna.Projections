@@ -8,11 +8,9 @@ using Microsoft.Extensions.Logging;
 namespace Kuna.Projections.Source.EventSourcingDB;
 
 /// <summary>
-/// Resolves the projection model id for an EventSourcingDB event by inspecting the
-/// subject, <see cref="ModelIdAttribute"/>-decorated event properties, or both,
-/// according to the configured resolution strategy. The subject is split on
-/// <c>/</c> and a configurable segment (the last by default) is parsed as a
-/// <see cref="Guid"/>.
+/// Resolves the projection model id for an EventSourcingDB event from the configured
+/// authoritative source. Subjects are split on <c>/</c> and a configurable segment
+/// (the last by default) is parsed as a <see cref="Guid"/>.
 /// </summary>
 public sealed class EventSourcingDbModelIdResolver : IEventModelIdResolver
 {
@@ -27,7 +25,7 @@ public sealed class EventSourcingDbModelIdResolver : IEventModelIdResolver
     /// </summary>
     public EventSourcingDbModelIdResolver(
         ILogger<EventSourcingDbModelIdResolver> logger,
-        ModelIdResolutionStrategy strategy = ModelIdResolutionStrategy.PreferAttribute,
+        ModelIdResolutionStrategy strategy = ModelIdResolutionStrategy.UseModelIdAttribute,
         int? subjectSegmentIndex = null)
     {
         this.accessors = new ConcurrentDictionary<Type, Func<Event, Guid?>?>();
@@ -43,65 +41,18 @@ public sealed class EventSourcingDbModelIdResolver : IEventModelIdResolver
     /// </summary>
     public bool TryResolve(Event @event, string streamId, out Guid modelId)
     {
-        var hasSubjectModelId = this.TryResolveFromSubject(streamId, out var subjectModelId);
-        var hasAttributeModelId = this.TryResolveFromAttribute(@event, out var attributeModelId);
-
-        if (hasSubjectModelId
-            && hasAttributeModelId
-            && subjectModelId != attributeModelId)
-        {
-            this.logger.LogWarning(
-                "ModelId mismatch: event type {EventType}, subject {Subject}, attribute modelId {AttributeModelId}, subject modelId {SubjectModelId}",
-                @event.GetType().Name,
-                streamId,
-                attributeModelId,
-                subjectModelId);
-
-            if (this.strategy == ModelIdResolutionStrategy.RequireMatch)
-            {
-                modelId = Guid.Empty;
-                return false;
-            }
-        }
-
         switch (this.strategy)
         {
-            case ModelIdResolutionStrategy.RequireStreamId:
-                if (hasSubjectModelId)
-                {
-                    modelId = subjectModelId;
-                    return true;
-                }
-
-                break;
-            case ModelIdResolutionStrategy.RequireMatch:
-                if (hasSubjectModelId
-                    && hasAttributeModelId
-                    && subjectModelId == attributeModelId)
-                {
-                    modelId = subjectModelId;
-                    return true;
-                }
-
-                break;
+            case ModelIdResolutionStrategy.UseModelIdAttribute:
+                return this.TryResolveFromAttribute(@event, out modelId);
+            case ModelIdResolutionStrategy.UseStreamId:
+                return this.TryResolveFromSubject(streamId, out modelId);
             default:
-                if (hasAttributeModelId)
-                {
-                    modelId = attributeModelId;
-                    return true;
-                }
-
-                if (hasSubjectModelId)
-                {
-                    modelId = subjectModelId;
-                    return true;
-                }
-
-                break;
+                throw new ArgumentOutOfRangeException(
+                    nameof(this.strategy),
+                    this.strategy,
+                    "Unsupported EventSourcingDB model id resolution strategy.");
         }
-
-        modelId = Guid.Empty;
-        return false;
     }
 
     private bool TryResolveFromAttribute(Event @event, out Guid modelId)

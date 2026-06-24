@@ -144,9 +144,9 @@ public sealed class AccountDeleted : Event
 ```
 
 Important note:
-- `[ModelId]` is not required; model ids can also be resolved from the stream id. See [configuration-reference.md](configuration-reference.md#modelidresolutionstrategy).
+- KurrentDB model ids come from exactly one configured source. See [configuration-reference.md](configuration-reference.md#modelidresolutionstrategy).
 - the current KurrentDB-backed source implementation discovers event CLR types from the entry assembly by scanning exported types derived from `Event`
-- with the default `ModelIdResolutionStrategy` of `PreferAttribute`, the source uses a `[ModelId]` property when present; otherwise it falls back to resolving the model id from the stream id
+- the default KurrentDB `ModelIdResolutionStrategy` is `UseModelIdAttribute`; set it to `UseStreamId` when stream naming is authoritative
 
 
 ## 5. Implement The Projection
@@ -433,6 +433,7 @@ At minimum you need connection strings and one projection section that contains 
     "MongoDB": "mongodb://localhost:27017"
   },
   "AccountProjection": {
+    "ModelIdResolutionStrategy": "UseModelIdAttribute",
     "KurrentDB": {
       "Filter": {
         "Kind": "StreamPrefix",
@@ -453,6 +454,7 @@ At minimum you need connection strings and one projection section that contains 
   },
   "AccountProjection": {
     "InstanceId": "accounts-v1",
+    "ModelIdResolutionStrategy": "UseModelIdAttribute",
     "KurrentDB": {
       "Filter": {
         "Kind": "StreamPrefix",
@@ -470,7 +472,7 @@ Useful settings notes:
 - the usual rollout is blue/green: keep `accounts-v1` serving reads, let `accounts-v2` rebuild and catch up in parallel, validate it, then switch readers
 - source selection is controlled by the fluent registration call, such as `UseKurrentDbSource(...)` or `UseKafkaSource(...)`
 - `KurrentDB.Filter.Prefixes` currently requires exactly one prefix and is used as the prefix filter for the Kurrent subscription
-- the default `ModelIdResolutionStrategy` on the root projection section is `PreferAttribute`
+- the default KurrentDB `ModelIdResolutionStrategy` is `UseModelIdAttribute`
 - the recommended API is `AddProjection<TState>(configuration, "AccountProjection")` followed by fluent `Use...` methods on the returned builder
 - the section name identifies one projection definition in DI; `InstanceId` inside that section identifies the deployed runtime instance for checkpoints, failures, and diagnostics
 

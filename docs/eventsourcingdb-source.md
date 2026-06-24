@@ -71,7 +71,7 @@ EventSourcingDB exposes only the global `id`, not a per-aggregate version. The s
 
 ### Model id resolution
 
-Model ids are resolved through `ModelIdResolutionStrategy` and the `[ModelId]` attribute, exactly as for the other sources. When deriving the id from the subject, the configured segment (the last segment by default, e.g. `{guid}` in `/orders/{guid}`) is parsed as a `Guid`.
+Model ids are resolved through the projection's `ModelIdResolutionStrategy`. `UseModelIdAttribute` reads only a `[ModelId]` property; `UseStreamId` reads only the configured subject segment. When deriving the id from the subject, the configured segment (the last segment by default, e.g. `{guid}` in `/orders/{guid}`) is parsed as a `Guid`.
 
 > `Kuna.Projections` models read-model keys as `Guid` (`IModel.Id`). This constraint comes from the framework itself, not from the EventSourcingDB source. Subjects whose key segment is not a `Guid` must carry the id through a `[ModelId]` property or map it to a `Guid` with a custom strategy.
 

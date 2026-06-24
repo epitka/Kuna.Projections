@@ -65,7 +65,7 @@ The section itself is required because `AddProjection<TState>(...)` calls `confi
 | `CatchUpFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior before the source reaches live processing.               |
 | `LiveProcessingFlush` | `ProjectionFlushSettings` | See below | No | Flush behavior after the source catches up.                             |
 | `Backpressure` | `ProjectionBackpressureSettings` | See below | No | Backpressure buffer capacities between projection pipeline stages.      |
-| `ModelIdResolutionStrategy` | `ModelIdResolutionStrategy` | `PreferAttribute` | No | Controls how model ids are derived from events and stream ids.          |
+| `ModelIdResolutionStrategy` | `ModelIdResolutionStrategy` | `UseModelIdAttribute` | No | Controls how model ids are derived from event data and source identifiers. |
 | `ModelStateCacheCapacity` | `int` | `10000` | No | Number of model states retained in memory.                              |
 | `EventVersionCheckStrategy` | `EventVersionCheckStrategy` | `Consecutive` | No | Controls event ordering validation before `Apply(...)`.                 |
 
@@ -288,27 +288,12 @@ This example intentionally allows source reading to run ahead of transformation 
 
 ### `ModelIdResolutionStrategy`
 
-Type: `ModelIdResolutionStrategy`
-
 Allowed values:
 
-- `PreferAttribute`
-- `RequireStreamId`
-- `RequireMatch`
+- `UseModelIdAttribute`
+- `UseStreamId`
 
-Default: `PreferAttribute`
-
-Behavior:
-
-- `PreferAttribute`: use `[ModelId]` when present, otherwise fall back to the stream id
-- `RequireStreamId`: require the stream id to carry the model id and treat it as authoritative
-- `RequireMatch`: require both stream id and `[ModelId]` to resolve and agree
-
-Guidance:
-
-- `PreferAttribute` is the most flexible default
-- `RequireStreamId` is a good fit when stream naming is authoritative
-- `RequireMatch` is the strictest option and helps catch mismatches early
+Both strategies use exactly one authoritative source. There is no fallback or cross-source matching.
 
 ### `ModelStateCacheCapacity`
 
@@ -512,7 +497,12 @@ Because `EventNumber` carries the global position, the persisted `IModel.EventNu
 
 ### Model Id Resolution
 
-The source resolves the model id like the other sources, through `ModelIdResolutionStrategy` and the `[ModelId]` attribute. When deriving the model id from the subject, the configured segment of the subject path (the last segment by default) is parsed as a `Guid`.
+Allowed `ModelIdResolutionStrategy` values:
+
+- `UseModelIdAttribute`: resolve exclusively from a `[ModelId]` event property
+- `UseStreamId`: resolve exclusively from the configured subject segment
+
+There is no fallback between the two sources. When deriving the model id from the subject, the configured segment of the subject path (the last segment by default) is parsed as a `Guid`.
 
 > Note: `Kuna.Projections` models read-model keys as `Guid` (`IModel.Id`). This constraint comes from the framework itself, not from the EventSourcingDB source. Subjects whose key segment is not a `Guid` must carry the id through a `[ModelId]` property or map it to a `Guid` with a custom strategy.
 
@@ -570,6 +560,7 @@ For a first production-like setup, start with the library defaults and add only 
 {
   "OrdersProjection": {
     "InstanceId": "orders-v1",
+    "ModelIdResolutionStrategy": "UseStreamId",
     "KurrentDB": {
       "Filter": {
         "Kind": "StreamPrefix",

@@ -27,7 +27,7 @@ public class EventSourcingDbModelIdResolverTests
     [Fact]
     public void Should_Resolve_From_Subject_Last_Segment_When_No_Attribute()
     {
-        var resolver = CreateResolver();
+        var resolver = CreateResolver(ModelIdResolutionStrategy.UseStreamId);
         var id = Guid.NewGuid();
         var @event = new NoAttributeEvent { TypeName = nameof(NoAttributeEvent), CreatedOn = DateTime.UtcNow, };
 
@@ -40,7 +40,7 @@ public class EventSourcingDbModelIdResolverTests
     [Fact]
     public void Should_Resolve_From_Last_Segment_Of_Nested_Subject()
     {
-        var resolver = CreateResolver();
+        var resolver = CreateResolver(ModelIdResolutionStrategy.UseStreamId);
         var id = Guid.NewGuid();
         var @event = new NoAttributeEvent { TypeName = nameof(NoAttributeEvent), CreatedOn = DateTime.UtcNow, };
 
@@ -53,7 +53,7 @@ public class EventSourcingDbModelIdResolverTests
     [Fact]
     public void Should_Resolve_From_Configured_Subject_Segment_Index()
     {
-        var resolver = CreateResolver(subjectSegmentIndex: 1);
+        var resolver = CreateResolver(ModelIdResolutionStrategy.UseStreamId, subjectSegmentIndex: 1);
         var id = Guid.NewGuid();
         var @event = new NoAttributeEvent { TypeName = nameof(NoAttributeEvent), CreatedOn = DateTime.UtcNow, };
 
@@ -66,7 +66,7 @@ public class EventSourcingDbModelIdResolverTests
     [Fact]
     public void Should_Return_False_When_Subject_Segment_Is_Not_A_Guid()
     {
-        var resolver = CreateResolver();
+        var resolver = CreateResolver(ModelIdResolutionStrategy.UseStreamId);
         var @event = new NoAttributeEvent { TypeName = nameof(NoAttributeEvent), CreatedOn = DateTime.UtcNow, };
 
         var result = resolver.TryResolve(@event, "/orders/not-a-guid", out var modelId);
@@ -76,7 +76,7 @@ public class EventSourcingDbModelIdResolverTests
     }
 
     [Fact]
-    public void Should_Prefer_Attribute_Over_Subject_By_Default()
+    public void Should_Use_ModelId_Attribute_And_Ignore_Subject_By_Default()
     {
         var resolver = CreateResolver();
         var attributeId = Guid.NewGuid();
@@ -90,10 +90,10 @@ public class EventSourcingDbModelIdResolverTests
     }
 
     [Fact]
-    public void Should_Return_False_On_Mismatch_When_RequireMatch()
+    public void Should_Return_False_When_Using_ModelId_Attribute_And_Attribute_Is_Missing()
     {
-        var resolver = CreateResolver(ModelIdResolutionStrategy.RequireMatch);
-        var @event = new GuidEvent { Id = Guid.NewGuid(), TypeName = nameof(GuidEvent), CreatedOn = DateTime.UtcNow, };
+        var resolver = CreateResolver();
+        var @event = new NoAttributeEvent { TypeName = nameof(NoAttributeEvent), CreatedOn = DateTime.UtcNow, };
 
         var result = resolver.TryResolve(@event, $"/orders/{Guid.NewGuid():N}", out var modelId);
 
@@ -102,9 +102,9 @@ public class EventSourcingDbModelIdResolverTests
     }
 
     [Fact]
-    public void Should_Require_Subject_When_RequireStreamId()
+    public void Should_Use_Subject_When_Using_StreamId()
     {
-        var resolver = CreateResolver(ModelIdResolutionStrategy.RequireStreamId);
+        var resolver = CreateResolver(ModelIdResolutionStrategy.UseStreamId);
         var attributeId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
         var @event = new GuidEvent { Id = attributeId, TypeName = nameof(GuidEvent), CreatedOn = DateTime.UtcNow, };
@@ -116,7 +116,7 @@ public class EventSourcingDbModelIdResolverTests
     }
 
     private static EventSourcingDbModelIdResolver CreateResolver(
-        ModelIdResolutionStrategy strategy = ModelIdResolutionStrategy.PreferAttribute,
+        ModelIdResolutionStrategy strategy = ModelIdResolutionStrategy.UseModelIdAttribute,
         int? subjectSegmentIndex = null)
     {
         var logger = A.Fake<ILogger<EventSourcingDbModelIdResolver>>();
