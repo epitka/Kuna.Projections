@@ -154,7 +154,7 @@ public class EventSourcingDbEventSource<TState> : IEventSource<EventEnvelope>
                 {
                     if (!await enumerator.MoveNextAsync())
                     {
-                        yield break;
+                        break;
                     }
 
                     envelope = enumerator.Current;
