@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using DotNet.Testcontainers.Configurations;
 using EventSourcingDb;
 using Xunit;
 
@@ -40,6 +41,7 @@ public class EventSourcingDbContainerFixture : IAsyncLifetime
 
         if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DOCKER_HOST")))
         {
+            DisableResourceReaperForColima(Environment.GetEnvironmentVariable("DOCKER_HOST"));
             return;
         }
 
@@ -48,7 +50,16 @@ public class EventSourcingDbContainerFixture : IAsyncLifetime
 
         if (File.Exists(colimaSocketPath))
         {
+            TestcontainersSettings.ResourceReaperEnabled = false;
             Environment.SetEnvironmentVariable("DOCKER_HOST", $"unix://{colimaSocketPath}");
+        }
+    }
+
+    private static void DisableResourceReaperForColima(string? dockerHost)
+    {
+        if (dockerHost?.Contains("colima", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            TestcontainersSettings.ResourceReaperEnabled = false;
         }
     }
 }
