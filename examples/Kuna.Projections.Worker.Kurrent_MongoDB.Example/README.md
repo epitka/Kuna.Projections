@@ -35,8 +35,27 @@ POST /diagnostics/orders/replay-consistency
 Default local URL:
 
 ```text
-http://localhost:5277/
+http://localhost:5279/
 ```
+
+## Run The Live Consistency Flow
+
+With Docker, .NET, `curl`, and `jq` installed:
+
+```bash
+./scripts/run-live-consistency-flow.sh
+```
+
+The script resets the compose volumes, starts the infrastructure, seeds 10,000 events,
+starts the worker, waits for the `Projection pipeline fully drained` message, seeds
+another 5,000 events, and waits until the live projection is fully drained and the
+replay consistency result reports no mismatch.
+
+Override the event counts or timeouts with `INITIAL_EVENTS`, `SECOND_EVENTS`,
+`STARTUP_TIMEOUT_SECONDS`, and `DRAIN_TIMEOUT_SECONDS`.
+
+The repository's `Example Consistency` CI workflow runs this flow for every pull
+request, merge queue entry, and push to `master`.
 
 ## Run Replay Consistency Check
 
@@ -48,7 +67,7 @@ The replay consistency diagnostic compares:
 Run the full check:
 
 ```bash
-curl -X POST http://localhost:5277/diagnostics/orders/replay-consistency \
+curl -X POST http://localhost:5279/diagnostics/orders/replay-consistency \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
@@ -56,7 +75,7 @@ curl -X POST http://localhost:5277/diagnostics/orders/replay-consistency \
 Run a single-order check:
 
 ```bash
-curl -X POST http://localhost:5277/diagnostics/orders/replay-consistency \
+curl -X POST http://localhost:5279/diagnostics/orders/replay-consistency \
   -H "Content-Type: application/json" \
   -d '{"orderId":"00000000-0000-0000-0000-000000000000"}'
 ```
