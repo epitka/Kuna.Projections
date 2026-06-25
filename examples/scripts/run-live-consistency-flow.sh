@@ -14,6 +14,8 @@ INITIAL_MIN_COMPLETE_ORDERS="${INITIAL_MIN_COMPLETE_ORDERS:-500}"
 SECOND_MIN_COMPLETE_ORDERS="${SECOND_MIN_COMPLETE_ORDERS:-250}"
 STARTUP_TIMEOUT_SECONDS="${STARTUP_TIMEOUT_SECONDS:-120}"
 DRAIN_TIMEOUT_SECONDS="${DRAIN_TIMEOUT_SECONDS:-300}"
+FLUSH_QUIET_SECONDS="${FLUSH_QUIET_SECONDS:-5}"
+CONSISTENCY_TIMEOUT_SECONDS="${CONSISTENCY_TIMEOUT_SECONDS:-600}"
 SOURCE_HOST="${SOURCE_HOST:-127.0.0.1}"
 WORKER_LOG="${WORKER_LOG:-/tmp/$(basename "${EXAMPLE_DIR}")-consistency-flow.log}"
 INITIAL_REPORT_PATH="${INITIAL_REPORT_PATH:-/tmp/$(basename "${EXAMPLE_DIR}")-initial-seed-report.json}"
@@ -183,39 +185,59 @@ wait_for_projected_order_count()
   done
 }
 
-wait_for_replay_consistency()
+wait_for_projection_flush_quiet()
 {
   local deadline=$((SECONDS + DRAIN_TIMEOUT_SECONDS))
+  local flush_count
+  local previous_flush_count=-1
+  local quiet_since=$SECONDS
 
-  echo "Waiting for the live projection to become replay-consistent."
+  echo "Waiting for persisted projection flushes to remain quiet for ${FLUSH_QUIET_SECONDS}s."
 
   while true; do
     if ! kill -0 "${worker_pid}" 2>/dev/null; then
       wait "${worker_pid}" || true
-      fail "Worker exited before the consistency check completed."
+      fail "Worker exited while waiting for persisted projection flushes to drain."
     fi
 
-    if curl \
-      --fail \
-      --silent \
-      --show-error \
-      --request POST \
-      "${WORKER_URL}/diagnostics/orders/replay-consistency" \
-      --header "Content-Type: application/json" \
-      --data '{"stopOnFirstMismatch":true,"logEvery":500}' \
-      --output "${CONSISTENCY_RESULT_PATH}" \
-      && jq --exit-status '.isConsistent == true and .mismatch == null' "${CONSISTENCY_RESULT_PATH}" >/dev/null; then
-      echo "Projection fully drained and replay-consistent."
+    flush_count="$(grep -c "Projection pipeline flush persisted" "${WORKER_LOG}" 2>/dev/null || true)"
+
+    if ((flush_count != previous_flush_count)); then
+      previous_flush_count="${flush_count}"
+      quiet_since=$SECONDS
+    elif ((SECONDS - quiet_since >= FLUSH_QUIET_SECONDS)); then
+      echo "Projection fully drained: persisted flush count remained at ${flush_count}."
       return
     fi
 
     if ((SECONDS >= deadline)); then
-      jq . "${CONSISTENCY_RESULT_PATH}" >&2 || true
-      fail "Projection did not become replay-consistent within ${DRAIN_TIMEOUT_SECONDS}s."
+      fail "Projection flush activity did not become quiet within ${DRAIN_TIMEOUT_SECONDS}s."
     fi
 
-    sleep 2
+    sleep 1
   done
+}
+
+run_replay_consistency()
+{
+  echo "Running replay consistency check with a ${CONSISTENCY_TIMEOUT_SECONDS}s timeout."
+
+  if ! curl \
+    --fail \
+    --show-error \
+    --max-time "${CONSISTENCY_TIMEOUT_SECONDS}" \
+    --request POST \
+    "${WORKER_URL}/diagnostics/orders/replay-consistency" \
+    --header "Content-Type: application/json" \
+    --data '{"stopOnFirstMismatch":true,"logEvery":500}' \
+    --output "${CONSISTENCY_RESULT_PATH}"; then
+    fail "Replay consistency request failed or timed out."
+  fi
+
+  if ! jq --exit-status '.isConsistent == true and .mismatch == null' "${CONSISTENCY_RESULT_PATH}" >/dev/null; then
+    jq . "${CONSISTENCY_RESULT_PATH}" >&2 || true
+    fail "Replay consistency check reported inconsistencies."
+  fi
 }
 
 seed_events()
@@ -263,7 +285,8 @@ second_order_count="$(jq --exit-status --raw-output '.totalOrders' "${SECOND_REP
 expected_order_count=$((initial_order_count + second_order_count))
 
 wait_for_projected_order_count "${expected_order_count}"
-wait_for_replay_consistency
+wait_for_projection_flush_quiet
+run_replay_consistency
 
 jq . "${CONSISTENCY_RESULT_PATH}"
 echo "Consistency flow completed with no inconsistencies."

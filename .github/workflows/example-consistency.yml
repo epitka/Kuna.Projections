@@ -51,6 +51,8 @@ jobs:
           CONSISTENCY_RESULT_PATH: ${{ github.workspace }}/artifacts/example-consistency/consistency-result.json
           STARTUP_TIMEOUT_SECONDS: 180
           DRAIN_TIMEOUT_SECONDS: 600
+          FLUSH_QUIET_SECONDS: 10
+          CONSISTENCY_TIMEOUT_SECONDS: 900
         working-directory: examples/${{ matrix.example }}
         run: ./scripts/run-live-consistency-flow.sh
 
