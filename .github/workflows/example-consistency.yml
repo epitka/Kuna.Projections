@@ -1,0 +1,71 @@
+name: Example Consistency
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  live-consistency:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: EventSourcingDB / PostgreSQL
+            example: Kuna.Projections.Worker.EventSourcingDB_Postgres.Example
+          - name: Kafka / MongoDB
+            example: Kuna.Projections.Worker.Kafka_MongoDB.Example
+          - name: KurrentDB / MongoDB
+            example: Kuna.Projections.Worker.Kurrent_MongoDB.Example
+          - name: KurrentDB / PostgreSQL
+            example: Kuna.Projections.Worker.Kurrent_Postgres.Example
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore Kuna.Projections.sln
+
+      - name: Create artifact directory
+        run: mkdir -p artifacts/example-consistency
+
+      - name: Run live consistency flow
+        shell: bash
+        env:
+          WORKER_LOG: ${{ github.workspace }}/artifacts/example-consistency/worker.log
+          INITIAL_REPORT_PATH: ${{ github.workspace }}/artifacts/example-consistency/initial-seed-report.json
+          SECOND_REPORT_PATH: ${{ github.workspace }}/artifacts/example-consistency/second-seed-report.json
+          CONSISTENCY_RESULT_PATH: ${{ github.workspace }}/artifacts/example-consistency/consistency-result.json
+          STARTUP_TIMEOUT_SECONDS: 180
+          DRAIN_TIMEOUT_SECONDS: 600
+          FLUSH_QUIET_SECONDS: 10
+          CONSISTENCY_TIMEOUT_SECONDS: 900
+          CONSISTENCY_SEED: 8675309
+        working-directory: examples/${{ matrix.example }}
+        run: ./scripts/run-live-consistency-flow.sh
+
+      - name: Stop example infrastructure
+        if: always()
+        working-directory: examples/${{ matrix.example }}
+        run: docker compose down -v --remove-orphans
+
+      - name: Upload consistency artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: example-consistency-${{ matrix.example }}
+          path: artifacts/example-consistency
+          if-no-files-found: warn

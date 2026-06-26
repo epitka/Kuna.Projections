@@ -22,8 +22,28 @@ The script now runs the shared seeder project at `examples/Kuna.Examples.EventsS
 ## Run The Worker
 
 ```bash
-dotnet run -c Release --project ./Kuna.Projections.Worker.Kurrent_EF.Example.csproj
+dotnet run -c Release --project ./Kuna.Projections.Worker.Kurrent_Postgres.Example.csproj
 ```
+
+## Run The Live Consistency Flow
+
+With Docker, .NET, `curl`, and `jq` installed:
+
+```bash
+./scripts/run-live-consistency-flow.sh
+```
+
+The script resets the compose volumes, starts the infrastructure, seeds 10,000 events,
+starts the worker, waits for the `Projection pipeline fully drained` message, seeds
+another 5,000 events, and waits until the live projection is fully drained and the
+replay consistency result reports no mismatch.
+
+Override the event counts, seeds, or timeouts with `INITIAL_EVENTS`, `SECOND_EVENTS`,
+`CONSISTENCY_SEED`, `INITIAL_SEED`, `SECOND_SEED`, `STARTUP_TIMEOUT_SECONDS`,
+`DRAIN_TIMEOUT_SECONDS`, `FLUSH_QUIET_SECONDS`, and `CONSISTENCY_TIMEOUT_SECONDS`.
+
+The repository's `Example Consistency` CI workflow runs this flow for every pull
+request, merge queue entry, and push to `master`.
 
 ## Run The On-Demand Replay Consistency Check
 
@@ -47,19 +67,19 @@ POST /diagnostics/orders/replay-consistency
 Default local URL:
 
 ```text
-http://localhost:5277/diagnostics/orders/replay-consistency
+http://localhost:5278/diagnostics/orders/replay-consistency
 ```
 
 Port note:
 
-- `http://localhost:5277` is the plain HTTP endpoint
-- `https://localhost:7277` is the HTTPS endpoint
+- `http://localhost:5278` is the plain HTTP endpoint
+- `https://localhost:7278` is the HTTPS endpoint
 - if you call the HTTPS endpoint locally with `curl`, use `https://` and usually `-k`
 
 Example HTTPS call:
 
 ```bash
-curl -k -X POST https://localhost:7277/diagnostics/orders/replay-consistency \
+curl -k -X POST https://localhost:7278/diagnostics/orders/replay-consistency \
   -H 'Content-Type: application/json' \
   -d '{}'
 ```
@@ -67,7 +87,7 @@ curl -k -X POST https://localhost:7277/diagnostics/orders/replay-consistency \
 Run the full check:
 
 ```bash
-curl -X POST http://localhost:5277/diagnostics/orders/replay-consistency \
+curl -X POST http://localhost:5278/diagnostics/orders/replay-consistency \
   -H 'Content-Type: application/json' \
   -d '{}'
 ```
@@ -75,7 +95,7 @@ curl -X POST http://localhost:5277/diagnostics/orders/replay-consistency \
 Run a single-order check:
 
 ```bash
-curl -X POST http://localhost:5277/diagnostics/orders/replay-consistency \
+curl -X POST http://localhost:5278/diagnostics/orders/replay-consistency \
   -H 'Content-Type: application/json' \
   -d '{"orderId":"00000000-0000-0000-0000-000000000000"}'
 ```
@@ -92,7 +112,7 @@ Request fields:
 Example:
 
 ```bash
-curl -X POST http://localhost:5277/diagnostics/orders/replay-consistency \
+curl -X POST http://localhost:5278/diagnostics/orders/replay-consistency \
   -H 'Content-Type: application/json' \
   -d '{
     "stopOnFirstMismatch": false,

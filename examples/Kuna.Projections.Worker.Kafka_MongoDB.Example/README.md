@@ -44,6 +44,26 @@ Default local URL:
 http://localhost:5284/
 ```
 
+## Run The Live Consistency Flow
+
+With Docker, .NET, `curl`, and `jq` installed:
+
+```bash
+./scripts/run-live-consistency-flow.sh
+```
+
+The script resets the compose volumes, starts the infrastructure, seeds 10,000 events,
+starts the worker, waits for the `Projection pipeline fully drained` message, seeds
+another 5,000 events, and waits until the live projection is fully drained and the
+replay consistency result reports no mismatch.
+
+Override the event counts, seeds, or timeouts with `INITIAL_EVENTS`, `SECOND_EVENTS`,
+`CONSISTENCY_SEED`, `INITIAL_SEED`, `SECOND_SEED`, `STARTUP_TIMEOUT_SECONDS`,
+`DRAIN_TIMEOUT_SECONDS`, `FLUSH_QUIET_SECONDS`, and `CONSISTENCY_TIMEOUT_SECONDS`.
+
+The repository's `Example Consistency` CI workflow runs this flow for every pull
+request, merge queue entry, and push to `master`.
+
 ## Important Constraint
 
 **This worker assumes Kafka ordering is safe for projection replay.**

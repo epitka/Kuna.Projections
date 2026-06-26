@@ -12,6 +12,12 @@ REPORT_PATH="${REPORT_PATH:-/tmp/kuna-kafka-seed-report.json}"
 KAFKA_TOPIC="${KAFKA_TOPIC:-orders-events}"
 KAFKA_PARTITIONS="${KAFKA_PARTITIONS:-3}"
 KAFKA_BOOTSTRAP_SERVERS="${KAFKA_BOOTSTRAP_SERVERS:-127.0.0.1:9092}"
+SEED="${SEED:-}"
+
+seed_args=()
+if [[ -n "${SEED}" ]]; then
+  seed_args+=(--seed "${SEED}")
+fi
 
 echo "Ensuring Kafka topic exists."
 docker compose -f "${EXAMPLE_DIR}/docker-compose.yml" exec -T redpanda \
@@ -30,7 +36,8 @@ dotnet run \
   --target-events "${TARGET_EVENTS}" \
   --min-complete-orders "${MIN_COMPLETE_ORDERS}" \
   --stream-prefix "${STREAM_PREFIX}" \
-  --report-path "${REPORT_PATH}"
+  --report-path "${REPORT_PATH}" \
+  "${seed_args[@]}"
 
 echo "Live seed complete."
 echo "Generation report: ${REPORT_PATH}"
