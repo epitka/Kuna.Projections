@@ -74,7 +74,6 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
             testCase.TargetEvents);
 
         await this.ResetOrdersDatabase();
-        await this.EnsureCheckpointExists();
 
         var plan = GeneratedOrderEventSeeder.BuildPlan(
             targetEvents: testCase.TargetEvents,
@@ -691,31 +690,6 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
         await using var ctx = CreateOrdersDbContext(this.postgresFixture.ConnectionString);
         await ctx.Database.EnsureDeletedAsync();
         await ctx.Database.EnsureCreatedAsync();
-    }
-
-    private async Task EnsureCheckpointExists()
-    {
-        await using var ctx = CreateOrdersDbContext(this.postgresFixture.ConnectionString);
-        var existing = await ctx.CheckPoint.FindAsync(
-                           new object[]
-                           {
-                               ProjectionModelName.For<Order>(),
-                               "orders-integration",
-                           },
-                           CancellationToken.None);
-
-        if (existing == null)
-        {
-            ctx.CheckPoint.Add(
-                new CheckPoint
-                {
-                    ModelName = ProjectionModelName.For<Order>(),
-                    InstanceId = "orders-integration",
-                    GlobalEventPosition = Position.Start.ToGlobalEventPosition(),
-                });
-
-            await ctx.SaveChangesAsync();
-        }
     }
 
     private async Task AssertNoProjectionFailures()
