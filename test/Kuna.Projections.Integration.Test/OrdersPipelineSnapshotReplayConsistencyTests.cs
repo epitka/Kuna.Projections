@@ -195,7 +195,8 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                              _ =>
                              {
                              })
-                         .CreateLogger<EventModelIdResolver>());
+                         .CreateLogger<EventModelIdResolver>(),
+            ModelIdResolutionStrategy.UseStreamId);
 
         var envelopeFactory = new EventEnvelopeFactory(deserializer, resolver);
         await using var kurrentClient = CreateKurrentClient(this.kurrentFixture.ConnectionString);
