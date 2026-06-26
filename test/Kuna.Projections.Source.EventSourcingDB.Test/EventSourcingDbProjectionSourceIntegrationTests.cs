@@ -142,7 +142,8 @@ public class EventSourcingDbProjectionSourceIntegrationTests
         var source = this.CreateSource(
             loggerFactory,
             root,
-            new[] { typeof(SourceIntegrationEvent), typeof(SubjectKeyedEvent), });
+            new[] { typeof(SourceIntegrationEvent), typeof(SubjectKeyedEvent), },
+            ModelIdResolutionStrategy.UseStreamId);
 
         var envelopes = await ReadUntilAsync(source, FromStart(), HasCaughtUp, TimeSpan.FromSeconds(30));
 
@@ -168,7 +169,8 @@ public class EventSourcingDbProjectionSourceIntegrationTests
         var source = this.CreateSource(
             loggerFactory,
             root,
-            new[] { typeof(SourceIntegrationEvent), typeof(SubjectKeyedEvent), });
+            new[] { typeof(SourceIntegrationEvent), typeof(SubjectKeyedEvent), },
+            ModelIdResolutionStrategy.UseStreamId);
 
         var envelopes = await ReadUntilAsync(source, FromStart(), HasCaughtUp, TimeSpan.FromSeconds(30));
 
@@ -232,14 +234,17 @@ public class EventSourcingDbProjectionSourceIntegrationTests
     private EventSourcingDbEventSource<SourceIntegrationModel> CreateSource(
         ILoggerFactory loggerFactory,
         string subject,
-        Type[]? eventTypes = null)
+        Type[]? eventTypes = null,
+        ModelIdResolutionStrategy modelIdResolutionStrategy = ModelIdResolutionStrategy.UseModelIdAttribute)
     {
         var deserializer = new EventDeserializer(
             eventTypes ?? new[] { typeof(SourceIntegrationEvent), },
             null,
             loggerFactory.CreateLogger<EventDeserializer>());
 
-        var resolver = new EventSourcingDbModelIdResolver(loggerFactory.CreateLogger<EventSourcingDbModelIdResolver>());
+        var resolver = new EventSourcingDbModelIdResolver(
+            loggerFactory.CreateLogger<EventSourcingDbModelIdResolver>(),
+            modelIdResolutionStrategy);
 
         var envelopeFactory = new EventEnvelopeFactory(deserializer, resolver);
 

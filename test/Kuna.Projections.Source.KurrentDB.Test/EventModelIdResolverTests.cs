@@ -1,6 +1,7 @@
 using FakeItEasy;
 using Kuna.Projections.Abstractions.Attributes;
 using Kuna.Projections.Abstractions.Models;
+using Kuna.Projections.Abstractions.Services;
 using Kuna.Projections.Source.KurrentDB;
 using Microsoft.Extensions.Logging;
 using Shouldly;
@@ -39,7 +40,7 @@ public class EventModelIdResolverTests
     }
 
     [Fact]
-    public void Should_Fallback_To_StreamId_When_No_Attribute()
+    public void Should_Return_False_When_Using_ModelId_Attribute_And_Attribute_Is_Missing()
     {
         var logger = A.Fake<ILogger<EventModelIdResolver>>();
         var resolver = new EventModelIdResolver(logger);
@@ -48,12 +49,12 @@ public class EventModelIdResolverTests
 
         var result = resolver.TryResolve(@event, $"order-{id}", out var modelId);
 
-        result.ShouldBeTrue();
-        modelId.ShouldBe(id);
+        result.ShouldBeFalse();
+        modelId.ShouldBe(Guid.Empty);
     }
 
     [Fact]
-    public void Should_Fallback_To_StreamId_When_Attribute_Is_Empty()
+    public void Should_Return_False_When_Using_ModelId_Attribute_And_Attribute_Is_Empty()
     {
         var logger = A.Fake<ILogger<EventModelIdResolver>>();
         var resolver = new EventModelIdResolver(logger);
@@ -62,12 +63,12 @@ public class EventModelIdResolverTests
 
         var result = resolver.TryResolve(@event, $"order-{id}", out var modelId);
 
-        result.ShouldBeTrue();
-        modelId.ShouldBe(id);
+        result.ShouldBeFalse();
+        modelId.ShouldBe(Guid.Empty);
     }
 
     [Fact]
-    public void Should_Fallback_To_StreamId_When_Attribute_String_Is_Invalid_Guid()
+    public void Should_Return_False_When_Using_ModelId_Attribute_And_Attribute_String_Is_Invalid_Guid()
     {
         var logger = A.Fake<ILogger<EventModelIdResolver>>();
         var resolver = new EventModelIdResolver(logger);
@@ -76,12 +77,12 @@ public class EventModelIdResolverTests
 
         var result = resolver.TryResolve(@event, $"order-{id}", out var modelId);
 
-        result.ShouldBeTrue();
-        modelId.ShouldBe(id);
+        result.ShouldBeFalse();
+        modelId.ShouldBe(Guid.Empty);
     }
 
     [Fact]
-    public void Should_Fallback_To_StreamId_When_Guid_Attribute_Is_EmptyGuid()
+    public void Should_Return_False_When_Using_ModelId_Attribute_And_Guid_Attribute_Is_EmptyGuid()
     {
         var logger = A.Fake<ILogger<EventModelIdResolver>>();
         var resolver = new EventModelIdResolver(logger);
@@ -90,12 +91,12 @@ public class EventModelIdResolverTests
 
         var result = resolver.TryResolve(@event, $"order-{id}", out var modelId);
 
-        result.ShouldBeTrue();
-        modelId.ShouldBe(id);
+        result.ShouldBeFalse();
+        modelId.ShouldBe(Guid.Empty);
     }
 
     [Fact]
-    public void Should_Return_False_When_Attribute_Type_Is_Unsupported_And_StreamId_Has_No_Guid()
+    public void Should_Return_False_When_Using_ModelId_Attribute_And_Attribute_Type_Is_Unsupported()
     {
         var logger = A.Fake<ILogger<EventModelIdResolver>>();
         var resolver = new EventModelIdResolver(logger);
@@ -106,7 +107,7 @@ public class EventModelIdResolverTests
             CreatedOn = DateTime.UtcNow,
         };
 
-        var result = resolver.TryResolve(@event, "order-no-guid", out var modelId);
+        var result = resolver.TryResolve(@event, $"order-{Guid.NewGuid()}", out var modelId);
 
         result.ShouldBeFalse();
         modelId.ShouldBe(Guid.Empty);
@@ -134,7 +135,7 @@ public class EventModelIdResolverTests
     }
 
     [Fact]
-    public void Should_Fallback_To_StreamId_When_ModelId_Property_Has_No_Getter()
+    public void Should_Return_False_When_Using_ModelId_Attribute_And_Property_Has_No_Getter()
     {
         var logger = A.Fake<ILogger<EventModelIdResolver>>();
         var resolver = new EventModelIdResolver(logger);
@@ -143,15 +144,18 @@ public class EventModelIdResolverTests
 
         var result = resolver.TryResolve(@event, $"order-{id}", out var modelId);
 
-        result.ShouldBeTrue();
-        modelId.ShouldBe(id);
+        result.ShouldBeFalse();
+        modelId.ShouldBe(Guid.Empty);
     }
 
     [Fact]
     public void Should_Return_False_When_StreamId_Does_Not_Contain_Guid()
     {
         var logger = A.Fake<ILogger<EventModelIdResolver>>();
-        var resolver = new EventModelIdResolver(logger);
+        var resolver = new EventModelIdResolver(
+            logger,
+            ModelIdResolutionStrategy.UseStreamId);
+
         var @event = new NoAttributeEvent { TypeName = nameof(NoAttributeEvent), CreatedOn = DateTime.UtcNow, };
 
         var result = resolver.TryResolve(@event, "order-without-guid", out var modelId);
@@ -164,7 +168,10 @@ public class EventModelIdResolverTests
     public void Should_Return_False_When_StreamId_Contains_Malformed_Guid()
     {
         var logger = A.Fake<ILogger<EventModelIdResolver>>();
-        var resolver = new EventModelIdResolver(logger);
+        var resolver = new EventModelIdResolver(
+            logger,
+            ModelIdResolutionStrategy.UseStreamId);
+
         var @event = new NoAttributeEvent { TypeName = nameof(NoAttributeEvent), CreatedOn = DateTime.UtcNow, };
 
         var result = resolver.TryResolve(@event, "order-12345678-1234-1234-1234-zzzzzzzzzzzz", out var modelId);
@@ -177,7 +184,10 @@ public class EventModelIdResolverTests
     public void Should_Return_False_When_StreamId_Contains_Extra_Text_After_Guid()
     {
         var logger = A.Fake<ILogger<EventModelIdResolver>>();
-        var resolver = new EventModelIdResolver(logger);
+        var resolver = new EventModelIdResolver(
+            logger,
+            ModelIdResolutionStrategy.UseStreamId);
+
         var id = Guid.NewGuid();
         var @event = new NoAttributeEvent { TypeName = nameof(NoAttributeEvent), CreatedOn = DateTime.UtcNow, };
 
@@ -185,6 +195,60 @@ public class EventModelIdResolverTests
 
         result.ShouldBeFalse();
         modelId.ShouldBe(Guid.Empty);
+    }
+
+    [Fact]
+    public void Should_Resolve_From_StreamId_When_Using_StreamId()
+    {
+        var logger = A.Fake<ILogger<EventModelIdResolver>>();
+        var resolver = new EventModelIdResolver(
+            logger,
+            ModelIdResolutionStrategy.UseStreamId);
+
+        var streamModelId = Guid.NewGuid();
+        var @event = new GuidEvent
+        {
+            Id = Guid.NewGuid(),
+            TypeName = nameof(GuidEvent),
+            CreatedOn = DateTime.UtcNow,
+        };
+
+        var result = resolver.TryResolve(@event, $"order-{streamModelId}", out var modelId);
+
+        result.ShouldBeTrue();
+        modelId.ShouldBe(streamModelId);
+    }
+
+    [Fact]
+    public void Should_Not_Inspect_ModelId_Attribute_When_Using_StreamId()
+    {
+        var logger = A.Fake<ILogger<EventModelIdResolver>>();
+        var resolver = new EventModelIdResolver(
+            logger,
+            ModelIdResolutionStrategy.UseStreamId);
+
+        var streamModelId = Guid.NewGuid();
+        var @event = new UnsupportedAttributeEvent
+        {
+            Id = 42,
+            TypeName = nameof(UnsupportedAttributeEvent),
+            CreatedOn = DateTime.UtcNow,
+        };
+
+        var result = resolver.TryResolve(@event, $"order-{streamModelId}", out var modelId);
+
+        result.ShouldBeTrue();
+        modelId.ShouldBe(streamModelId);
+        CountWarningLogs(logger, "unsupported type").ShouldBe(0);
+    }
+
+    private static int CountWarningLogs(ILogger<EventModelIdResolver> logger, string message)
+    {
+        return Fake.GetCalls(logger)
+                   .Count(
+                       call => call.Method.Name == nameof(ILogger.Log)
+                               && call.Arguments[0] is LogLevel.Warning
+                               && call.Arguments[2]?.ToString()?.Contains(message, StringComparison.Ordinal) == true);
     }
 
     private sealed class GuidEvent : Event

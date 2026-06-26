@@ -48,7 +48,9 @@ public class EventEnvelopeFactoryTests
         A.CallTo(() => deserializer.Deserialize(A<JsonElement>._, A<string>._, A<string>._))
          .Returns(new NoModelIdEvent { TypeName = nameof(NoModelIdEvent), });
 
-        var factory = new EventEnvelopeFactory(deserializer, CreateResolver());
+        var factory = new EventEnvelopeFactory(
+            deserializer,
+            CreateResolver(ModelIdResolutionStrategy.UseStreamId));
 
         var envelope = factory.Create(
             "/orders/no-guid",
@@ -69,7 +71,9 @@ public class EventEnvelopeFactoryTests
         A.CallTo(() => deserializer.Deserialize(A<JsonElement>._, A<string>._, A<string>._))
          .Throws(new JsonException("broken payload"));
 
-        var factory = new EventEnvelopeFactory(deserializer, CreateResolver());
+        var factory = new EventEnvelopeFactory(
+            deserializer,
+            CreateResolver(ModelIdResolutionStrategy.UseStreamId));
 
         var envelope = factory.Create(
             $"/orders/{id:N}",
@@ -86,10 +90,10 @@ public class EventEnvelopeFactoryTests
         failure.TypeName.ShouldBe("io.kuna.test.TestEvent");
     }
 
-    private static EventSourcingDbModelIdResolver CreateResolver()
+    private static EventSourcingDbModelIdResolver CreateResolver(ModelIdResolutionStrategy strategy = ModelIdResolutionStrategy.UseModelIdAttribute)
     {
         var logger = A.Fake<ILogger<EventSourcingDbModelIdResolver>>();
-        return new EventSourcingDbModelIdResolver(logger);
+        return new EventSourcingDbModelIdResolver(logger, strategy);
     }
 
     private sealed class TestEvent : Event

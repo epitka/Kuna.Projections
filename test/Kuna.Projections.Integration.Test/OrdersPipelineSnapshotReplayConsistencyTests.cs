@@ -195,7 +195,8 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                              _ =>
                              {
                              })
-                         .CreateLogger<EventModelIdResolver>());
+                         .CreateLogger<EventModelIdResolver>(),
+            ModelIdResolutionStrategy.UseStreamId);
 
         var envelopeFactory = new EventEnvelopeFactory(deserializer, resolver);
         await using var kurrentClient = CreateKurrentClient(this.kurrentFixture.ConnectionString);
@@ -678,6 +679,7 @@ public class OrdersPipelineSnapshotReplayConsistencyTests
                              ["Projections:LiveProcessingFlush:Delay"] = "25",
                              ["Projections:ModelStateCacheCapacity"] = "10000",
                              ["Projections:EventVersionCheckStrategy"] = EventVersionCheckStrategy.Consecutive.ToString(),
+                             ["Projections:ModelIdResolutionStrategy"] = ModelIdResolutionStrategy.UseStreamId.ToString(),
                          })
                      .Build();
 

@@ -28,11 +28,11 @@ This example reuses the shared `Kuna.Examples.EventsSeeder` (the same generator 
 ./scripts/seed-eventsourcingdb-live.sh
 ```
 
-Environment variables override the defaults: `TARGET_EVENTS` (default `50000`), `MIN_COMPLETE_ORDERS` (default `3000`), `ESDB_BASE_URL` (default `http://localhost:3000`), `ESDB_API_TOKEN` (default `secret`), and `ESDB_BATCH_SIZE` (default `500`, the number of events per `WriteEvents` call).
+Environment variables override the defaults: `TARGET_EVENTS` (default and maximum `25000`), `MIN_COMPLETE_ORDERS` (default `3000`), `ESDB_BASE_URL` (default `http://localhost:3000`), `ESDB_API_TOKEN` (default `secret`), and `ESDB_BATCH_SIZE` (default `500`, the number of events per `WriteEvents` call).
 
 > Note: EventSourcingDB writes are considerably slower than reads, so the time the seeder takes is not a measure of projection (read) throughput. `ESDB_BATCH_SIZE` only affects how fast the seeder fills the store; it does not change what the projection observes.
 
-The order model id is resolved from the `[ModelId]` property on the events (the default `PreferAttribute` strategy). The seeder also encodes the order `Guid` as the last subject segment, so setting `OrdersProjection:ModelIdResolutionStrategy` to `RequireStreamId` keys on the subject instead.
+The order model id is resolved from the `[ModelId]` property on the events (the default `UseModelIdAttribute` strategy). The seeder also encodes the order `Guid` as the last subject segment, so setting `OrdersProjection:ModelIdResolutionStrategy` to `UseStreamId` keys on the subject instead.
 
 ## Run The Worker
 

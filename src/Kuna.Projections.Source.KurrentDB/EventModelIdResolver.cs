@@ -8,9 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace Kuna.Projections.Source.KurrentDB;
 
 /// <summary>
-/// Resolves the projection model id for an event by inspecting the stream id,
-/// <see cref="ModelIdAttribute"/>-decorated event properties, or both,
-/// according to the configured resolution strategy.
+/// Resolves the projection model id for an event from the configured authoritative source.
 /// </summary>
 public sealed class EventModelIdResolver : IEventModelIdResolver
 {
@@ -23,7 +21,7 @@ public sealed class EventModelIdResolver : IEventModelIdResolver
     /// </summary>
     public EventModelIdResolver(
         ILogger<EventModelIdResolver> logger,
-        ModelIdResolutionStrategy strategy = ModelIdResolutionStrategy.PreferAttribute)
+        ModelIdResolutionStrategy strategy = ModelIdResolutionStrategy.UseModelIdAttribute)
     {
         this.accessors = new ConcurrentDictionary<Type, Func<Event, Guid?>?>();
         this.logger = logger;
@@ -36,65 +34,18 @@ public sealed class EventModelIdResolver : IEventModelIdResolver
     /// </summary>
     public bool TryResolve(Event @event, string streamId, out Guid modelId)
     {
-        var hasStreamModelId = this.TryResolveFromStreamId(streamId, out var streamModelId);
-        var hasAttributeModelId = this.TryResolveFromAttribute(@event, out var attributeModelId);
-
-        if (hasStreamModelId
-            && hasAttributeModelId
-            && streamModelId != attributeModelId)
-        {
-            this.logger.LogWarning(
-                "ModelId mismatch: event type {EventType}, stream {StreamId}, attribute modelId {AttributeModelId}, stream modelId {StreamModelId}",
-                @event.GetType().Name,
-                streamId,
-                attributeModelId,
-                streamModelId);
-
-            if (this.strategy == ModelIdResolutionStrategy.RequireMatch)
-            {
-                modelId = Guid.Empty;
-                return false;
-            }
-        }
-
         switch (this.strategy)
         {
-            case ModelIdResolutionStrategy.RequireStreamId:
-                if (hasStreamModelId)
-                {
-                    modelId = streamModelId;
-                    return true;
-                }
-
-                break;
-            case ModelIdResolutionStrategy.RequireMatch:
-                if (hasStreamModelId
-                    && hasAttributeModelId
-                    && streamModelId == attributeModelId)
-                {
-                    modelId = streamModelId;
-                    return true;
-                }
-
-                break;
+            case ModelIdResolutionStrategy.UseModelIdAttribute:
+                return this.TryResolveFromAttribute(@event, out modelId);
+            case ModelIdResolutionStrategy.UseStreamId:
+                return this.TryResolveFromStreamId(streamId, out modelId);
             default:
-                if (hasAttributeModelId)
-                {
-                    modelId = attributeModelId;
-                    return true;
-                }
-
-                if (hasStreamModelId)
-                {
-                    modelId = streamModelId;
-                    return true;
-                }
-
-                break;
+                throw new ArgumentOutOfRangeException(
+                    nameof(this.strategy),
+                    this.strategy,
+                    "Unsupported KurrentDB model id resolution strategy.");
         }
-
-        modelId = Guid.Empty;
-        return false;
     }
 
     private bool TryResolveFromAttribute(Event @event, out Guid modelId)

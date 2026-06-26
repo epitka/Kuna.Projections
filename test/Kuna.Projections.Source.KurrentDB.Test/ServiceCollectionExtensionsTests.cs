@@ -154,7 +154,7 @@ public class ServiceCollectionExtensionsTests
             new Dictionary<string, string?>
             {
                 ["ConnectionStrings:KurrentDB"] = "esdb://localhost:2113?tls=false",
-                ["OrdersProjection:ModelIdResolutionStrategy"] = "RequireStreamId",
+                ["OrdersProjection:ModelIdResolutionStrategy"] = "UseStreamId",
                 ["OrdersProjection:KurrentDB:Filter:Kind"] = "EventTypePrefix",
                 ["OrdersProjection:KurrentDB:Filter:Prefixes:0"] = "Order",
             });
@@ -173,7 +173,7 @@ public class ServiceCollectionExtensionsTests
 
         provider.GetRequiredKeyedService<IEventSource<EventEnvelope>>(GetRegistrationKey<TestModel>("OrdersProjection")).ShouldNotBeNull();
         provider.GetRequiredKeyedService<IProjectionSettings<TestModel>>(GetRegistrationKey<TestModel>("OrdersProjection"))
-                .ModelIdResolutionStrategy.ShouldBe(ModelIdResolutionStrategy.RequireStreamId);
+                .ModelIdResolutionStrategy.ShouldBe(ModelIdResolutionStrategy.UseStreamId);
     }
 
     [Fact]
@@ -219,7 +219,7 @@ public class ServiceCollectionExtensionsTests
         return new Dictionary<string, string?>
         {
             ["ConnectionStrings:KurrentDB"] = "esdb://localhost:2113?tls=false",
-            ["Projections:ModelIdResolutionStrategy"] = "PreferAttribute",
+            ["Projections:ModelIdResolutionStrategy"] = "UseModelIdAttribute",
             ["Projections:KurrentDB:Filter:Kind"] = "StreamPrefix",
             ["Projections:KurrentDB:Filter:Prefixes:0"] = "orders-",
         };
