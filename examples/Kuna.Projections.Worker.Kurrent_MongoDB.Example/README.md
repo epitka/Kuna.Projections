@@ -51,9 +51,9 @@ starts the worker, waits for the `Projection pipeline fully drained` message, se
 another 5,000 events, and waits until the live projection is fully drained and the
 replay consistency result reports no mismatch.
 
-Override the event counts or timeouts with `INITIAL_EVENTS`, `SECOND_EVENTS`,
-`STARTUP_TIMEOUT_SECONDS`, `DRAIN_TIMEOUT_SECONDS`, `FLUSH_QUIET_SECONDS`, and
-`CONSISTENCY_TIMEOUT_SECONDS`.
+Override the event counts, seeds, or timeouts with `INITIAL_EVENTS`, `SECOND_EVENTS`,
+`CONSISTENCY_SEED`, `INITIAL_SEED`, `SECOND_SEED`, `STARTUP_TIMEOUT_SECONDS`,
+`DRAIN_TIMEOUT_SECONDS`, `FLUSH_QUIET_SECONDS`, and `CONSISTENCY_TIMEOUT_SECONDS`.
 
 The repository's `Example Consistency` CI workflow runs this flow for every pull
 request, merge queue entry, and push to `master`.

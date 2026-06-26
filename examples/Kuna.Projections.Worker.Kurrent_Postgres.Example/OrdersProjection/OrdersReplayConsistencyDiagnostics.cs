@@ -213,6 +213,12 @@ public sealed class OrdersReplayConsistencyDiagnostics
         return decimal.Round(value, 2, MidpointRounding.AwayFromZero);
     }
 
+    private static DateTimeOffset NormalizeDateTimeOffset(DateTimeOffset value)
+    {
+        var utc = value.ToUniversalTime();
+        return new DateTimeOffset(utc.Ticks - (utc.Ticks % TimeSpan.TicksPerMicrosecond), TimeSpan.Zero);
+    }
+
     private static OrderSnapshot ToSnapshot(Order order)
     {
         return new OrderSnapshot
@@ -228,8 +234,8 @@ public sealed class OrdersReplayConsistencyDiagnostics
             MerchantTransactionFeePercentCalculated = NormalizeDecimal(order.MerchantTransactionFeePercentCalculated),
             OrderNumber = order.OrderNumber,
             OrderStatus = order.OrderStatus,
-            CreatedDateTime = order.CreatedDateTime.ToUniversalTime(),
-            CompletedDateTime = order.CompletedDateTime?.ToUniversalTime(),
+            CreatedDateTime = NormalizeDateTimeOffset(order.CreatedDateTime),
+            CompletedDateTime = order.CompletedDateTime.HasValue ? NormalizeDateTimeOffset(order.CompletedDateTime.Value) : null,
             CustomerId = order.CustomerId,
             MerchantId = order.MerchantId,
             TotalFundsCaptured = NormalizeDecimal(order.TotalFundsCaptured),
@@ -266,7 +272,7 @@ public sealed class OrdersReplayConsistencyDiagnostics
             MerchantRefundFeeRebate = NormalizeDecimal(refund.MerchantRefundFeeRebate),
             MerchantRefundFeeRebatePercent = NormalizeDecimal(refund.MerchantRefundFeeRebatePercent),
             MerchantRefundTransactionFee = NormalizeDecimal(refund.MerchantRefundTransactionFee),
-            RefundDateTime = refund.RefundDateTime?.ToUniversalTime(),
+            RefundDateTime = refund.RefundDateTime.HasValue ? NormalizeDateTimeOffset(refund.RefundDateTime.Value) : null,
         };
     }
 

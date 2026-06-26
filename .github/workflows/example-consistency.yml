@@ -53,6 +53,7 @@ jobs:
           DRAIN_TIMEOUT_SECONDS: 600
           FLUSH_QUIET_SECONDS: 10
           CONSISTENCY_TIMEOUT_SECONDS: 900
+          CONSISTENCY_SEED: 8675309
         working-directory: examples/${{ matrix.example }}
         run: ./scripts/run-live-consistency-flow.sh
 

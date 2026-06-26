@@ -16,6 +16,9 @@ STARTUP_TIMEOUT_SECONDS="${STARTUP_TIMEOUT_SECONDS:-120}"
 DRAIN_TIMEOUT_SECONDS="${DRAIN_TIMEOUT_SECONDS:-300}"
 FLUSH_QUIET_SECONDS="${FLUSH_QUIET_SECONDS:-5}"
 CONSISTENCY_TIMEOUT_SECONDS="${CONSISTENCY_TIMEOUT_SECONDS:-600}"
+CONSISTENCY_SEED="${CONSISTENCY_SEED:-8675309}"
+INITIAL_SEED="${INITIAL_SEED:-${CONSISTENCY_SEED}}"
+SECOND_SEED="${SECOND_SEED:-$((CONSISTENCY_SEED + 1))}"
 SOURCE_HOST="${SOURCE_HOST:-127.0.0.1}"
 WORKER_LOG="${WORKER_LOG:-/tmp/$(basename "${EXAMPLE_DIR}")-consistency-flow.log}"
 INITIAL_REPORT_PATH="${INITIAL_REPORT_PATH:-/tmp/$(basename "${EXAMPLE_DIR}")-initial-seed-report.json}"
@@ -245,7 +248,9 @@ seed_events()
   local target_events="$1"
   local minimum_complete_orders="$2"
   local report_path="$3"
+  local seed="$4"
 
+  SEED="${seed}" \
   TARGET_EVENTS="${target_events}" \
   MIN_COMPLETE_ORDERS="${minimum_complete_orders}" \
   REPORT_PATH="${report_path}" \
@@ -263,8 +268,8 @@ docker compose -f "${EXAMPLE_DIR}/docker-compose.yml" down -v --remove-orphans
 docker compose -f "${EXAMPLE_DIR}/docker-compose.yml" up -d --wait
 wait_for_source
 
-echo "Seeding initial ${INITIAL_EVENTS} events."
-seed_events "${INITIAL_EVENTS}" "${INITIAL_MIN_COMPLETE_ORDERS}" "${INITIAL_REPORT_PATH}"
+echo "Seeding initial ${INITIAL_EVENTS} events with seed ${INITIAL_SEED}."
+seed_events "${INITIAL_EVENTS}" "${INITIAL_MIN_COMPLETE_ORDERS}" "${INITIAL_REPORT_PATH}" "${INITIAL_SEED}"
 initial_order_count="$(jq --exit-status --raw-output '.totalOrders' "${INITIAL_REPORT_PATH}")"
 
 echo "Starting projection worker. Log: ${WORKER_LOG}"
@@ -279,8 +284,8 @@ worker_pid=$!
 wait_for_worker
 wait_until_initially_drained "${initial_order_count}"
 
-echo "Seeding another ${SECOND_EVENTS} events while the worker is running."
-seed_events "${SECOND_EVENTS}" "${SECOND_MIN_COMPLETE_ORDERS}" "${SECOND_REPORT_PATH}"
+echo "Seeding another ${SECOND_EVENTS} events with seed ${SECOND_SEED} while the worker is running."
+seed_events "${SECOND_EVENTS}" "${SECOND_MIN_COMPLETE_ORDERS}" "${SECOND_REPORT_PATH}" "${SECOND_SEED}"
 second_order_count="$(jq --exit-status --raw-output '.totalOrders' "${SECOND_REPORT_PATH}")"
 expected_order_count=$((initial_order_count + second_order_count))
 

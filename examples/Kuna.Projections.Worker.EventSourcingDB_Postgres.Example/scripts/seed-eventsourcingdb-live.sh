@@ -12,6 +12,12 @@ TARGET_EVENTS="${TARGET_EVENTS:-50000}"
 MIN_COMPLETE_ORDERS="${MIN_COMPLETE_ORDERS:-3000}"
 STREAM_PREFIX="${STREAM_PREFIX:-order-}"
 REPORT_PATH="${REPORT_PATH:-/tmp/kuna-esdb-seed-report.json}"
+SEED="${SEED:-}"
+
+seed_args=()
+if [[ -n "${SEED}" ]]; then
+  seed_args+=(--seed "${SEED}")
+fi
 
 echo "Seeding EventSourcingDB at: ${ESDB_BASE_URL}"
 echo "Target events: ${TARGET_EVENTS}, min complete orders: ${MIN_COMPLETE_ORDERS}, batch size: ${ESDB_BATCH_SIZE}"
@@ -25,7 +31,8 @@ dotnet run \
   --target-events "${TARGET_EVENTS}" \
   --min-complete-orders "${MIN_COMPLETE_ORDERS}" \
   --stream-prefix "${STREAM_PREFIX}" \
-  --report-path "${REPORT_PATH}"
+  --report-path "${REPORT_PATH}" \
+  "${seed_args[@]}"
 
 echo "Live seed complete."
 echo "Generation report: ${REPORT_PATH}"
